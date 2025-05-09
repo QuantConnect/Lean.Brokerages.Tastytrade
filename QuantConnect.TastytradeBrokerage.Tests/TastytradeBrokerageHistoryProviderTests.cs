@@ -23,17 +23,17 @@ using QuantConnect.Securities;
 using QuantConnect.Data.Market;
 using QuantConnect.Lean.Engine.HistoricalData;
 
-namespace QuantConnect.Brokerages.Template.Tests
+namespace QuantConnect.Brokerages.Tastytrade.Tests;
+
+[TestFixture, Ignore("Not implemented")]
+public class TastytradeBrokerageHistoryProviderTests
 {
-    [TestFixture, Ignore("Not implemented")]
-    public class TemplateBrokerageHistoryProviderTests
+    private static TestCaseData[] TestParameters
     {
-        private static TestCaseData[] TestParameters
+        get
         {
-            get
+            return new[]
             {
-                return new[]
-                {
                     // valid parameters, example:
                     new TestCaseData(Symbols.BTCUSD, Resolution.Tick, TimeSpan.FromMinutes(1), TickType.Quote, typeof(Tick), false),
                     new TestCaseData(Symbols.BTCUSD, Resolution.Minute, TimeSpan.FromMinutes(10), TickType.Quote, typeof(QuoteBar), false),
@@ -52,26 +52,26 @@ namespace QuantConnect.Brokerages.Template.Tests
                     /// Symbol was delisted form Brokerage (can return history data or not) <see cref="Slice.Delistings"/>
                     new TestCaseData(Symbol.Create("SNTUSD", SecurityType.Crypto, Market.Coinbase), Resolution.Daily, TimeSpan.FromDays(14), TickType.Trade, typeof(TradeBar), true),
                 };
-            }
         }
+    }
 
-        [Test, TestCaseSource(nameof(TestParameters))]
-        public void GetsHistory(Symbol symbol, Resolution resolution, TimeSpan period, TickType tickType, Type dataType, bool throwsException)
+    [Test, TestCaseSource(nameof(TestParameters))]
+    public void GetsHistory(Symbol symbol, Resolution resolution, TimeSpan period, TickType tickType, Type dataType, bool throwsException)
+    {
+        TestDelegate test = () =>
         {
-            TestDelegate test = () =>
+            var brokerage = new TastytradeBrokerage(null);
+
+            var historyProvider = new BrokerageHistoryProvider();
+            historyProvider.SetBrokerage(brokerage);
+            historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null,
+                null, null, null, null,
+                false, null, null, null));
+
+            var marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
+            var now = DateTime.UtcNow;
+            var requests = new[]
             {
-                var brokerage = new TemplateBrokerage(null);
-
-                var historyProvider = new BrokerageHistoryProvider();
-                historyProvider.SetBrokerage(brokerage);
-                historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null,
-                    null, null, null, null,
-                    false, null, null, null));
-
-                var marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
-                var now = DateTime.UtcNow;
-                var requests = new[]
-                {
                     new HistoryRequest(now.Add(-period),
                         now,
                         dataType,
@@ -84,49 +84,48 @@ namespace QuantConnect.Brokerages.Template.Tests
                         false,
                         DataNormalizationMode.Adjusted,
                         tickType)
-                };
-
-                var historyArray = historyProvider.GetHistory(requests, TimeZones.Utc).ToArray();
-                foreach (var slice in historyArray)
-                {
-                    if (resolution == Resolution.Tick)
-                    {
-                        foreach (var tick in slice.Ticks[symbol])
-                        {
-                            Log.Debug($"{tick}");
-                        }
-                    }
-                    else if (slice.QuoteBars.TryGetValue(symbol, out var quoteBar))
-                    {
-                        Log.Debug($"{quoteBar}");
-                    }
-                    else if (slice.Bars.TryGetValue(symbol, out var tradeBar))
-                    {
-                        Log.Debug($"{tradeBar}");
-                    }
-                }
-
-                if (historyProvider.DataPointCount > 0)
-                {
-                    // Ordered by time
-                    Assert.That(historyArray, Is.Ordered.By("Time"));
-
-                    // No repeating bars
-                    var timesArray = historyArray.Select(x => x.Time).ToArray();
-                    Assert.AreEqual(timesArray.Length, timesArray.Distinct().Count());
-                }
-
-                Log.Trace("Data points retrieved: " + historyProvider.DataPointCount);
             };
 
-            if (throwsException)
+            var historyArray = historyProvider.GetHistory(requests, TimeZones.Utc).ToArray();
+            foreach (var slice in historyArray)
             {
-                Assert.Throws<ArgumentException>(test);
+                if (resolution == Resolution.Tick)
+                {
+                    foreach (var tick in slice.Ticks[symbol])
+                    {
+                        Log.Debug($"{tick}");
+                    }
+                }
+                else if (slice.QuoteBars.TryGetValue(symbol, out var quoteBar))
+                {
+                    Log.Debug($"{quoteBar}");
+                }
+                else if (slice.Bars.TryGetValue(symbol, out var tradeBar))
+                {
+                    Log.Debug($"{tradeBar}");
+                }
             }
-            else
+
+            if (historyProvider.DataPointCount > 0)
             {
-                Assert.DoesNotThrow(test);
+                // Ordered by time
+                Assert.That(historyArray, Is.Ordered.By("Time"));
+
+                // No repeating bars
+                var timesArray = historyArray.Select(x => x.Time).ToArray();
+                Assert.AreEqual(timesArray.Length, timesArray.Distinct().Count());
             }
+
+            Log.Trace("Data points retrieved: " + historyProvider.DataPointCount);
+        };
+
+        if (throwsException)
+        {
+            Assert.Throws<ArgumentException>(test);
+        }
+        else
+        {
+            Assert.DoesNotThrow(test);
         }
     }
 }

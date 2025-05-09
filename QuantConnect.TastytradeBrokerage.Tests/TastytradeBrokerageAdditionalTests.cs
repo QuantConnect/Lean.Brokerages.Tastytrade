@@ -14,19 +14,18 @@
 */
 
 using NUnit.Framework;
-using QuantConnect.Interfaces;
 using QuantConnect.Util;
+using QuantConnect.Interfaces;
 
-namespace QuantConnect.Brokerages.Template.Tests
+namespace QuantConnect.Brokerages.Tastytrade.Tests;
+
+[TestFixture]
+public class TastytradeBrokerageAdditionalTests
 {
-    [TestFixture, Ignore("This test requires a configured TemplateBrokerageFactory")]
-    public class TemplateBrokerageFactoryTests
+    [Test]
+    public void ParameterlessConstructorComposerUsage()
     {
-        [Test]
-        public void InitializesFactoryFromComposer()
-        {
-            using var factory = Composer.Instance.Single<IBrokerageFactory>(instance => instance.BrokerageType == typeof(TemplateBrokerage));
-            Assert.IsNotNull(factory);
-        }
+        var brokerage = Composer.Instance.GetExportedValueByTypeName<IDataQueueHandler>("TastytradeBrokerage");
+        Assert.IsNotNull(brokerage);
     }
 }

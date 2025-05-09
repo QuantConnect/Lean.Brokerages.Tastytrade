@@ -15,21 +15,20 @@
 
 using NUnit.Framework;
 
-namespace QuantConnect.Brokerages.Template.Tests
+namespace QuantConnect.Brokerages.Tastytrade.Tests;
+
+[TestFixture, Ignore("Not implemented")]
+public class TastytradeBrokerageSymbolMapperTests
 {
-    [TestFixture, Ignore("Not implemented")]
-    public class TemplateBrokerageSymbolMapperTests
+    [Test]
+    public void ReturnsCorrectLeanSymbol()
     {
-        [Test]
-        public void ReturnsCorrectLeanSymbol()
-        {
 
-        }
+    }
 
-        [Test]
-        public void ReturnsCorrectBrokerageSymbol()
-        {
+    [Test]
+    public void ReturnsCorrectBrokerageSymbol()
+    {
 
-        }
     }
 }
