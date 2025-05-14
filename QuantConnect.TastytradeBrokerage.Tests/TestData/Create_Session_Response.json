@@ -1,0 +1,14 @@
+{
+    "data": {
+        "user": {
+            "email": "who+tastysandbox@quantconnect.com",
+            "external-id": "A777777f7-3da4-4d78-af93-3283771f5c2f",
+            "is-confirmed": true,
+            "username": "quantconnectsandbox"
+        },
+        "remember-token": "G7CGcf7cy_A90-Qi56V4d-b864Lg6-w-8SFH5fGg",
+        "session-expiration": "2025-05-13T21:02:09.939Z",
+        "session-token": "6hwiMO7GvpTPXmqzybo1gD1qF7ic5zqpQ-C"
+    },
+    "context": "/sessions"
+}

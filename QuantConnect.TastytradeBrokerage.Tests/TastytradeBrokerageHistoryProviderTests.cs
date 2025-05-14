@@ -60,7 +60,7 @@ public class TastytradeBrokerageHistoryProviderTests
     {
         TestDelegate test = () =>
         {
-            var brokerage = new TastytradeBrokerage(null);
+            var brokerage = new TastytradeBrokerage();
 
             var historyProvider = new BrokerageHistoryProvider();
             historyProvider.SetBrokerage(brokerage);

@@ -1,3 +1,8 @@
 {
-  "data-folder": "../../../../Lean/Data/"
+  "data-folder": "../../../../Lean/Data/",
+  "tastytrade-api-url": "",
+  "tastytrade-websocket-url": "",
+  "tastytrade-username": "",
+  "tastytrade-password": "",
+  "tastytrade-account-number": ""
 }

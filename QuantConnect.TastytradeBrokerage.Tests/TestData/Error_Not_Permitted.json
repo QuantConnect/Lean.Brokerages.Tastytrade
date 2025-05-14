@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "not_permitted",
+        "message": "User not permitted access"
+    }
+}

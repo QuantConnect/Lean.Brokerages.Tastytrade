@@ -15,7 +15,10 @@
 
 using NUnit.Framework;
 using QuantConnect.Util;
+using System.Threading.Tasks;
 using QuantConnect.Interfaces;
+using QuantConnect.Configuration;
+using QuantConnect.Brokerages.Tastytrade.Api;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -25,7 +28,52 @@ public class TastytradeBrokerageAdditionalTests
     [Test]
     public void ParameterlessConstructorComposerUsage()
     {
-        var brokerage = Composer.Instance.GetExportedValueByTypeName<IDataQueueHandler>("TastytradeBrokerage");
+        var brokerage = Composer.Instance.GetExportedValueByTypeName<IDataQueueHandler>(nameof(TastytradeBrokerage));
         Assert.IsNotNull(brokerage);
+        Assert.IsInstanceOf<TastytradeBrokerage>(brokerage);
+    }
+
+    [Test]
+    public async Task GetAccountBalances()
+    {
+        var tastytradeApiClient = CreateTastytradeApiClient();
+
+        var res = await tastytradeApiClient.GetAccountBalances();
+
+        Assert.IsNotNull(res);
+        Assert.GreaterOrEqual(res.CashBalance, 0m);
+        Assert.AreEqual(Currencies.USD, res.Currency);
+        Assert.GreaterOrEqual(res.CashSettleBalance, 0m);
+        Assert.GreaterOrEqual(res.AvailableTradingFunds, 0m);
+    }
+
+    [Test]
+    public async Task GetAccountPositions()
+    {
+        var tastytradeApiClient = CreateTastytradeApiClient();
+
+        var res = await tastytradeApiClient.GetAccountPositions();
+
+        Assert.IsNotNull(res);
+    }
+
+    [Test]
+    public async Task GetApiQuoteToken()
+    {
+        var tastytradeApiClient = CreateTastytradeApiClient();
+
+        var res = await tastytradeApiClient.GetApiQuoteToken();
+
+        Assert.IsNotNull(res);
+    }
+
+    private TastytradeApiClient CreateTastytradeApiClient()
+    {
+        var apiUrl = Config.Get("tastytrade-api-url");
+        var username = Config.Get("tastytrade-username");
+        var password = Config.Get("tastytrade-password");
+        var accountNumber = Config.Get("tastytrade-account-number");
+
+        return new TastytradeApiClient(apiUrl, username, password, accountNumber);
     }
 }
