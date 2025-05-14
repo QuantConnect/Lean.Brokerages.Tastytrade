@@ -1,0 +1,39 @@
+﻿/*
+ * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+ * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+using System.Collections.Generic;
+
+namespace QuantConnect.Brokerages.Tastytrade.Models;
+
+/// <summary>
+/// Represents a response that contains a read-only collection of items of type <typeparamref name="T"/>.
+/// </summary>
+/// <typeparam name="T">The type of the items in the response.</typeparam>
+public class ResponseList<T>
+{
+    /// <summary>
+    /// Gets the collection of items returned by the API.
+    /// </summary>
+    public IReadOnlyCollection<T> Items { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResponseList{T}"/> class with the specified collection of items.
+    /// </summary>
+    /// <param name="items">The collection of items to include in the response.</param>
+    public ResponseList(IReadOnlyCollection<T> items)
+    {
+        Items = items;
+    }
+}

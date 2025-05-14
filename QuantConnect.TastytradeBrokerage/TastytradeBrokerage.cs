@@ -16,19 +16,32 @@
 using System;
 using QuantConnect.Data;
 using QuantConnect.Util;
-using QuantConnect.Orders;
-using QuantConnect.Packets;
+using QuantConnect.Logging;
 using QuantConnect.Interfaces;
-using QuantConnect.Securities;
-using System.Collections.Generic;
+using QuantConnect.Configuration;
+using QuantConnect.Brokerages.Tastytrade.Api;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
+/// <summary>
+/// Represents the Tastytrade Brokerage implementation.
+/// </summary>
 [BrokerageFactory(typeof(TastytradeBrokerageFactory))]
-public class TastytradeBrokerage : Brokerage, IDataQueueHandler, IDataQueueUniverseProvider
+public partial class TastytradeBrokerage : Brokerage
 {
-    private readonly IDataAggregator _aggregator;
-    private readonly EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
+    /// <summary>
+    /// Represents the name of the market or broker being used, in this case, "Tastytrade".
+    /// </summary>
+    private static readonly string BrokerageName = "Tastytrade";
+
+    private IDataAggregator _aggregator;
+
+    private EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
+
+    /// <summary>
+    /// The Tastytrade api client implementation.
+    /// </summary>
+    private TastytradeApiClient _tastytradeApiClient;
 
     /// <summary>
     /// Returns true if we're currently connected to the broker
@@ -39,21 +52,30 @@ public class TastytradeBrokerage : Brokerage, IDataQueueHandler, IDataQueueUnive
     /// Parameterless constructor for brokerage
     /// </summary>
     /// <remarks>This parameterless constructor is required for brokerages implementing <see cref="IDataQueueHandler"/></remarks>
-    public TastytradeBrokerage()
-        : this(Composer.Instance.GetPart<IDataAggregator>())
+    public TastytradeBrokerage() : base(BrokerageName)
+    { }
+
+    public TastytradeBrokerage(string baseUrl, string username, string password, IAlgorithm algorithm) : base(BrokerageName)
     {
+
     }
 
-    /// <summary>
-    /// Creates a new instance
-    /// </summary>
-    /// <param name="aggregator">consolidate ticks</param>
-    public TastytradeBrokerage(IDataAggregator aggregator) : base("TastytradeBrokerage")
+
+    protected void Initialize(string baseUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
     {
-        _aggregator = aggregator;
         _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
         _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
         _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
+
+        _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
+
+        _aggregator = Composer.Instance.GetPart<IDataAggregator>();
+        if (_aggregator == null)
+        {
+            var aggregatorName = Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager");
+            Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: found no data aggregator instance, creating {aggregatorName}");
+            _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
+        }
 
         // Useful for some brokerages:
 
@@ -63,108 +85,6 @@ public class TastytradeBrokerage : Brokerage, IDataQueueHandler, IDataQueueUnive
 
         // Rate gate limiter useful for API/WS calls
         // _connectionRateLimiter = new RateGate();
-    }
-
-    #region IDataQueueHandler
-
-    /// <summary>
-    /// Subscribe to the specified configuration
-    /// </summary>
-    /// <param name="dataConfig">defines the parameters to subscribe to a data feed</param>
-    /// <param name="newDataAvailableHandler">handler to be fired on new data available</param>
-    /// <returns>The new enumerator for this subscription request</returns>
-    public IEnumerator<BaseData> Subscribe(SubscriptionDataConfig dataConfig, EventHandler newDataAvailableHandler)
-    {
-        if (!CanSubscribe(dataConfig.Symbol))
-        {
-            return null;
-        }
-
-        var enumerator = _aggregator.Add(dataConfig, newDataAvailableHandler);
-        _subscriptionManager.Subscribe(dataConfig);
-
-        return enumerator;
-    }
-
-    /// <summary>
-    /// Removes the specified configuration
-    /// </summary>
-    /// <param name="dataConfig">Subscription config to be removed</param>
-    public void Unsubscribe(SubscriptionDataConfig dataConfig)
-    {
-        _subscriptionManager.Unsubscribe(dataConfig);
-        _aggregator.Remove(dataConfig);
-    }
-
-    /// <summary>
-    /// Sets the job we're subscribing for
-    /// </summary>
-    /// <param name="job">Job we're subscribing for</param>
-    public void SetJob(LiveNodePacket job)
-    {
-        throw new NotImplementedException();
-    }
-
-    #endregion
-
-    #region Brokerage
-
-    /// <summary>
-    /// Gets all open orders on the account.
-    /// NOTE: The order objects returned do not have QC order IDs.
-    /// </summary>
-    /// <returns>The open orders returned from IB</returns>
-    public override List<Order> GetOpenOrders()
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Gets all holdings for the account
-    /// </summary>
-    /// <returns>The current holdings from the account</returns>
-    public override List<Holding> GetAccountHoldings()
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Gets the current cash balance for each currency held in the brokerage account
-    /// </summary>
-    /// <returns>The current cash balance for each currency available for trading</returns>
-    public override List<CashAmount> GetCashBalance()
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Places a new order and assigns a new broker ID to the order
-    /// </summary>
-    /// <param name="order">The order to be placed</param>
-    /// <returns>True if the request for a new order has been placed, false otherwise</returns>
-    public override bool PlaceOrder(Order order)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Updates the order with the same id
-    /// </summary>
-    /// <param name="order">The new order information</param>
-    /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
-    public override bool UpdateOrder(Order order)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Cancels the order with the specified ID
-    /// </summary>
-    /// <param name="order">The order to cancel</param>
-    /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
-    public override bool CancelOrder(Order order)
-    {
-        throw new NotImplementedException();
     }
 
     /// <summary>
@@ -183,74 +103,11 @@ public class TastytradeBrokerage : Brokerage, IDataQueueHandler, IDataQueueUnive
         throw new NotImplementedException();
     }
 
-    #endregion
-
-    #region IDataQueueUniverseProvider
-
-    /// <summary>
-    /// Method returns a collection of Symbols that are available at the data source.
-    /// </summary>
-    /// <param name="symbol">Symbol to lookup</param>
-    /// <param name="includeExpired">Include expired contracts</param>
-    /// <param name="securityCurrency">Expected security currency(if any)</param>
-    /// <returns>Enumerable of Symbols, that are associated with the provided Symbol</returns>
-    public IEnumerable<Symbol> LookupSymbols(Symbol symbol, bool includeExpired, string securityCurrency = null)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Returns whether selection can take place or not.
-    /// </summary>
-    /// <remarks>This is useful to avoid a selection taking place during invalid times, for example IB reset times or when not connected,
-    /// because if allowed selection would fail since IB isn't running and would kill the algorithm</remarks>
-    /// <returns>True if selection can take place</returns>
-    public bool CanPerformSelection()
-    {
-        throw new NotImplementedException();
-    }
-
-    #endregion
-
     private bool CanSubscribe(Symbol symbol)
     {
         if (symbol.Value.IndexOfInvariant("universe", true) != -1 || symbol.IsCanonical())
         {
             return false;
-        }
-
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Adds the specified symbols to the subscription
-    /// </summary>
-    /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
-    private bool Subscribe(IEnumerable<Symbol> symbols)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Removes the specified symbols to the subscription
-    /// </summary>
-    /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
-    private bool Unsubscribe(IEnumerable<Symbol> symbols)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Gets the history for the requested symbols
-    /// <see cref="IBrokerage.GetHistory(Data.HistoryRequest)"/>
-    /// </summary>
-    /// <param name="request">The historical data request</param>
-    /// <returns>An enumerable of bars covering the span specified in the request</returns>
-    public override IEnumerable<BaseData> GetHistory(Data.HistoryRequest request)
-    {
-        if (!CanSubscribe(request.Symbol))
-        {
-            return null; // Should consistently return null instead of an empty enumerable
         }
 
         throw new NotImplementedException();
