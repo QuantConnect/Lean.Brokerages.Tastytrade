@@ -87,7 +87,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid session token string.</returns>
-    private async Task<string> GetSessionToken(CancellationToken cancellationToken)
+    public async Task<string> GetSessionToken(CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_sessionToken))
         {

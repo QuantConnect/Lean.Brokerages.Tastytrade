@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -15,6 +15,7 @@
 
 using System;
 using System.Net.Http;
+using System.Threading;
 using QuantConnect.Logging;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -43,6 +44,11 @@ public sealed class TastytradeApiClient
     private readonly HttpClient _httpClient;
 
     /// <summary>
+    /// A delegate that retrieves the current session token for authenticating API requests.
+    /// </summary>
+    public readonly Func<CancellationToken, Task<string>> GetSessionToken;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class.
     /// </summary>
     /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
@@ -52,8 +58,9 @@ public sealed class TastytradeApiClient
     public TastytradeApiClient(string baseUrl, string username, string password, string accountNumber)
     {
         _baseUrl = baseUrl.TrimEnd('/');
-        _httpClient = new HttpClient(new HttpTokenHandler(baseUrl, username, password));
-        _accountNumber = accountNumber;
+        var httpTokenHandler = new HttpTokenHandler(baseUrl, username, password);
+        GetSessionToken = httpTokenHandler.GetSessionToken;
+        _httpClient = new HttpClient(httpTokenHandler);
     }
 
     /// <summary>
