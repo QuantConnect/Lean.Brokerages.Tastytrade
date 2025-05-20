@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -182,7 +182,16 @@ public sealed class HttpTokenHandler : DelegatingHandler
             requestMessage.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
         }
 
-        return await base.SendAsync(requestMessage, cancellationToken);
+        var responseMessage = await base.SendAsync(requestMessage, cancellationToken);
+
+        if (!responseMessage.IsSuccessStatusCode)
+        {
+            var jsonContent = await responseMessage.Content.ReadAsStringAsync(cancellationToken);
+            var error = jsonContent.DeserializeKebabCase<ErrorResponse>().Error;
+            throw new HttpRequestException(error.ToString(), null, responseMessage.StatusCode);
+        }
+
+        return responseMessage;
     }
 
     /// <inheritdoc/>
