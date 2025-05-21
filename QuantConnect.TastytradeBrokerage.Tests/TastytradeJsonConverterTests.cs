@@ -14,7 +14,6 @@
 */
 
 using System;
-using System.Net.Http.Json;
 using NUnit.Framework;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;

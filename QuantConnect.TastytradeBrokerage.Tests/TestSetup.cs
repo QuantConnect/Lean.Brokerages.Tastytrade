@@ -19,12 +19,23 @@ using NUnit.Framework;
 using System.Collections;
 using QuantConnect.Logging;
 using QuantConnect.Configuration;
+using QuantConnect.Brokerages.Tastytrade.Api;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
 [TestFixture]
 public class TestSetup
 {
+    public static TastytradeApiClient CreateTastytradeApiClient()
+    {
+        var apiUrl = Config.Get("tastytrade-api-url");
+        var username = Config.Get("tastytrade-username");
+        var password = Config.Get("tastytrade-password");
+        var accountNumber = Config.Get("tastytrade-account-number");
+
+        return new TastytradeApiClient(apiUrl, username, password, accountNumber);
+    }
+
     [Test, TestCaseSource(nameof(TestParameters))]
     public void TestSetupCase()
     {

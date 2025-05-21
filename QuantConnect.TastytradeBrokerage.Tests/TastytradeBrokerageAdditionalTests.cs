@@ -17,14 +17,20 @@ using NUnit.Framework;
 using QuantConnect.Util;
 using System.Threading.Tasks;
 using QuantConnect.Interfaces;
-using QuantConnect.Configuration;
-using QuantConnect.Brokerages.Tastytrade.Api;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
 [TestFixture]
 public class TastytradeBrokerageAdditionalTests
 {
+    private Api.TastytradeApiClient _tastytradeApiClient;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        _tastytradeApiClient = TestSetup.CreateTastytradeApiClient();
+    }
+
     [Test]
     public void ParameterlessConstructorComposerUsage()
     {
@@ -36,9 +42,7 @@ public class TastytradeBrokerageAdditionalTests
     [Test]
     public async Task GetAccountBalances()
     {
-        var tastytradeApiClient = CreateTastytradeApiClient();
-
-        var res = await tastytradeApiClient.GetAccountBalances();
+        var res = await _tastytradeApiClient.GetAccountBalances();
 
         Assert.IsNotNull(res);
         Assert.GreaterOrEqual(res.CashBalance, 0m);
@@ -50,9 +54,7 @@ public class TastytradeBrokerageAdditionalTests
     [Test]
     public async Task GetAccountPositions()
     {
-        var tastytradeApiClient = CreateTastytradeApiClient();
-
-        var res = await tastytradeApiClient.GetAccountPositions();
+        var res = await _tastytradeApiClient.GetAccountPositions();
 
         Assert.IsNotNull(res);
     }
@@ -60,20 +62,9 @@ public class TastytradeBrokerageAdditionalTests
     [Test]
     public async Task GetApiQuoteToken()
     {
-        var tastytradeApiClient = CreateTastytradeApiClient();
-
-        var res = await tastytradeApiClient.GetApiQuoteToken();
+        var res = await _tastytradeApiClient.GetApiQuoteToken();
 
         Assert.IsNotNull(res);
-    }
-
-    private TastytradeApiClient CreateTastytradeApiClient()
-    {
-        var apiUrl = Config.Get("tastytrade-api-url");
-        var username = Config.Get("tastytrade-username");
-        var password = Config.Get("tastytrade-password");
-        var accountNumber = Config.Get("tastytrade-account-number");
-
-        return new TastytradeApiClient(apiUrl, username, password, accountNumber);
+        Assert.AreEqual("demo", res.Level);
     }
 }
