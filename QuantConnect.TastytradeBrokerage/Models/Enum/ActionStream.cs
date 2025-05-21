@@ -14,22 +14,31 @@
 */
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using System.Runtime.Serialization;
 
-namespace QuantConnect.Brokerages.Tastytrade.Serialization;
+namespace QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 /// <summary>
-/// Provides globally accessible instances of <see cref="JsonSerializerSettings"/> 
-/// preconfigured with custom contract resolvers, such as kebab-case formatting.
+/// Represents the type of action in a WebSocket message.
 /// </summary>
-public static class JsonSettings
+[JsonConverter(typeof(StringEnumConverter))]
+public enum ActionStream
 {
     /// <summary>
-    /// Gets a reusable instance of <see cref="JsonSerializerSettings"/> that uses
-    /// <see cref="KebabCaseContractResolver"/> for kebab-case property name formatting.
+    /// The action is unknown or not recognized.
     /// </summary>
-    public static readonly JsonSerializerSettings KebabCase = new JsonSerializerSettings
-    {
-        ContractResolver = KebabCaseContractResolver.Instance,
-        NullValueHandling = NullValueHandling.Ignore
-    };
+    Unknown = 0,
+
+    /// <summary>
+    /// A message indicating that a connection to the WebSocket has been initiated or confirmed.
+    /// </summary>
+    [EnumMember(Value = "connect")]
+    Connect = 1,
+
+    /// <summary>
+    /// A periodic message sent to keep the WebSocket connection alive or to confirm connectivity.
+    /// </summary>
+    [EnumMember(Value = "heartbeat")]
+    Heartbeat = 2
 }

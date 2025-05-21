@@ -1,0 +1,14 @@
+[
+    {
+        "error": {
+            "code": "not_permitted",
+            "message": "User not permitted access"
+        }
+    },
+    {
+        "error": {
+            "code": "invalid_credentials",
+            "message": "Invalid login, please check your username and password. Unique customer support identifier: 76c0d379867fcba1e29aebe4c81c3976"
+        }
+    }
+]

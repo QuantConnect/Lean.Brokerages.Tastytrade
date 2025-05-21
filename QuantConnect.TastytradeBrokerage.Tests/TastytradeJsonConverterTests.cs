@@ -14,8 +14,11 @@
 */
 
 using System;
+using System.Net.Http.Json;
 using NUnit.Framework;
 using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -82,6 +85,61 @@ public class TastytradeJsonConverterTests
         Assert.IsNotNull(apiQuoteTokenResponse.Data);
         AssertIsNotNullAndIsNotEmpty(apiQuoteTokenResponse.Data.DxlinkUrl, apiQuoteTokenResponse.Data.Level, apiQuoteTokenResponse.Data.Token);
         Assert.AreEqual("/api-quote-tokens", apiQuoteTokenResponse.Context);
+    }
+
+    [Test]
+    public void SerializeStreamHeartbeatMessage()
+    {
+        var heartbeatJson = new Heartbeat("your session token here", 1).ToJson();
+
+        Assert.AreEqual("{\"action\":\"heartbeat\",\"auth-token\":\"your session token here\",\"request-id\":1}", heartbeatJson);
+    }
+
+    [Test]
+    public void DeserializeStreamHeartbeatMessage()
+    {
+        var heartbeatResponseJson = "{\"status\":\"ok\",\"action\":\"heartbeat\",\"web-socket-session-id\":\"13ec76b6\",\"request-id\":3}";
+
+        var connectResponse = heartbeatResponseJson.DeserializeKebabCase<HeartbeatResponse>();
+
+        Assert.AreEqual(Status.Ok, connectResponse.Status);
+        Assert.AreEqual(ActionStream.Heartbeat, connectResponse.Action);
+        Assert.AreEqual(3, connectResponse.RequestId);
+        AssertIsNotNullAndIsNotEmpty(connectResponse.WebSocketSessionId);
+    }
+
+    [Test]
+    public void SerializeStreamConnectMessage()
+    {
+        var connectJson = new Connect("your session token here", 1, "12345").ToJson();
+
+        Assert.AreEqual("{\"action\":\"connect\",\"value\":[\"12345\"],\"auth-token\":\"your session token here\",\"request-id\":1}", connectJson);
+    }
+
+    [Test]
+    public void DeserializeConnectResponseStatusOk()
+    {
+        var connectResponseJson = "{\"status\":\"ok\",\"action\":\"connect\",\"web-socket-session-id\":\"c8531fa0\",\"value\":[\"5WX06827\"],\"request-id\":1}";
+
+        var connectResponse = connectResponseJson.DeserializeKebabCase<ConnectResponse>();
+
+        Assert.IsInstanceOf<BaseResponseMessage>(connectResponse);
+        Assert.AreEqual(Status.Ok, connectResponse.Status);
+        Assert.AreEqual(ActionStream.Connect, connectResponse.Action);
+        Assert.AreEqual(1, connectResponse.RequestId);
+        Assert.Greater(connectResponse.AccountNumbers.Length, 0);
+        AssertIsNotNullAndIsNotEmpty(connectResponse.WebSocketSessionId, connectResponse.AccountNumbers[0]);
+    }
+
+    [Test]
+    public void DeserializeConnectResponseStatusError()
+    {
+        var connectResponseJson = "{\"status\":\"error\",\"action\":\"connect\",\"web-socket-session-id\":\"423f58ac\",\"message\":\"failed\"}";
+
+        var connectResponse = connectResponseJson.DeserializeKebabCase<ConnectResponse>();
+
+        Assert.AreEqual(Status.Error, connectResponse.Status);
+        Assert.IsNotEmpty(connectResponse.Message);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

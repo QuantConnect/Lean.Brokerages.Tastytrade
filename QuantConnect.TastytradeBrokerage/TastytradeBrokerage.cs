@@ -20,6 +20,7 @@ using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using QuantConnect.Configuration;
 using QuantConnect.Brokerages.Tastytrade.Api;
+using QuantConnect.Brokerages.Tastytrade.WebSocket;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -27,7 +28,7 @@ namespace QuantConnect.Brokerages.Tastytrade;
 /// Represents the Tastytrade Brokerage implementation.
 /// </summary>
 [BrokerageFactory(typeof(TastytradeBrokerageFactory))]
-public partial class TastytradeBrokerage : Brokerage
+public partial class TastytradeBrokerage : DualWebSocketsBrokerage
 {
     /// <summary>
     /// Represents the name of the market or broker being used, in this case, "Tastytrade".
@@ -55,13 +56,13 @@ public partial class TastytradeBrokerage : Brokerage
     public TastytradeBrokerage() : base(BrokerageName)
     { }
 
-    public TastytradeBrokerage(string baseUrl, string username, string password, IAlgorithm algorithm) : base(BrokerageName)
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm) : base(BrokerageName)
     {
-
+        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, algorithm);
     }
 
 
-    protected void Initialize(string baseUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
+    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
     {
         _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
         _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
@@ -76,6 +77,8 @@ public partial class TastytradeBrokerage : Brokerage
             Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: found no data aggregator instance, creating {aggregatorName}");
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
+
+        Initialize(baseWSUrl, _tastytradeApiClient);
 
         // Useful for some brokerages:
 
@@ -92,7 +95,7 @@ public partial class TastytradeBrokerage : Brokerage
     /// </summary>
     public override void Connect()
     {
-        throw new NotImplementedException();
+        base.Connect();
     }
 
     /// <summary>
@@ -110,6 +113,11 @@ public partial class TastytradeBrokerage : Brokerage
             return false;
         }
 
+        throw new NotImplementedException();
+    }
+
+    protected override void OnMessage(object sender, WebSocketMessage e)
+    {
         throw new NotImplementedException();
     }
 }

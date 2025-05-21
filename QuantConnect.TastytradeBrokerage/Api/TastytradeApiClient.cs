@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -36,7 +36,7 @@ public sealed class TastytradeApiClient
     /// <summary>
     /// The account number associated with the Tastytrade account.
     /// </summary>
-    private readonly string _accountNumber;
+    public readonly string AccountNumber;
 
     /// <summary>
     /// The HTTP client used to send requests to the Tastytrade API.
@@ -61,6 +61,7 @@ public sealed class TastytradeApiClient
         var httpTokenHandler = new HttpTokenHandler(baseUrl, username, password);
         GetSessionToken = httpTokenHandler.GetSessionToken;
         _httpClient = new HttpClient(httpTokenHandler);
+        AccountNumber = accountNumber;
     }
 
     /// <summary>
@@ -69,7 +70,7 @@ public sealed class TastytradeApiClient
     /// <returns>A task that represents the asynchronous operation. The task result contains the account balances.</returns>
     public async Task<AccountBalance> GetAccountBalances()
     {
-        return (await SendRequestAsync<AccountBalance>(HttpMethod.Get, $"/accounts/{_accountNumber}/balances")).Data;
+        return (await SendRequestAsync<AccountBalance>(HttpMethod.Get, $"/accounts/{AccountNumber}/balances")).Data;
     }
 
     /// <summary>
@@ -78,7 +79,7 @@ public sealed class TastytradeApiClient
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of positions.</returns>
     public async Task<IEnumerable<Position>> GetAccountPositions()
     {
-        return (await SendRequestAsync<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{_accountNumber}/positions")).Data.Items;
+        return (await SendRequestAsync<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{AccountNumber}/positions")).Data.Items;
     }
 
     /// <summary>

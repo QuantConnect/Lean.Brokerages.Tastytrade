@@ -68,7 +68,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// Adds the specified symbols to the subscription
     /// </summary>
     /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
-    private bool Subscribe(IEnumerable<Symbol> symbols)
+    protected override bool Subscribe(IEnumerable<Symbol> symbols)
     {
         throw new NotImplementedException();
     }
