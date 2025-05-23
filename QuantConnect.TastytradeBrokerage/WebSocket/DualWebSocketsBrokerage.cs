@@ -15,25 +15,22 @@
 
 using System;
 using System.Linq;
-using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Logging;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Api;
+
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
 
 public abstract class DualWebSocketsBrokerage : Brokerage
 {
     private const int ConnectionTimeout = 30000;
 
-    /// <summary>
-    /// True if the current brokerage is already initialized
-    /// </summary>
-    protected bool IsInitialized { get; set; }
+    protected bool IsAccountWebSocketInitialized { get; private set; }
+    protected bool IsMarketWebSocketInitialized { get; private set; }
 
-    protected IWebSocket AccountUpdatesWebSocket { get; set; }
-
-    protected IWebSocket MarketDataUpdatesWebSocket { get; set; }
+    protected BaseWebSocketClientWrapper AccountUpdatesWebSocket { get; private set; }
+    protected BaseWebSocketClientWrapper MarketDataUpdatesWebSocket { get; private set; }
 
     /// <summary>
     /// Count subscribers for each (symbol, tickType) combination
@@ -41,27 +38,50 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     protected DataQueueHandlerSubscriptionManager SubscriptionManager { get; set; }
 
     /// <summary>
-    /// Initialize the instance of this class
+    /// Initialize only the account updates WebSocket
     /// </summary>
-    protected void Initialize(string accountUpdatesWsUrl, TastytradeApiClient tastytradeApiClient)
+    protected void InitializeAccountUpdates(string accountUpdatesWsUrl, TastytradeApiClient tastytradeApiClient)
     {
-        // TODO: think how can I creating instances AccountUpdates and MarketUpdates independently when Lean will be use it only like Brokerage or DQHб probablly, should create 2 different Initialize methods
-        if (IsInitialized)
+        if (IsAccountWebSocketInitialized)
         {
             return;
         }
-        IsInitialized = true;
 
-        AccountUpdatesWebSocket = new AccountWebSocketClientWrapper(tastytradeApiClient);
-        AccountUpdatesWebSocket.Initialize(accountUpdatesWsUrl);
+        AccountUpdatesWebSocket = new AccountWebSocketClientWrapper(tastytradeApiClient, accountUpdatesWsUrl);
         AccountUpdatesWebSocket.Message += OnMessage;
 
-        //MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper();
+        IsAccountWebSocketInitialized = true;
+    }
+
+    /// <summary>
+    /// Initialize only the market data updates WebSocket
+    /// </summary>
+    protected void InitializeMarketDataUpdates(TastytradeApiClient tastytradeApiClient)
+    {
+        if (IsMarketWebSocketInitialized)
+        {
+            return;
+        }
+
+        MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper(tastytradeApiClient);
+        MarketDataUpdatesWebSocket.Message += OnMarketDataMessage;
+
         //MarketDataUpdatesWebSocket.Open += (sender, args) =>
         //{
-        //    Log.Trace($"{nameof(DualWebsocketsBrokerage)}: WebSocket.Open. Subscribing");
+        //    Log.Trace($"{nameof(DualWebSocketsBrokerage)}: WebSocket.Open. Subscribing");
         //    Subscribe(GetSubscribed());
         //};
+
+        IsMarketWebSocketInitialized = true;
+    }
+
+    /// <summary>
+    /// Initialize both WebSockets together
+    /// </summary>
+    protected void Initialize(string accountUpdatesWsUrl, TastytradeApiClient tastytradeApiClient)
+    {
+        InitializeAccountUpdates(accountUpdatesWsUrl, tastytradeApiClient);
+        InitializeMarketDataUpdates(tastytradeApiClient);
     }
 
     /// <summary>
@@ -78,6 +98,8 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     /// <param name="sender"></param>
     /// <param name="e"></param>
     protected abstract void OnMessage(object sender, WebSocketMessage e);
+
+    protected abstract void OnMarketDataMessage(object sender, WebSocketMessage e);
 
     /// <summary>
     /// Creates wss connection, monitors for disconnection and re-connects when necessary
@@ -108,20 +130,32 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     }
 
     /// <summary>
-    /// Start websocket connect
+    /// Connects all initialized WebSockets synchronously and waits for confirmation.
+    /// Throws a <see cref="TimeoutException"/> if a connection is not established within the timeout period.
     /// </summary>
+    /// <exception cref="TimeoutException">Thrown when a WebSocket does not connect within the allotted timeout.</exception>
     protected void ConnectSync()
     {
-        var resetEvent = new ManualResetEvent(false);
-        EventHandler triggerEvent = (o, args) => resetEvent.Set();
-        AccountUpdatesWebSocket.Open += triggerEvent;
-
-        AccountUpdatesWebSocket.Connect();
-
-        if (!resetEvent.WaitOne(ConnectionTimeout))
+        var webSockets = new (string Name, BaseWebSocketClientWrapper Socket)[]
         {
-            throw new TimeoutException("Websockets connection timeout.");
+            ("AccountUpdatesWebSocket", AccountUpdatesWebSocket),
+            ("MarketDataWebSocket", MarketDataUpdatesWebSocket)
+        };
+
+        foreach (var (webSocketName, webSocket) in webSockets)
+        {
+            if (webSocket == null)
+            {
+                Log.Trace($"{nameof(DualWebSocketsBrokerage)}.{nameof(ConnectSync)}.{webSocketName}: Skipping null WebSocket instance.");
+                continue;
+            }
+
+            webSocket.Connect();
+
+            if (!webSocket.AuthenticatedResetEvent.WaitOne(ConnectionTimeout))
+            {
+                throw new TimeoutException($"{nameof(DualWebSocketsBrokerage)}.{nameof(ConnectSync)}.{webSocketName}: failed to connect within {ConnectionTimeout}ms.");
+            }
         }
-        AccountUpdatesWebSocket.Open -= triggerEvent;
     }
 }

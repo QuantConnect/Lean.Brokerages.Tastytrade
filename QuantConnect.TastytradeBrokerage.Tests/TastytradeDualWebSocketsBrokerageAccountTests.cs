@@ -28,7 +28,7 @@ using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
 [TestFixture]
-public class TastytradeDualWebSocketsBrokerageTests
+public class TastytradeDualWebSocketsBrokerageAccountTests
 {
     [Test]
     public void ConnectShouldAuthenticateWithinTimeout()
@@ -36,7 +36,7 @@ public class TastytradeDualWebSocketsBrokerageTests
         using var cancellationTokenSource = new CancellationTokenSource();
         using var authenticateResetEvent = new AutoResetEvent(false);
         using var testDualWebSocketsBrokerage = new TestDualWebSocketsBrokerage("Tastytrade");
-
+        var assertErrorMessage = "Authentication did not complete successfully within the timeout.";
 
         testDualWebSocketsBrokerage.AuthenticationResponse += (_, authenticationResponse) =>
         {
@@ -49,10 +49,15 @@ public class TastytradeDualWebSocketsBrokerageTests
                 cancellationTokenSource.Cancel();
             }
         };
+        testDualWebSocketsBrokerage.ExceptionResponse += (_, exception) =>
+        {
+            assertErrorMessage = exception.Message;
+            cancellationTokenSource.Cancel();
+        };
 
         testDualWebSocketsBrokerage.Connect();
 
-        Assert.IsTrue(authenticateResetEvent.WaitOne(TimeSpan.FromSeconds(100), cancellationTokenSource.Token), "Authentication did not complete successfully within the timeout.");
+        Assert.IsTrue(authenticateResetEvent.WaitOne(TimeSpan.FromSeconds(100), cancellationTokenSource.Token), assertErrorMessage);
     }
 
     [Test]
@@ -61,6 +66,7 @@ public class TastytradeDualWebSocketsBrokerageTests
         using var cancellationTokenSource = new CancellationTokenSource();
         using var authenticateResetEvent = new AutoResetEvent(false);
         using var testDualWebSocketsBrokerage = new TestDualWebSocketsBrokerage("Tastytrade");
+        var assertErrorMessage = "Heartbeat did not return responses successfully within the timeout.";
 
         var heartbeatCounterResponse = 0;
         testDualWebSocketsBrokerage.HeartbeatResponse += (_, HeartbeatResponse) =>
@@ -77,10 +83,15 @@ public class TastytradeDualWebSocketsBrokerageTests
                 cancellationTokenSource.Cancel();
             }
         };
+        testDualWebSocketsBrokerage.ExceptionResponse += (_, exception) =>
+        {
+            assertErrorMessage = exception.Message;
+            cancellationTokenSource.Cancel();
+        };
 
         testDualWebSocketsBrokerage.Connect();
 
-        Assert.IsTrue(authenticateResetEvent.WaitOne(TimeSpan.FromSeconds(100), cancellationTokenSource.Token), "Authentication did not complete successfully within the timeout.");
+        Assert.IsTrue(authenticateResetEvent.WaitOne(TimeSpan.FromSeconds(100), cancellationTokenSource.Token), assertErrorMessage);
     }
 
     public sealed class TestDualWebSocketsBrokerage : DualWebSocketsBrokerage
@@ -89,21 +100,24 @@ public class TastytradeDualWebSocketsBrokerageTests
 
         public event EventHandler<HeartbeatResponse> HeartbeatResponse;
 
+        public event EventHandler<Exception> ExceptionResponse;
+
         public TestDualWebSocketsBrokerage(string name) : base(name)
         {
-            Initialize(Config.Get("tastytrade-websocket-url"), TestSetup.CreateTastytradeApiClient());
+            InitializeAccountUpdates(Config.Get("tastytrade-websocket-url"), TestSetup.CreateTastytradeApiClient());
+            AccountUpdatesWebSocket.Error += HandleAccountUpdatesWebSocketError;
+        }
+
+        private void HandleAccountUpdatesWebSocketError(object sender, WebSocketError e)
+        {
+            ExceptionResponse?.Invoke(this, e.Exception);
         }
 
         public override bool IsConnected => AccountUpdatesWebSocket?.IsOpen ?? false;
 
-        public override void Connect()
-        {
-            base.Connect();
-        }
-
         public override void Disconnect()
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
         protected override void OnMessage(object sender, WebSocketMessage e)
         {
@@ -118,17 +132,11 @@ public class TastytradeDualWebSocketsBrokerageTests
                     {
                         case ActionStream.Connect:
                             var connectResponse = textMessage.Message.DeserializeKebabCase<ConnectResponse>();
-                            if (connectResponse.Status == Status.Ok)
-                            {
-                                AuthenticationResponse?.Invoke(this, connectResponse);
-                            }
+                            AuthenticationResponse?.Invoke(this, connectResponse);
                             break;
                         case ActionStream.Heartbeat:
                             var heartbeatResponse = textMessage.Message.DeserializeKebabCase<HeartbeatResponse>();
-                            if (heartbeatResponse.Status == Status.Ok)
-                            {
-                                HeartbeatResponse?.Invoke(this, heartbeatResponse);
-                            }
+                            HeartbeatResponse?.Invoke(this, heartbeatResponse);
                             break;
                     }
                     break;
@@ -138,18 +146,23 @@ public class TastytradeDualWebSocketsBrokerageTests
 
         }
 
-        protected override bool Subscribe(IEnumerable<Symbol> symbols) => throw new System.NotImplementedException();
+        protected override bool Subscribe(IEnumerable<Symbol> symbols) => throw new NotImplementedException();
 
-        public override bool CancelOrder(Order order) => throw new System.NotImplementedException();
+        protected override void OnMarketDataMessage(object sender, WebSocketMessage e)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override List<Holding> GetAccountHoldings() => throw new System.NotImplementedException();
+        public override bool CancelOrder(Order order) => throw new NotImplementedException();
 
-        public override List<CashAmount> GetCashBalance() => throw new System.NotImplementedException();
+        public override List<Holding> GetAccountHoldings() => throw new NotImplementedException();
 
-        public override List<Order> GetOpenOrders() => throw new System.NotImplementedException();
+        public override List<CashAmount> GetCashBalance() => throw new NotImplementedException();
 
-        public override bool PlaceOrder(Order order) => throw new System.NotImplementedException();
+        public override List<Order> GetOpenOrders() => throw new NotImplementedException();
 
-        public override bool UpdateOrder(Order order) => throw new System.NotImplementedException();
+        public override bool PlaceOrder(Order order) => throw new NotImplementedException();
+
+        public override bool UpdateOrder(Order order) => throw new NotImplementedException();
     }
 }

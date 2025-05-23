@@ -27,9 +27,18 @@ public static class JsonSettings
     /// Gets a reusable instance of <see cref="JsonSerializerSettings"/> that uses
     /// <see cref="KebabCaseContractResolver"/> for kebab-case property name formatting.
     /// </summary>
-    public static readonly JsonSerializerSettings KebabCase = new JsonSerializerSettings
+    public static readonly JsonSerializerSettings KebabCase = new()
     {
         ContractResolver = KebabCaseContractResolver.Instance,
         NullValueHandling = NullValueHandling.Ignore
+    };
+
+    /// <summary>
+    /// Gets a reusable instance of <see cref="JsonSerializerSettings"/> that uses
+    /// <see cref="CamelCaseContractResolver"/> for camelCase property name formatting.
+    /// </summary>
+    public static readonly JsonSerializerSettings CamelCase = new()
+    {
+        ContractResolver = CamelCaseContractResolver.Instance,
     };
 }

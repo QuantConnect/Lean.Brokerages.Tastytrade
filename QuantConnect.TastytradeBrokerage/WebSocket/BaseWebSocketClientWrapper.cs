@@ -15,12 +15,40 @@
 
 using System;
 using System.Timers;
+using QuantConnect.Brokerages.Tastytrade.Api;
 
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
 
 public abstract class BaseWebSocketClientWrapper : WebSocketClientWrapper
 {
+    /// <summary>
+    /// The timer responsible for triggering keep-alive messages at regular intervals.
+    /// </summary>
     private Timer _timer;
+
+    /// <summary>
+    /// The interval, in seconds, at which keep-alive messages are sent to maintain the WebSocket connection.
+    /// </summary>
+    private readonly int _keepAliveIntervalSeconds;
+
+    /// <summary>
+    /// Provides methods for interacting with the Tastytrade API.
+    /// </summary>
+    protected readonly TastytradeApiClient _tastyTradeApiClient;
+
+    public readonly System.Threading.AutoResetEvent AuthenticatedResetEvent = new(false);
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BaseWebSocketClientWrapper"/> class,
+    /// configuring the API client and the keep-alive timer interval.
+    /// </summary>
+    /// <param name="apiClient">The Tastytrade API client used for authentication and data requests.</param>
+    /// <param name="keepAliveIntervalSeconds">The interval in seconds at which keep-alive messages will be sent. Default is 20 seconds.</param>
+    protected BaseWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, int keepAliveIntervalSeconds = 20)
+    {
+        _tastyTradeApiClient = tastytradeApiClient;
+        _keepAliveIntervalSeconds = keepAliveIntervalSeconds;
+    }
 
     /// <summary>
     /// Event invocator for the <see cref="WebSocketClientWrapper.Open"/> event
@@ -30,7 +58,7 @@ public abstract class BaseWebSocketClientWrapper : WebSocketClientWrapper
         base.OnOpen();
 
         CleanUpTimer();
-        _timer = new Timer(TimeSpan.FromSeconds(20).TotalMilliseconds);
+        _timer = new Timer(TimeSpan.FromSeconds(_keepAliveIntervalSeconds).TotalMilliseconds);
         _timer.Elapsed += SendMessageByTimerElapsed;
         _timer.Start();
     }

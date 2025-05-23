@@ -81,4 +81,9 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     {
         throw new NotImplementedException();
     }
+
+    protected override void OnMarketDataMessage(object sender, WebSocketMessage e)
+    {
+        throw new NotImplementedException();
+    }
 }

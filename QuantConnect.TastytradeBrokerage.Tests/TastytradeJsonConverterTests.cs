@@ -18,6 +18,7 @@ using NUnit.Framework;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -139,6 +140,66 @@ public class TastytradeJsonConverterTests
 
         Assert.AreEqual(Status.Error, connectResponse.Status);
         Assert.IsNotEmpty(connectResponse.Message);
+    }
+
+    [Test]
+    public void SerializeKeepAliveMessage()
+    {
+        var keepAliveJson = new KeepAlive().ToJson();
+        Assert.AreEqual("{\"type\":\"KEEPALIVE\",\"channel\":0}", keepAliveJson);
+    }
+
+    [Test]
+    public void SerializeSetupConnectionMessage()
+    {
+        var setupConnectionJson = new SetupConnection().ToJson();
+        Assert.AreEqual("{\"type\":\"SETUP\",\"channel\":0,\"version\":\"0.1-DXF-JS/0.3.0\",\"keepaliveTimeout\":60,\"acceptKeepaliveTimeout\":60}", setupConnectionJson);
+    }
+
+    [Test]
+    public void SerializeAuthorizationMessage()
+    {
+        var authorization = new Authorization("<redacted>").ToJson();
+        Assert.AreEqual("{\"type\":\"AUTH\",\"channel\":0,\"token\":\"<redacted>\"}", authorization);
+    }
+
+    [TestCase("{\"type\":\"AUTH_STATE\",\"channel\":0,\"state\":\"UNAUTHORIZED\"}", AuthorizationState.Unauthorized, null)]
+    [TestCase("{\"type\":\"AUTH_STATE\",\"channel\":0,\"state\":\"AUTHORIZED\",\"userId\":\"<redacted>\"}", AuthorizationState.Authorized, "<redacted>")]
+    public void DeserializeAuthorizationResponse(string authorizationResponseJson, AuthorizationState expectedAuthorizationState, string expectedUserId)
+    {
+        var authorizationResponse = authorizationResponseJson.DeserializeCamelCase<AuthorizationResponse>();
+
+        Assert.AreEqual(EventType.AuthorizationState, authorizationResponse.Type);
+        Assert.AreEqual(0, authorizationResponse.Channel);
+        Assert.AreEqual(expectedAuthorizationState, authorizationResponse.State);
+        Assert.AreEqual(expectedUserId, authorizationResponse.UserId);
+    }
+
+    [Test]
+    public void SerializeChannelRequestMessage()
+    {
+        var channelRequest = new ChannelRequest().ToJson();
+        Assert.AreEqual("{\"type\":\"CHANNEL_REQUEST\",\"channel\":1,\"service\":\"FEED\",\"parameters\":{\"contract\":\"AUTO\"}}", channelRequest);
+    }
+
+    [Test]
+    public void DeserializeErrorStreamResponse()
+    {
+        var errorResponseJson = "{\"type\":\"ERROR\",\"channel\": 0,\"error\":\"BAD_ACTION\",\"message\":\"Protocol violation with an even channel usage.\"}";
+
+        var errorResponse = errorResponseJson.DeserializeCamelCase<ErrorStreamResponse>();
+
+        Assert.AreEqual(EventType.Error, errorResponse.Type);
+        Assert.AreEqual(0, errorResponse.Channel);
+        AssertIsNotNullAndIsNotEmpty(errorResponse.Error, errorResponse.Message);
+    }
+
+    [Test]
+    public void SerializeFeedSetupRequestMessage()
+    {
+        var feedSetupJson = new FeedSetup().ToJson();
+
+        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventType\",\"eventTime\",\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventType\",\"eventTime\",\"eventSymbol\",\"price\",\"size\"]}}", feedSetupJson);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

@@ -39,17 +39,14 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     private static int NextRequestId => Interlocked.Increment(ref _current);
 
     /// <summary>
-    /// Provides methods for interacting with the Tastytrade API.
-    /// </summary>
-    private readonly TastytradeApiClient _tastyTradeApiClient;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="AccountWebSocketClientWrapper"/> class.
     /// </summary>
-    /// <param name="tastyTradeApiClient">The API client used to obtain session tokens for authenticated communication.</param>
-    public AccountWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient)
+    /// <param name="tastytradeApiClient">The API client used to obtain session tokens for authenticated communication.</param>
+    /// <param name="accountUpdatesWsUrl"></param>
+    public AccountWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, string accountUpdatesWsUrl)
+        : base(tastytradeApiClient)
     {
-        _tastyTradeApiClient = tastytradeApiClient;
+        Initialize(accountUpdatesWsUrl);
         Open += SubscribeOnNotifications;
     }
 
@@ -74,7 +71,7 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     private void SubscribeOnNotifications(object sender, EventArgs e)
     {
         var sessionToken = _tastyTradeApiClient.GetSessionToken(default).SynchronouslyAwaitTaskResult();
-        var accountNumber = _tastyTradeApiClient.AccountNumber;
+        var accountNumber = _tastyTradeApiClient.AccountNumber;  
 
         Task.Run(() => HandleWebSocketConnection(sessionToken, accountNumber));
     }
@@ -124,8 +121,11 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
 
             if (!autoResetEvent.WaitOne(ConnectionTimeout))
             {
-                throw new TimeoutException($"{nameof(AccountWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
+                Log.Error($"{nameof(AccountWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
+                return;
             }
+
+            AuthenticatedResetEvent.Set();
         }
         finally
         {

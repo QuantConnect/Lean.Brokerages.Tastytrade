@@ -34,4 +34,16 @@ public static class Extensions
     {
         return JsonConvert.DeserializeObject<T>(json, JsonSettings.KebabCase);
     }
+
+    /// <summary>
+    /// Deserializes the specified JSON string to an object of type <typeparamref name="T"/>
+    /// using camelCase property name resolution.
+    /// </summary>
+    /// <typeparam name="T">The target type of the deserialized object.</typeparam>
+    /// <param name="json">The JSON string to deserialize.</param>
+    /// <returns>The deserialized object of type <typeparamref name="T"/>.</returns>
+    public static T DeserializeCamelCase<T>(this string json)
+    {
+        return JsonConvert.DeserializeObject<T>(json, JsonSettings.CamelCase);
+    }
 }
