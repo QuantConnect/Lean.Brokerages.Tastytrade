@@ -36,13 +36,17 @@ public abstract class BaseWebSocketClientWrapper : WebSocketClientWrapper
     /// </summary>
     protected readonly TastytradeApiClient _tastyTradeApiClient;
 
+    /// <summary>
+    /// A synchronization primitive used to signal that authentication has completed successfully.
+    /// Child classes set this event once authentication is confirmed, allowing dependent workflows to proceed.
+    /// </summary>
     public readonly System.Threading.AutoResetEvent AuthenticatedResetEvent = new(false);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BaseWebSocketClientWrapper"/> class,
     /// configuring the API client and the keep-alive timer interval.
     /// </summary>
-    /// <param name="apiClient">The Tastytrade API client used for authentication and data requests.</param>
+    /// <param name="tastytradeApiClient">The Tastytrade API client used for authentication and data requests.</param>
     /// <param name="keepAliveIntervalSeconds">The interval in seconds at which keep-alive messages will be sent. Default is 20 seconds.</param>
     protected BaseWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, int keepAliveIntervalSeconds = 20)
     {
