@@ -14,6 +14,7 @@
 */
 
 using Newtonsoft.Json;
+using QuantConnect.Securities;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
 
 namespace QuantConnect.Brokerages.Tastytrade;
@@ -46,4 +47,19 @@ public static class Extensions
     {
         return JsonConvert.DeserializeObject<T>(json, JsonSettings.CamelCase);
     }
+
+    /// <summary>
+    /// Retrieves the time zone of the exchange for the given symbol.
+    /// </summary>
+    /// <param name="symbol">The symbol for which to get the exchange time zone.</param>
+    /// <returns>
+    /// The <see cref="NodaTime.DateTimeZone"/> representing the time zone of the exchange
+    /// where the given symbol is traded.
+    /// </returns>
+    /// <remarks>
+    /// This method uses the <see cref="MarketHoursDatabase"/> to fetch the exchange hours
+    /// and extract the time zone information for the provided symbol.
+    /// </remarks>
+    public static NodaTime.DateTimeZone GetSymbolExchangeTimeZone(this Symbol symbol)
+        => MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType).TimeZone;
 }

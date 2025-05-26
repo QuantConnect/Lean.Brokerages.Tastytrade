@@ -14,10 +14,16 @@
 */
 
 using System;
+using NodaTime;
+using System.Linq;
+using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Packets;
 using QuantConnect.Interfaces;
+using QuantConnect.Data.Market;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -26,6 +32,25 @@ namespace QuantConnect.Brokerages.Tastytrade;
 /// </summary>
 public partial class TastytradeBrokerage : IDataQueueHandler
 {
+    /// <summary>
+    /// Aggregates ticks and bars based on given subscriptions.
+    /// </summary>
+    private IDataAggregator _aggregator;
+
+    /// <summary>
+    /// Use like synchronization context for threads
+    /// </summary>
+    private readonly Lock _synchronizationContext = new();
+
+    /// <summary>
+    /// A thread-safe dictionary that maps a <see cref="Symbol"/> to a <see cref="DateTimeZone"/>.
+    /// </summary>
+    /// <remarks>
+    /// This dictionary is used to store the time zone information for each symbol in a concurrent environment,
+    /// ensuring thread safety when accessing or modifying the time zone data.
+    /// </remarks>
+    private readonly ConcurrentDictionary<Symbol, DateTimeZone> _exchangeTimeZoneByLeanSymbol = new();
+
     /// <summary>
     /// Sets the job we're subscribing for
     /// </summary>
@@ -70,7 +95,12 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
     protected override bool Subscribe(IEnumerable<Symbol> symbols)
     {
-        throw new NotImplementedException();
+        // TODO: use SymbolMapper
+        var brokerageSymbols = symbols.Select(x => x.Value);
+
+        MarketDataUpdatesWebSocket.Send(new FeedSubscription(brokerageSymbols).ToJson());
+
+        return true;
     }
 
     /// <summary>
@@ -79,10 +109,32 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
     private bool Unsubscribe(IEnumerable<Symbol> symbols)
     {
-        throw new NotImplementedException();
+        // TODO: use SymbolMapper
+        var brokerageSymbols = symbols.Select(x => x.Value);
+
+        MarketDataUpdatesWebSocket.Send(new FeedUnSubscription(brokerageSymbols).ToJson());
+
+        return true;
     }
 
-    protected override void OnMarketDataMessage(object sender, WebSocketMessage e)
+    protected override void OnTradeReceived(TradeContent trade)
+    {
+        var leanSymbol = trade.Symbol; // TODO: Get LeanSymbol
+
+        if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(leanSymbol, out var exchangeTimeZone))
+        {
+            return;
+        }
+
+        var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone), leanSymbol, string.Empty, string.Empty, trade.Size, trade.Price);
+
+        lock (_synchronizationContext)
+        {
+            _aggregator.Update(tick);
+        }
+    }
+
+    protected override void OnQuoteReceived(QuoteContent quote)
     {
         throw new NotImplementedException();
     }

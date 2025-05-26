@@ -14,7 +14,9 @@
 */
 
 using System;
+using System.Linq;
 using NUnit.Framework;
+using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
@@ -199,7 +201,120 @@ public class TastytradeJsonConverterTests
     {
         var feedSetupJson = new FeedSetup().ToJson();
 
-        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventType\",\"eventTime\",\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventType\",\"eventTime\",\"eventSymbol\",\"price\",\"size\"]}}", feedSetupJson);
+        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventSymbol\",\"price\",\"size\",\"time\"]}}", feedSetupJson);
+    }
+
+    [Test]
+    public void SerializeFeedSubscriptionMessage()
+    {
+        var tickers = new List<string>() { "AAPL" };
+
+        var feedSubscription = new FeedSubscription(tickers).ToJson();
+
+        AssertIsNotNullAndIsNotEmpty(feedSubscription);
+        Assert.AreEqual("{\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1,\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}]}", feedSubscription);
+    }
+
+    [Test]
+    public void SerializeFeedUnSubscriptionMessage()
+    {
+        var tickers = new List<string>() { "AAPL" };
+
+        var feedUnSubscription = new FeedUnSubscription(tickers).ToJson();
+
+        AssertIsNotNullAndIsNotEmpty(feedUnSubscription);
+        Assert.AreEqual("{\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1,\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}]}", feedUnSubscription);
+    }
+
+    [Test]
+    public void SerializeFeedSubscriptionMessageWithFiveTickers()
+    {
+        var tickers = new List<string>() { "AAPL", "INTL", "META", "TSLA", "GOOGL" };
+
+        var feedSubscription = new FeedSubscription(tickers).ToJson();
+
+        AssertIsNotNullAndIsNotEmpty(feedSubscription);
+    }
+
+    [Test]
+    public void DeserializeFeedDataTradeStreamResponse()
+    {
+        var feedDataResponseJson = @"{
+    ""type"": ""FEED_DATA"",
+    ""channel"": 1,
+    ""data"": [
+        ""Trade"",
+        [
+            ""AMZN"",
+            201.5417,
+            257.0,
+            1748020169744,
+            ""TSLA"",
+            340.89,
+            100.0,
+            1748020169011,
+            ""AAPL"",
+            196.1,
+            200.0,
+            1748020168804
+        ]
+    ]
+}";
+        var feedData = feedDataResponseJson.DeserializeCamelCase<FeedData>();
+
+        Assert.IsNotNull(feedData);
+        Assert.AreEqual(EventType.FeedData, feedData.Type);
+        Assert.AreEqual(1, feedData.Channel);
+        Assert.AreEqual(MarketDataEvent.Trade, feedData.Data.EventType);
+        Assert.AreEqual(3, feedData.Data.Content.Count);
+        Assert.IsInstanceOf<IReadOnlyCollection<TradeContent>>(feedData.Data.Content);
+        foreach (var trade in feedData.Data.Content.Cast<TradeContent>())
+        {
+            AssertIsNotNullAndIsNotEmpty(trade.Symbol);
+            Assert.Greater(trade.Price, 0);
+            Assert.Greater(trade.Size, 0);
+            Assert.AreNotEqual(default, trade.TradeDateTime);
+        }
+    }
+
+    [Test]
+    public void DeserializeFeedDataQuoteStreamResponse()
+    {
+        var feedDataResponseJson = @"{
+    ""type"": ""FEED_DATA"",
+    ""channel"": 1,
+    ""data"": [
+        ""Quote"",
+        [
+            ""NVDA"",
+            131.66,
+            131.67,
+            760.0,
+            307.0,
+            ""PLTR"",
+            124.05,
+            124.07,
+            275.0,
+            326.0
+        ]
+    ]
+}";
+        var feedData = feedDataResponseJson.DeserializeCamelCase<FeedData>();
+
+        Assert.IsNotNull(feedData);
+        Assert.AreEqual(EventType.FeedData, feedData.Type);
+        Assert.AreEqual(1, feedData.Channel);
+        Assert.AreEqual(MarketDataEvent.Quote, feedData.Data.EventType);
+        Assert.AreEqual(2, feedData.Data.Content.Count);
+        Assert.IsInstanceOf<IReadOnlyCollection<QuoteContent>>(feedData.Data.Content);
+        foreach (var quote in feedData.Data.Content.Cast<QuoteContent>())
+        {
+            AssertIsNotNullAndIsNotEmpty(quote.Symbol);
+            Assert.Greater(quote.AskPrice, 0);
+            Assert.Greater(quote.BidPrice, 0);
+            Assert.Greater(quote.AskSize, 0);
+            Assert.Greater(quote.BidSize, 0);
+        }
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

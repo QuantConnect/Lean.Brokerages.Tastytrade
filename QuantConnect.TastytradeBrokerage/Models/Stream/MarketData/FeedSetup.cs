@@ -66,12 +66,13 @@ public readonly struct AcceptEventFields
     /// <summary>
     /// Gets the list of fields to receive for Quote events.
     /// </summary>
+    /// <remarks>NOTE: The following Quote fields — "bidTime", "askTime", "timeNanoPart", "eventTime" — are known to return 0 from the API.</remarks>
     [JsonProperty(nameof(Quote))]
-    public string[] Quote => ["eventType", "eventTime", "eventSymbol", "bidPrice", "askPrice", "bidSize", "askSize"];
+    public string[] Quote => ["eventSymbol", "bidPrice", "askPrice", "bidSize", "askSize"];
 
     /// <summary>
     /// Gets the list of fields to receive for Trade events.
     /// </summary>
     [JsonProperty(nameof(Trade))]
-    public string[] Trade => ["eventType", "eventTime", "eventSymbol", "price", "size"];
+    public string[] Trade => ["eventSymbol", "price", "size", "time"];
 }

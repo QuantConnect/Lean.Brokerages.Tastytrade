@@ -81,6 +81,51 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
         Assert.IsTrue(keepAliveResetEvent.WaitOne(TimeSpan.FromSeconds(200), cancellationTokenSource.Token), assertErrorMessage);
     }
 
+    private static IEnumerable<TestCaseData> TestParameters
+    {
+        get
+        {
+            yield return new TestCaseData(new List<string> { "AAPL", "AMZN", "TSLA", "ITNL", "NVDA", "PLTR" });
+
+        }
+    }
+
+    [Test, TestCaseSource(nameof(TestParameters))]
+    public void SubscribeOnTickers(List<string> tickers)
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        using var authenticateResetEvent = new AutoResetEvent(false);
+        using var marketDataReceiveResetEvent = new AutoResetEvent(false);
+        using var testDualWebSocketsBrokerage = new TestDualWebSocketsBrokerage("Tastytrade");
+
+        testDualWebSocketsBrokerage.ExceptionResponse += (_, exception) =>
+        {
+            cancellationTokenSource.Cancel();
+        };
+
+        testDualWebSocketsBrokerage.AuthenticationResponse += (_, authenticationResponse) =>
+        {
+            authenticateResetEvent.Set();
+        };
+
+        var marketDataReceiveCounter = 0;
+        testDualWebSocketsBrokerage.MarketDataResponse += (_, message) =>
+        {
+            if (marketDataReceiveCounter++ >= 50)
+            {
+                marketDataReceiveResetEvent.Set();
+            }
+        };
+
+        testDualWebSocketsBrokerage.Connect();
+
+        Assert.IsTrue(authenticateResetEvent.WaitOne(TimeSpan.FromSeconds(10), cancellationTokenSource.Token), "Authentication did not complete successfully within the timeout.");
+
+        testDualWebSocketsBrokerage.SubscribeOnTickers(tickers);
+
+        Assert.IsTrue(marketDataReceiveResetEvent.WaitOne(TimeSpan.FromSeconds(100), cancellationTokenSource.Token));
+    }
+
 
     public sealed class TestDualWebSocketsBrokerage : DualWebSocketsBrokerage
     {
@@ -89,6 +134,8 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
         public event EventHandler<Exception> ExceptionResponse;
 
         public event EventHandler KeepAliveResponse;
+
+        public event EventHandler<string> MarketDataResponse;
 
         public override bool IsConnected => MarketDataUpdatesWebSocket?.IsOpen ?? false;
 
@@ -108,7 +155,7 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
             switch (e.Data)
             {
                 case WebSocketClientWrapper.TextMessage textMessage:
-                    Log.Debug($"{nameof(TestDualWebSocketsBrokerage)}.OnMessage.WebSocketMessage: {textMessage.Message}");
+                    Log.Debug($"{nameof(TestDualWebSocketsBrokerage)}.OnMarketDataMessage.WebSocketMessage: {textMessage.Message}");
 
                     var connectResponse = textMessage.Message.DeserializeCamelCase<BaseResponse>();
                     switch (connectResponse.Type)
@@ -119,12 +166,34 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
                         case EventType.KeepAlive:
                             KeepAliveResponse?.Invoke(this, new());
                             break;
+                        case EventType.FeedData:
+                            MarketDataResponse?.Invoke(this, textMessage.Message);
+                            break;
                     }
 
                     break;
                 default:
                     throw new NotSupportedException();
             }
+        }
+
+        public void SubscribeOnTickers(IEnumerable<string> brokerageTickers)
+        {
+            var msg = new FeedSubscription(brokerageTickers).ToJson();
+
+            Log.Debug($"{nameof(TestDualWebSocketsBrokerage)}.{nameof(SubscribeOnTickers)}.Send.Msg: " + msg);
+
+            MarketDataUpdatesWebSocket.Send(msg);
+        }
+
+        protected override void OnTradeReceived(TradeContent trade)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override void OnQuoteReceived(QuoteContent quote)
+        {
+            throw new NotImplementedException();
         }
 
         public override void Disconnect()

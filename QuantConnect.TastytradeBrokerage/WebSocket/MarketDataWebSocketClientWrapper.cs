@@ -107,6 +107,14 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
         Task.Run(() => HandleWebSocketConnection(token));
     }
 
+    /// <summary>
+    /// Establishes and authenticates a WebSocket connection by sending a series of setup, authorization,
+    /// and configuration messages. Waits for specific events to confirm successful communication steps.
+    /// </summary>
+    /// <param name="token">The authorization token required for the connection.</param>
+    /// <exception cref="TimeoutException">Thrown when a response is not received within the expected timeframe.</exception>
+    /// <exception cref="Exception">Thrown when an error message is received from the WebSocket stream.</exception>
+    /// <exception cref="NotSupportedException">Thrown when an unexpected message type is received.</exception>
     private void HandleWebSocketConnection(string token)
     {
         using var autoResetEvent = new AutoResetEvent(false);
@@ -122,6 +130,8 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
                 switch (connectResponse.Type)
                 {
                     case EventType.Setup:
+                    case EventType.FeedConfig:
+                    case EventType.ChannelOpened:
                         autoResetEvent.Set();
                         break;
                     case EventType.AuthorizationState:
@@ -130,12 +140,6 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
                         {
                             autoResetEvent.Set();
                         }
-                        break;
-                    case EventType.ChannelOpened:
-                        autoResetEvent.Set();
-                        break;
-                    case EventType.FeedConfig:
-                        autoResetEvent.Set();
                         break;
                     case EventType.Error:
                         var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
@@ -152,41 +156,40 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
 
             // 1. SETUP
             Send(new SetupConnection().ToJson());
-
-            if (!autoResetEvent.WaitOne(TimeSpan.FromSeconds(5)))
-            {
-                throw new TimeoutException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
-            }
+            WaitOrTimeout(autoResetEvent, "SETUP");
 
             // 2. AUTHORIZE
             Send(new Authorization(token).ToJson());
-
-            if (!autoResetEvent.WaitOne(TimeSpan.FromSeconds(5)))
-            {
-                throw new TimeoutException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
-            }
+            WaitOrTimeout(autoResetEvent, "AUTHORIZE");
 
             // 3. CHANNEL_REQUEST
             Send(new ChannelRequest().ToJson());
-
-            if (!autoResetEvent.WaitOne(TimeSpan.FromSeconds(5)))
-            {
-                throw new TimeoutException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
-            }
+            WaitOrTimeout(autoResetEvent, "CHANNEL_REQUEST");
 
             // 4. FEED_SETUP
             Send(new FeedSetup().ToJson());
-
-            if (!autoResetEvent.WaitOne(TimeSpan.FromSeconds(5)))
-            {
-                throw new TimeoutException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
-            }
+            WaitOrTimeout(autoResetEvent, "FEED_SETUP");
 
             AuthenticatedResetEvent.Set();
         }
         finally
         {
             Message -= OnMessageReceived;
+        }
+    }
+
+    /// <summary>
+    /// Waits for the AutoResetEvent to be signaled within the given timeout in seconds.
+    /// Throws TimeoutException with detailed step information if the wait times out.
+    /// </summary>
+    /// <param name="autoResetEvent">The AutoResetEvent to wait on.</param>
+    /// <param name="step">The descriptive step name for the timeout exception message.</param>
+    /// <param name="timeoutSeconds">The maximum time to wait in seconds. Default is 5 seconds.</param>
+    private static void WaitOrTimeout(AutoResetEvent autoResetEvent, string step, int timeoutSeconds = 5)
+    {
+        if (!autoResetEvent.WaitOne(TimeSpan.FromSeconds(timeoutSeconds)))
+        {
+            throw new TimeoutException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)} Timeout waiting for {step} response.");
         }
     }
 }

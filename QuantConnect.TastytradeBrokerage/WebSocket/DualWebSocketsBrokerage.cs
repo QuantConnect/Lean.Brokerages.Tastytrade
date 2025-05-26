@@ -19,6 +19,8 @@ using QuantConnect.Data;
 using QuantConnect.Logging;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Api;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
 
@@ -99,7 +101,48 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     /// <param name="e"></param>
     protected abstract void OnMessage(object sender, WebSocketMessage e);
 
-    protected abstract void OnMarketDataMessage(object sender, WebSocketMessage e);
+    protected abstract void OnTradeReceived(TradeContent trade);
+    protected abstract void OnQuoteReceived(QuoteContent quote);
+
+    protected virtual void OnMarketDataMessage(object _, WebSocketMessage webSocketMessage)
+    {
+        if (webSocketMessage.Data is WebSocketClientWrapper.TextMessage textMessage)
+        {
+            var connectResponse = textMessage.Message.DeserializeCamelCase<BaseResponse>();
+            switch (connectResponse.Type)
+            {
+                case EventType.FeedData:
+                    var feedData = textMessage.Message.DeserializeCamelCase<FeedData>();
+                    switch (feedData.Data.EventType)
+                    {
+                        case MarketDataEvent.Trade:
+                            foreach (var trade in feedData.Data.Content.Cast<TradeContent>())
+                            {
+                                OnTradeReceived(trade);
+                            }
+                            break;
+                        case MarketDataEvent.Quote:
+                            foreach (var quote in feedData.Data.Content.Cast<QuoteContent>())
+                            {
+                                OnQuoteReceived(quote);
+                            }
+                            break;
+                    }
+                    break;
+                case EventType.Setup:
+                case EventType.FeedConfig:
+                case EventType.ChannelOpened:
+                case EventType.AuthorizationState:
+                    break;
+                case EventType.Error:
+                    var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
+                    throw new Exception($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMarketDataMessage)}.Error: {errorResponse}");
+                default:
+                    throw new NotSupportedException($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMarketDataMessage)}.Response.Message: {textMessage.Message}");
+            }
+        }
+        throw new NotSupportedException();
+    }
 
     /// <summary>
     /// Creates wss connection, monitors for disconnection and re-connects when necessary

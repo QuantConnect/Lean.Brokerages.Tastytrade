@@ -91,4 +91,18 @@ public enum EventType
     /// </summary>
     [EnumMember(Value = "FEED_CONFIG")]
     FeedConfig = 9,
+
+    /// <summary>
+    /// An event that signals subscription status to a data feed.
+    /// This may include confirmation or failure details related to a subscription request.
+    /// </summary>
+    [EnumMember(Value = "FEED_SUBSCRIPTION")]
+    FeedSubscription = 10,
+
+    /// <summary>
+    /// Real-time market data content sent by the feed after subscription.
+    /// Typically includes quotes, trades, or other financial instruments data.
+    /// </summary>
+    [EnumMember(Value = "FEED_DATA")]
+    FeedData = 11,
 }

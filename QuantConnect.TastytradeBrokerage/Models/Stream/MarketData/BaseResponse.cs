@@ -21,7 +21,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// <summary>
 /// Represents a basic response message received over a WebSocket connection.
 /// </summary>
-public readonly struct BaseResponse
+public class BaseResponse
 {
     /// <summary>
     /// Gets the type of the event, which is used to determine how to handle the response.

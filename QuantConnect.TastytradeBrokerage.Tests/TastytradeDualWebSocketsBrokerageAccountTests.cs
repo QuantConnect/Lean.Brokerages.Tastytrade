@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -164,5 +165,9 @@ public class TastytradeDualWebSocketsBrokerageAccountTests
         public override bool PlaceOrder(Order order) => throw new NotImplementedException();
 
         public override bool UpdateOrder(Order order) => throw new NotImplementedException();
+
+        protected override void OnTradeReceived(TradeContent trade) => throw new NotImplementedException();
+
+        protected override void OnQuoteReceived(QuoteContent quote) => throw new NotImplementedException();
     }
 }

@@ -35,8 +35,6 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     /// </summary>
     private static readonly string BrokerageName = "Tastytrade";
 
-    private IDataAggregator _aggregator;
-
     private EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
 
     /// <summary>

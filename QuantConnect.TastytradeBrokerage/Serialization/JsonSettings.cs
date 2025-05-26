@@ -40,5 +40,6 @@ public static class JsonSettings
     public static readonly JsonSerializerSettings CamelCase = new()
     {
         ContractResolver = CamelCaseContractResolver.Instance,
+        NullValueHandling = NullValueHandling.Ignore
     };
 }
