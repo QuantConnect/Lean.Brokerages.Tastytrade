@@ -317,6 +317,111 @@ public class TastytradeJsonConverterTests
         }
     }
 
+    [Test]
+    public void DeserializeFutureResponse()
+    {
+        var instrumentFutureResponseJson = @"{
+    ""data"": {
+        ""active"": true,
+        ""active-month"": false,
+        ""back-month-first-calendar-symbol"": false,
+        ""closing-only-date"": ""2025-05-23"",
+        ""contract-size"": ""42000.0"",
+        ""display-factor"": ""0.0001"",
+        ""exchange"": ""CME"",
+        ""exchange-symbol"": ""RBM5"",
+        ""expiration-date"": ""2025-05-30"",
+        ""expires-at"": ""2025-05-30T18:30:00.000+00:00"",
+        ""first-notice-date"": ""2025-06-03"",
+        ""product-group"": ""NYMEX_ENERGY"",
+        ""is-closing-only"": true,
+        ""last-trade-date"": ""2025-05-30"",
+        ""main-fraction"": ""0.0"",
+        ""next-active-month"": false,
+        ""notional-multiplier"": ""42000.0"",
+        ""product-code"": ""RB"",
+        ""roll-target-symbol"": ""/RBN5"",
+        ""stops-trading-at"": ""2025-05-30T18:30:00.000+00:00"",
+        ""streamer-exchange-code"": ""XNYM"",
+        ""streamer-symbol"": ""/RBM25:XNYM"",
+        ""sub-fraction"": ""0.0"",
+        ""symbol"": ""/RBM5"",
+        ""tick-size"": ""0.0001"",
+        ""is-tradeable"": true,
+        ""future-product"": {
+            ""active-months"": [
+                ""F"",
+                ""G"",
+                ""H"",
+                ""J"",
+                ""K"",
+                ""M"",
+                ""N"",
+                ""Q"",
+                ""U"",
+                ""V"",
+                ""X"",
+                ""Z""
+            ],
+            ""back-month-first-calendar-symbol"": false,
+            ""cash-settled"": false,
+            ""clearing-code"": ""RB"",
+            ""clearing-exchange-code"": ""07"",
+            ""clearport-code"": ""RB"",
+            ""code"": ""RB"",
+            ""description"": ""RBOB Gasoline Futures"",
+            ""display-factor"": ""0.0001"",
+            ""exchange"": ""CME"",
+            ""first-notice"": false,
+            ""legacy-code"": ""RB"",
+            ""legacy-exchange-code"": ""NYM"",
+            ""listed-months"": [
+                ""F"",
+                ""G"",
+                ""H"",
+                ""J"",
+                ""K"",
+                ""M"",
+                ""N"",
+                ""Q"",
+                ""U"",
+                ""V"",
+                ""X"",
+                ""Z""
+            ],
+            ""market-sector"": ""Energy"",
+            ""notional-multiplier"": ""42000.0"",
+            ""price-format"": ""decimal"",
+            ""product-type"": ""Physical"",
+            ""security-group"": ""CL"",
+            ""small-notional"": false,
+            ""streamer-exchange-code"": ""XNYM"",
+            ""supported"": true,
+            ""root-symbol"": ""/RB"",
+            ""tick-size"": ""0.0001"",
+            ""roll"": {
+                ""active-count"": 13,
+                ""business-days-offset"": 5,
+                ""cash-settled"": false,
+                ""first-notice"": false,
+                ""name"": ""energies""
+            }
+        },
+        ""tick-sizes"": [
+            {
+                ""value"": ""0.0001""
+            }
+        ]
+    },
+    ""context"": ""/instruments/futures/RBM5""
+}";
+
+        var instrumentFuture = instrumentFutureResponseJson.DeserializeKebabCase<BaseResponse<Future>>();
+
+        Assert.IsNotNull(instrumentFuture);
+        AssertIsNotNullAndIsNotEmpty(instrumentFuture.Context, instrumentFuture.Data.Symbol, instrumentFuture.Data.StreamerSymbol);
+    }
+
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)
     {
         foreach (var item in expected)

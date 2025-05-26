@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -89,6 +89,19 @@ public sealed class TastytradeApiClient
     public async Task<ApiQuoteTokenResponse> GetApiQuoteToken()
     {
         return (await SendRequestAsync<ApiQuoteTokenResponse>(HttpMethod.Get, "/api-quote-tokens")).Data;
+    }
+
+    /// <summary>
+    /// Retrieves an outright future instrument by its ticker symbol.
+    /// </summary>
+    /// <param name="futureTicker">The symbol of the future (e.g., "/ESM5").</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation. The task result contains a <see cref="Future"/> 
+    /// representing basic metadata of the requested future.
+    /// </returns>
+    public async Task<Future> GetInstrumentFuture(string futureTicker)
+    {
+        return (await SendRequestAsync<Future>(HttpMethod.Get, "/instruments/futures/" + futureTicker)).Data;
     }
 
     /// <summary>
