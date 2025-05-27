@@ -14,12 +14,14 @@
 */
 
 using System;
+using System.Text;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 
 namespace QuantConnect.Brokerages.Tastytrade.Api;
 
@@ -105,18 +107,36 @@ public sealed class TastytradeApiClient
     }
 
     /// <summary>
+    /// Submits a brokerage order to the specified account.
+    /// </summary>
+    /// <param name="order">The brokerage order to be submitted.</param>
+    /// <returns>
+    /// The task result contains the <see cref="OrderResponse"/> returned by the brokerage API.
+    /// </returns>
+    public async Task<OrderResponse> SubmitOrder(OrderBaseRequest order)
+    {
+        return (await SendRequestAsync<OrderResponse>(HttpMethod.Post, $"/accounts/{AccountNumber}/orders", order.ToJson())).Data;
+    }
+
+    /// <summary>
     /// Sends an HTTP request and parses the response from the Tastytrade API.
     /// </summary>
     /// <typeparam name="T">The type of the expected response data.</typeparam>
     /// <param name="httpMethod">The HTTP method to use (e.g., GET, POST).</param>
     /// <param name="endpoint">The API endpoint relative to the base URL.</param>
+    /// <param name="jsonBody">An optional JSON payload to include in the request body, applicable for methods like POST or PUT.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the parsed API response.</returns>
     /// <exception cref="HttpRequestException">Thrown when the API response indicates a failure.</exception>
     /// <exception cref="Exception">Thrown when an unexpected error occurs while sending the request.</exception>
-    private async Task<BaseResponse<T>> SendRequestAsync<T>(HttpMethod httpMethod, string endpoint)
+    private async Task<BaseResponse<T>> SendRequestAsync<T>(HttpMethod httpMethod, string endpoint, string jsonBody = null)
     {
         using (var requestMessage = new HttpRequestMessage(httpMethod, _baseUrl + endpoint))
         {
+            if (jsonBody != null)
+            {
+                requestMessage.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+            }
+
             try
             {
                 var responseMessage = await _httpClient.SendAsync(requestMessage);
@@ -126,7 +146,7 @@ public sealed class TastytradeApiClient
                 if (!responseMessage.IsSuccessStatusCode)
                 {
                     var error = response.DeserializeKebabCase<ErrorResponse>().Error;
-                    throw new HttpRequestException(error.ToString() + $", RequestUri: {requestMessage.RequestUri}", null, responseMessage.StatusCode);
+                    throw new HttpRequestException(error.ToString() + $", RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}", null, responseMessage.StatusCode);
                 }
 
                 if (Log.DebuggingEnabled)

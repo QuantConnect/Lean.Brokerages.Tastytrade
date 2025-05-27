@@ -43,6 +43,11 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     private TastytradeApiClient _tastytradeApiClient;
 
     /// <summary>
+    /// Provides the mapping between Lean symbols and brokerage specific symbols.
+    /// </summary>
+    private TastytradeBrokerageSymbolMapper _symbolMapper;
+
+    /// <summary>
     /// Returns true if we're currently connected to the broker
     /// </summary>
     public override bool IsConnected { get; }
@@ -66,7 +71,9 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
         _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
         _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
 
+        _securityProvider = algorithm?.Portfolio;
         _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
+        _symbolMapper = new(_tastytradeApiClient);
 
         _aggregator = Composer.Instance.GetPart<IDataAggregator>();
         if (_aggregator == null)

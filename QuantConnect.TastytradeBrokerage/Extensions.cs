@@ -13,9 +13,13 @@
  * limitations under the License.
 */
 
+using System;
 using Newtonsoft.Json;
 using QuantConnect.Securities;
+using QuantConnect.Orders.TimeInForces;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
+using BrokerageTimeInForce = QuantConnect.Brokerages.Tastytrade.Models.Enum.TimeInForce;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -62,4 +66,51 @@ public static class Extensions
     /// </remarks>
     public static NodaTime.DateTimeZone GetSymbolExchangeTimeZone(this Symbol symbol)
         => MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType).TimeZone;
+
+    /// <summary>
+    /// Gets the BrokerageTimeInForce and optional cancellation time based on the TimeInForce value.
+    /// </summary>
+    /// <param name="timeInForce">The TimeInForce value.</param>
+    /// <returns>A tuple containing the Duration and optional expiry DateTime.</returns>
+    public static (BrokerageTimeInForce TimeInForce, DateTime? ExpiryDateTime) GetBrokerageTimeInForceByLeanTimeInForce(this Orders.TimeInForce timeInForce)
+    {
+        var expiryDateTime = default(DateTime?); // Use nullable DateTime for clarity
+        var duration = default(BrokerageTimeInForce);
+        switch (timeInForce)
+        {
+            case DayTimeInForce:
+                duration = BrokerageTimeInForce.Day;
+                break;
+            case GoodTilCanceledTimeInForce:
+                duration = BrokerageTimeInForce.GoodTillCancel;
+                break;
+            case GoodTilDateTimeInForce goodTilDateTime:
+                duration = BrokerageTimeInForce.GoodTilDate;
+                expiryDateTime = goodTilDateTime.Expiry;
+                break;
+            default:
+                throw new NotSupportedException($"{nameof(Extensions)}.{nameof(GetBrokerageTimeInForceByLeanTimeInForce)}: The TimeInForce '{timeInForce}' is not supported.");
+        }
+        return (duration, expiryDateTime);
+    }
+
+    /// <summary>
+    /// Converts a Lean <see cref="SecurityType"/> to the corresponding brokerage-specific <see cref="InstrumentType"/>.
+    /// </summary>
+    /// <param name="securityType">The Lean <see cref="SecurityType"/> to convert.</param>
+    /// <returns>The equivalent <see cref="InstrumentType"/> used by the brokerage.</returns>
+    /// <exception cref="NotSupportedException">
+    /// Thrown when the specified <paramref name="securityType"/> does not have a corresponding brokerage instrument type mapping.
+    /// </exception>
+    public static InstrumentType ConvertLeanSecurityTypeToBrokerageInstrumentType(this SecurityType securityType)
+    {
+        return securityType switch
+        {
+            SecurityType.Equity => InstrumentType.Equity,
+            SecurityType.Option or SecurityType.IndexOption => InstrumentType.EquityOption,
+            SecurityType.Future => InstrumentType.Future,
+            SecurityType.FutureOption => InstrumentType.FutureOption,
+            _ => throw new NotSupportedException($"{nameof(Extensions)}.{nameof(ConvertLeanSecurityTypeToBrokerageInstrumentType)}: No mapping exists for security type '{securityType}'."),
+        };
+    }
 }
