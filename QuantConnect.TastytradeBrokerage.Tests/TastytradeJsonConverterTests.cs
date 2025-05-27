@@ -16,10 +16,13 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Serialization;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
+using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -420,6 +423,55 @@ public class TastytradeJsonConverterTests
 
         Assert.IsNotNull(instrumentFuture);
         AssertIsNotNullAndIsNotEmpty(instrumentFuture.Context, instrumentFuture.Data.Symbol, instrumentFuture.Data.StreamerSymbol);
+    }
+
+    [Test]
+    public void SerializeLegAttributes()
+    {
+        var expectedLegAttributes = @"{""action"":""Buy to Open"",""instrument-type"":""Equity Option"",""quantity"":1.0,""symbol"":""AAPL  230818C00197500""}";
+
+        var legAttributes = new LegAttributes(OrderAction.BuyToOpen, InstrumentType.EquityOption, 1m, "AAPL  230818C00197500");
+
+        var actualLegAttributes = JsonConvert.SerializeObject(legAttributes, JsonSettings.KebabCase);
+
+        Assert.AreEqual(expectedLegAttributes, actualLegAttributes);
+    }
+
+    [TestCase(OrderType.Market, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.Day, null, null, null, null)]
+    [TestCase(OrderType.Market, InstrumentType.EquityOption, OrderAction.Sell, TimeInForce.GoodTilDate, "2025/05/30", null, null, null)]
+    [TestCase(OrderType.Limit, InstrumentType.Future, OrderAction.BuyToOpen, TimeInForce.GoodTillCancel, null, 100, null, Orders.OrderDirection.Buy)]
+    [TestCase(OrderType.Limit, InstrumentType.FutureOption, OrderAction.SellToClose, TimeInForce.GoodTillCancel, null, 200, null, Orders.OrderDirection.Sell)]
+    [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.GoodTilDate, "2025/05/30", null, 210, null)]
+    [TestCase(OrderType.Stop, InstrumentType.EquityOption, OrderAction.SellToOpen, TimeInForce.GoodTillCancel, null, null, 190, null)]
+    [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.Buy, TimeInForce.Day, null, null, 190, null)]
+    [TestCase(OrderType.StopLimit, InstrumentType.Equity, OrderAction.Buy, TimeInForce.GoodTilDate, "2025/05/30", 180, 190, Orders.OrderDirection.Buy)]
+    [TestCase(OrderType.StopLimit, InstrumentType.EquityOption, OrderAction.SellToOpen, TimeInForce.Day, null, 200, 190, Orders.OrderDirection.Sell)]
+    public void SerializeVariousOrderTypeRequestMessage(OrderType orderType, InstrumentType instrumentType, OrderAction legOrderAction, TimeInForce timeInForce, DateTime? expiryDateTime, decimal? limitPrice, decimal? stopPrice, Orders.OrderDirection? leanOrderDirection)
+    {
+        var legAttributes = new List<LegAttributes> { new LegAttributes(legOrderAction, instrumentType, 1m, "AAPL  230818C00197500") };
+
+        var order = default(OrderBaseRequest);
+        switch (orderType)
+        {
+            case OrderType.Market:
+                order = new MarketOrderRequest(timeInForce, expiryDateTime, legAttributes);
+                break;
+            case OrderType.Limit:
+                order = new LimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, leanOrderDirection.Value);
+                break;
+            case OrderType.Stop:
+                order = new StopMarketOrderRequest(timeInForce, expiryDateTime, legAttributes, stopPrice.Value);
+                break;
+            case OrderType.StopLimit:
+                order = new StopLimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, stopPrice.Value, leanOrderDirection.Value);
+                break;
+            default:
+                throw new NotSupportedException();
+        }
+
+        var orderJson = order.ToJson();
+
+        AssertIsNotNullAndIsNotEmpty(orderJson);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)
