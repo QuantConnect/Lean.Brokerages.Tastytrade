@@ -42,8 +42,7 @@ public class Position
     /// Values: Equity, Equity Option, Future, Future Option, Cryptocurrency.
     /// </summary>
     /// <example>Future Option</example>
-    //[JsonProperty("instrument-type")]
-    public string InstrumentType { get; }
+    public InstrumentType InstrumentType { get; }
 
     /// <summary>
     /// The symbol of the underlying instrument, if applicable.
@@ -177,7 +176,7 @@ public class Position
     /// <param name="createdAt">The date and time the position was created.</param>
     /// <param name="updatedAt">The date and time the position was last updated.</param>
     [JsonConstructor]
-    public Position(string accountNumber, string symbol, string instrumentType, string underlyingSymbol, decimal quantity, Direction quantityDirection, decimal closePrice, decimal averageOpenPrice, decimal averageYearlyMarketClosePrice, decimal averageDailyMarketClosePrice, int multiplier, string costEffect, bool isFrozen, decimal restrictedQuantity, decimal realizedDayGain, string realizedDayGainEffect, DateTime realizedDayGainDate, decimal realizedToday, string realizedTodayEffect, DateTime realizedTodayDate, DateTime createdAt, DateTime updatedAt)
+    public Position(string accountNumber, string symbol, InstrumentType instrumentType, string underlyingSymbol, decimal quantity, Direction quantityDirection, decimal closePrice, decimal averageOpenPrice, decimal averageYearlyMarketClosePrice, decimal averageDailyMarketClosePrice, int multiplier, string costEffect, bool isFrozen, decimal restrictedQuantity, decimal realizedDayGain, string realizedDayGainEffect, DateTime realizedDayGainDate, decimal realizedToday, string realizedTodayEffect, DateTime realizedTodayDate, DateTime createdAt, DateTime updatedAt)
     {
         AccountNumber = accountNumber;
         Symbol = symbol;

@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using Newtonsoft.Json;
@@ -24,6 +25,7 @@ using QuantConnect.Brokerages.Tastytrade.Serialization;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.AccountData;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -54,11 +56,31 @@ public class TastytradeJsonConverterTests
         Assert.IsNotEmpty(error.Message);
     }
 
+    [Test]
+    public void DeserializeErrorMessageFromJsonFile()
+    {
+        var jsonContent = File.ReadAllText(Path.Combine("TestData", "Error_Responses.json"));
+
+        var errorResponses = jsonContent.DeserializeKebabCase<IReadOnlyCollection<ErrorResponse>>();
+
+        foreach (var response in errorResponses)
+        {
+            AssertIsNotNullAndIsNotEmpty(response.Error.Code, response.Error.Message, response.Error.ToString());
+            if (response.Error.Errors != null)
+            {
+                foreach (var nestedError in response.Error.Errors)
+                {
+                    Assert.IsNull(nestedError.Errors);
+                    AssertIsNotNullAndIsNotEmpty(nestedError.Code, nestedError.Message);
+                }
+            }
+        }
+    }
 
     [Test]
     public void DeserializeCreateSessionResponseFromJsonFile()
     {
-        var jsonContent = System.IO.File.ReadAllText("TestData\\Create_Session_Response.json");
+        var jsonContent = File.ReadAllText(Path.Combine("TestData", "Create_Session_Response.json"));
 
         var sessionResponse = jsonContent.DeserializeKebabCase<BaseResponse<SessionResponse>>();
 
@@ -72,7 +94,7 @@ public class TastytradeJsonConverterTests
     [Test]
     public void DeserializeGetPositionsResponseFromJsonFile()
     {
-        var jsonContent = System.IO.File.ReadAllText("TestData\\Get_Positions.json");
+        var jsonContent = File.ReadAllText(Path.Combine("TestData", "Get_Positions.json"));
 
         var positions = jsonContent.DeserializeKebabCase<BaseResponse<ResponseList<Position>>>().Data.Items;
 
@@ -82,7 +104,7 @@ public class TastytradeJsonConverterTests
     [Test]
     public void DeserializeGetApiQuoteToken()
     {
-        var jsonContent = System.IO.File.ReadAllText("TestData\\Get_Api_Quote_Token.json");
+        var jsonContent = File.ReadAllText(Path.Combine("TestData", "Get_Api_Quote_Token.json"));
 
         var apiQuoteTokenResponse = jsonContent.DeserializeKebabCase<BaseResponse<ApiQuoteTokenResponse>>();
 
@@ -438,7 +460,7 @@ public class TastytradeJsonConverterTests
     }
 
     [TestCase(OrderType.Market, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.Day, null, null, null, null)]
-    [TestCase(OrderType.Market, InstrumentType.EquityOption, OrderAction.Sell, TimeInForce.GoodTilDate, "2025/05/30", null, null, null)]
+    [TestCase(OrderType.Market, InstrumentType.EquityOption, OrderAction.Sell, TimeInForce.Day, null, null, null, null)]
     [TestCase(OrderType.Limit, InstrumentType.Future, OrderAction.BuyToOpen, TimeInForce.GoodTillCancel, null, 100, null, Orders.OrderDirection.Buy)]
     [TestCase(OrderType.Limit, InstrumentType.FutureOption, OrderAction.SellToClose, TimeInForce.GoodTillCancel, null, 200, null, Orders.OrderDirection.Sell)]
     [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.GoodTilDate, "2025/05/30", null, 210, null)]
@@ -454,7 +476,7 @@ public class TastytradeJsonConverterTests
         switch (orderType)
         {
             case OrderType.Market:
-                order = new MarketOrderRequest(timeInForce, expiryDateTime, legAttributes);
+                order = new MarketOrderRequest(legAttributes);
                 break;
             case OrderType.Limit:
                 order = new LimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, leanOrderDirection.Value);
@@ -472,6 +494,128 @@ public class TastytradeJsonConverterTests
         var orderJson = order.ToJson();
 
         AssertIsNotNullAndIsNotEmpty(orderJson);
+    }
+
+    [Test]
+    public void DeserializeSubmitOrderResponse()
+    {
+        var jsonContent = @"{
+    ""data"": {
+        ""order"": {
+            ""id"": 270561,
+            ""account-number"": ""5WX06827"",
+            ""cancellable"": false,
+            ""editable"": false,
+            ""edited"": false,
+            ""global-request-id"": ""f6c5863356cf1be83fed349d54ee4862"",
+            ""order-type"": ""Market"",
+            ""received-at"": ""2025-05-28T13:38:47.851+00:00"",
+            ""size"": 1,
+            ""status"": ""Routed"",
+            ""time-in-force"": ""Day"",
+            ""underlying-instrument-type"": ""Equity"",
+            ""underlying-symbol"": ""AAPL"",
+            ""updated-at"": 1748439528049,
+            ""legs"": [
+                {
+                    ""action"": ""Buy to Open"",
+                    ""instrument-type"": ""Equity"",
+                    ""quantity"": 1,
+                    ""remaining-quantity"": 1,
+                    ""symbol"": ""AAPL"",
+                    ""fills"": []
+                }
+            ]
+        },
+        ""warnings"": []
+    },
+    ""context"": ""/accounts/5WX06827/orders""
+}";
+
+        var orderResponse = jsonContent.DeserializeKebabCase<BaseResponse<OrderResponse>>();
+
+        var order = orderResponse.Data.Order;
+
+        AssertIsNotNullAndIsNotEmpty(order.Id);
+        Assert.IsNotNull(order.Legs);
+        Assert.AreEqual(1, order.Legs.Count);
+        Assert.AreEqual(OrderStatus.Routed, order.Status);
+
+        var leg = order.Legs.First();
+        Assert.AreEqual(OrderAction.BuyToOpen, leg.Action);
+        Assert.AreEqual(1m, leg.Quantity);
+        Assert.AreEqual(1m, leg.RemainingQuantity);
+        Assert.AreEqual(0, leg.Fills.Count);
+    }
+
+    [Test]
+    public void DeserializeStreamFilledOrderMessage()
+    {
+        var jsonContent = @"{
+    ""type"": ""Order"",
+    ""data"": {
+        ""id"": 270602,
+        ""account-number"": ""5WX06827"",
+        ""cancellable"": false,
+        ""editable"": false,
+        ""edited"": false,
+        ""ext-client-order-id"": ""0a000000d40004210a"",
+        ""ext-exchange-order-number"": ""910533337354"",
+        ""ext-global-order-number"": 212,
+        ""global-request-id"": ""cac193dce95dd480f7c191e8655f54a9"",
+        ""order-type"": ""Market"",
+        ""received-at"": ""2025-05-28T16:00:01.651+00:00"",
+        ""size"": 1,
+        ""status"": ""Filled"",
+        ""terminal-at"": ""2025-05-28T16:00:02.550+00:00"",
+        ""time-in-force"": ""Day"",
+        ""underlying-instrument-type"": ""Equity"",
+        ""underlying-symbol"": ""AAPL"",
+        ""updated-at"": 1748448002553,
+        ""legs"": [
+            {
+                ""action"": ""Buy to Open"",
+                ""instrument-type"": ""Equity"",
+                ""quantity"": 1,
+                ""remaining-quantity"": 0,
+                ""symbol"": ""AAPL"",
+                ""fills"": [
+                    {
+                        ""destination-venue"": ""TEST_A"",
+                        ""ext-exec-id"": ""134"",
+                        ""ext-group-fill-id"": ""0"",
+                        ""fill-id"": ""2_TW::TEST_A1::20250528.135-TEST_FILL"",
+                        ""fill-price"": ""1.0"",
+                        ""filled-at"": ""2025-05-28T16:00:01.953+00:00"",
+                        ""quantity"": 1
+                    }
+                ]
+            }
+        ]
+    },
+    ""timestamp"": 1748448002620
+}";
+
+        var accountData = jsonContent.DeserializeKebabCase<AccountData>();
+
+        Assert.AreEqual(EventType.Order, accountData.Type);
+
+        var order = accountData.Order;
+        Assert.AreEqual(OrderStatus.Filled, order.Status);
+        AssertIsNotNullAndIsNotEmpty(order.Id);
+
+        Assert.AreEqual(1, order.Legs.Count);
+        var leg = accountData.Order.Legs.First();
+
+        Assert.AreEqual(OrderAction.BuyToOpen, leg.Action);
+        Assert.AreEqual(1m, leg.Quantity);
+        Assert.AreEqual(0m, leg.RemainingQuantity);
+
+        Assert.AreEqual(1m, leg.Fills.Count);
+        var fill = leg.Fills.First();
+        Assert.AreEqual(1m, fill.Quantity);
+        Assert.AreEqual(1m, fill.FillPrice);
+        Assert.AreNotEqual(default, fill.FilledAt);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

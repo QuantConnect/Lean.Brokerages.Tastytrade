@@ -1,0 +1,117 @@
+{
+    "data": {
+        "buying-power-effect": {
+            "change-in-margin-requirement": "1.0",
+            "change-in-margin-requirement-effect": "Debit",
+            "change-in-buying-power": "1.001",
+            "change-in-buying-power-effect": "Debit",
+            "current-buying-power": "1000000.0",
+            "current-buying-power-effect": "Credit",
+            "new-buying-power": "999999.999",
+            "new-buying-power-effect": "Credit",
+            "isolated-order-margin-requirement": "0.0",
+            "isolated-order-margin-requirement-effect": "None",
+            "is-spread": false,
+            "impact": "1.001",
+            "effect": "Debit"
+        },
+        "fee-calculation": {
+            "regulatory-fees": "0.0",
+            "regulatory-fees-effect": "None",
+            "regulatory-fees-breakdown": [
+                {
+                    "name": "exchange",
+                    "value": "0.0",
+                    "effect": "None"
+                },
+                {
+                    "name": "nfa",
+                    "value": "0.0",
+                    "effect": "None"
+                },
+                {
+                    "name": "orf",
+                    "value": "0.0",
+                    "effect": "None"
+                },
+                {
+                    "name": "sec",
+                    "value": "0.0",
+                    "effect": "None"
+                },
+                {
+                    "name": "taf",
+                    "value": "0.0",
+                    "effect": "None"
+                }
+            ],
+            "clearing-fees": "0.001",
+            "clearing-fees-effect": "Debit",
+            "clearing-fees-breakdown": [
+                {
+                    "name": "clearing",
+                    "value": "0.001",
+                    "effect": "Debit"
+                }
+            ],
+            "commission": "0.0",
+            "commission-effect": "None",
+            "commission-breakdown": [
+                {
+                    "name": "brokerage",
+                    "value": "0.0",
+                    "effect": "None"
+                }
+            ],
+            "proprietary-index-option-fees": "0.0",
+            "proprietary-index-option-fees-effect": "None",
+            "proprietary-fees-breakdown": [
+                {
+                    "name": "proprietary",
+                    "value": "0.0",
+                    "effect": "None"
+                }
+            ],
+            "total-fees": "0.001",
+            "total-fees-effect": "Debit",
+            "rebates": "0.0",
+            "rebates-effect": "None",
+            "rebates-breakdown": [
+                {
+                    "name": "rebate",
+                    "value": "0.0",
+                    "effect": "None"
+                }
+            ],
+            "per-quantity": false
+        },
+        "order": {
+            "id": 270561,
+            "account-number": "5WX06827",
+            "cancellable": false,
+            "editable": false,
+            "edited": false,
+            "global-request-id": "f6c5863356cf1be83fed349d54ee4862",
+            "order-type": "Market",
+            "received-at": "2025-05-28T13:38:47.851+00:00",
+            "size": 1,
+            "status": "Routed",
+            "time-in-force": "Day",
+            "underlying-instrument-type": "Equity",
+            "underlying-symbol": "AAPL",
+            "updated-at": 1748439528049,
+            "legs": [
+                {
+                    "action": "Buy to Open",
+                    "instrument-type": "Equity",
+                    "quantity": 1,
+                    "remaining-quantity": 1,
+                    "symbol": "AAPL",
+                    "fills": []
+                }
+            ]
+        },
+        "warnings": []
+    },
+    "context": "/accounts/5WX06827/orders"
+}

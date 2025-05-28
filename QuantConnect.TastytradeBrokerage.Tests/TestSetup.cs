@@ -82,7 +82,7 @@ public class TestSetup
         get
         {
             SetUp();
-            return new[] { new TestCaseData() };
+            return [new TestCaseData()];
         }
     }
 }

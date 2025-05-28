@@ -13,7 +13,9 @@
  * limitations under the License.
 */
 
+using System.Text;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
@@ -45,7 +47,7 @@ public readonly struct ErrorResponse
 }
 
 /// <summary>
-/// Represents a detailed error with a code and message.
+/// Represents a detailed error with a code, message, and optional nested errors.
 /// </summary>
 public readonly struct Error
 {
@@ -60,12 +62,18 @@ public readonly struct Error
     public string Message { get; }
 
     /// <summary>
+    /// Gets a collection of nested <see cref="Error"/> instances that provide additional context or detail.
+    /// </summary>
+    public IReadOnlyCollection<Error> Errors { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Error"/> struct.
     /// </summary>
     /// <param name="code">The unique code for the error.</param>
     /// <param name="message">The human-readable message describing the error.</param>
+    /// <param name="errors">An optional collection of nested <see cref="Error"/> objects that give additional detail.</param>
     [JsonConstructor]
-    public Error(string code, string message) => (Code, Message) = (code, message);
+    public Error(string code, string message, IReadOnlyCollection<Error> errors) => (Code, Message, Errors) = (code, message, errors);
 
     /// <summary>
     /// Returns a string that represents the current error.
@@ -73,6 +81,18 @@ public readonly struct Error
     /// <returns>A string combining the error code and message.</returns>
     public override string ToString()
     {
-        return $"Error Code: {Code}, Message: {Message}";
+        var builder = new StringBuilder($"Error Code: {Code}, Message: {Message}");
+
+        if (Errors?.Count > 0)
+        {
+            builder.AppendLine($", Nested Errors ({Errors.Count}):");
+            var index = 1;
+            foreach (var nested in Errors)
+            {
+                builder.AppendLine($"  {index++}. Error Code: {nested.Code}, Message: {nested.Message}");
+            }
+        }
+
+        return builder.ToString().TrimEnd();
     }
 }

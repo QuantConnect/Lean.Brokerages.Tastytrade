@@ -21,9 +21,9 @@ using QuantConnect.Logging;
 using QuantConnect.Securities;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
-using QuantConnect.Brokerages.Tastytrade.Models.Stream;
-using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
+using BrokerageOrder = QuantConnect.Brokerages.Tastytrade.Models.Orders.Order;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -150,7 +150,7 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
             ExceptionResponse?.Invoke(this, e.Exception);
         }
 
-        protected override void OnMarketDataMessage(object sender, WebSocketMessage e)
+        protected override void OnMessageHandler(object sender, WebSocketMessage e)
         {
             switch (e.Data)
             {
@@ -206,9 +206,9 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
             throw new NotImplementedException();
         }
 
-        protected override void OnMessage(object sender, WebSocketMessage e)
+        protected override void OnOrderUpdateReceived(BrokerageOrder orderUpdates)
         {
-            throw new NotSupportedException();
+            throw new NotImplementedException();
         }
 
         #region Brokerage functionality

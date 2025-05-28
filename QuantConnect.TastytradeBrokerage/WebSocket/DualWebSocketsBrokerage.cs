@@ -15,12 +15,16 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Logging;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream;
+using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.AccountData;
 
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
 
@@ -50,7 +54,6 @@ public abstract class DualWebSocketsBrokerage : Brokerage
         }
 
         AccountUpdatesWebSocket = new AccountWebSocketClientWrapper(tastytradeApiClient, accountUpdatesWsUrl);
-        AccountUpdatesWebSocket.Message += OnMessage;
 
         IsAccountWebSocketInitialized = true;
     }
@@ -66,7 +69,6 @@ public abstract class DualWebSocketsBrokerage : Brokerage
         }
 
         MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper(tastytradeApiClient);
-        MarketDataUpdatesWebSocket.Message += OnMarketDataMessage;
 
         //MarketDataUpdatesWebSocket.Open += (sender, args) =>
         //{
@@ -94,23 +96,36 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     {
     }
 
-    /// <summary>
-    /// Handles websocket received messages
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    protected abstract void OnMessage(object sender, WebSocketMessage e);
+    protected abstract void OnOrderUpdateReceived(Order accountData);
 
     protected abstract void OnTradeReceived(TradeContent trade);
     protected abstract void OnQuoteReceived(QuoteContent quote);
 
-    protected virtual void OnMarketDataMessage(object _, WebSocketMessage webSocketMessage)
+    protected virtual void OnMessageHandler(object sender, WebSocketMessage webSocketMessage)
     {
         if (webSocketMessage.Data is WebSocketClientWrapper.TextMessage textMessage)
         {
-            var connectResponse = textMessage.Message.DeserializeCamelCase<BaseResponse>();
-            switch (connectResponse.Type)
+            if (Log.DebuggingEnabled)
             {
+                switch (sender)
+                {
+                    case AccountWebSocketClientWrapper:
+                        Log.Debug($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}.{nameof(AccountWebSocketClientWrapper)}.WebSocketMessage: {textMessage.Message}");
+                        break;
+                    case MarketDataWebSocketClientWrapper:
+                        Log.Debug($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}.{nameof(MarketDataWebSocketClientWrapper)}.WebSocketMessage: {textMessage.Message}");
+                        break;
+                }
+            }
+
+            var baseResponse = textMessage.Message.DeserializeCamelCase<Models.Stream.MarketData.BaseResponse>();
+
+            switch (baseResponse.Type)
+            {
+                case EventType.Order:
+                    var accountData = textMessage.Message.DeserializeKebabCase<AccountData>();
+                    OnOrderUpdateReceived(accountData.Order);
+                    break;
                 case EventType.FeedData:
                     var feedData = textMessage.Message.DeserializeCamelCase<FeedData>();
                     switch (feedData.Data.EventType)
@@ -133,15 +148,39 @@ public abstract class DualWebSocketsBrokerage : Brokerage
                 case EventType.FeedConfig:
                 case EventType.ChannelOpened:
                 case EventType.AuthorizationState:
+                case EventType.KeepAlive:
+                case EventType.AccountBalance:
+                case EventType.CurrentPosition:
+                case EventType.TradingStatus:
                     break;
                 case EventType.Error:
                     var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
-                    throw new Exception($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMarketDataMessage)}.Error: {errorResponse}");
+                    throw new Exception($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}.Error: {errorResponse}");
+                case EventType.Unknown:
+                    var response = textMessage.Message.DeserializeKebabCase<BaseResponseMessage>();
+                    switch (response.Action)
+                    {
+                        case ActionStream.Connect:
+                            break;
+                        case ActionStream.Heartbeat:
+                            if (response.Status != Status.Ok)
+                            {
+                                throw new InvalidOperationException(
+                                    $"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}: Received heartbeat with unexpected status '{response.Status}'. Message: {textMessage.Message}");
+                            }
+                            break;
+                        default:
+                            throw new NotImplementedException($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}: The action '{response.Action}' in EventType.Unknown is not implemented. Message: {textMessage.Message}");
+                    }
+                    break;
                 default:
-                    throw new NotSupportedException($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMarketDataMessage)}.Response.Message: {textMessage.Message}");
+                    throw new NotSupportedException($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}.Response.Message: {textMessage.Message}");
             }
         }
-        throw new NotSupportedException();
+        else
+        {
+            throw new NotSupportedException();
+        }
     }
 
     /// <summary>
@@ -155,6 +194,14 @@ public abstract class DualWebSocketsBrokerage : Brokerage
         Log.Trace($"{nameof(DualWebSocketsBrokerage)}.Connect(): Connecting...");
 
         ConnectSync();
+    }
+
+    public override void Disconnect()
+    {
+        Log.Trace($"{nameof(DualWebSocketsBrokerage)}.Disconnect(): Disconnecting...");
+
+        AccountUpdatesWebSocket.Close();
+        MarketDataUpdatesWebSocket.Close();
     }
 
     /// <summary>
@@ -199,6 +246,8 @@ public abstract class DualWebSocketsBrokerage : Brokerage
             {
                 throw new TimeoutException($"{nameof(DualWebSocketsBrokerage)}.{nameof(ConnectSync)}.{webSocketName}: failed to connect within {ConnectionTimeout}ms.");
             }
+
+            webSocket.Message += OnMessageHandler;
         }
     }
 }

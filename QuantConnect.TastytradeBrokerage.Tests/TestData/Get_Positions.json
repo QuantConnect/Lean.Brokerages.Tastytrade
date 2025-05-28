@@ -2,29 +2,23 @@
     "data": {
         "items": [
             {
-                "account-number": "5WT00000",
-                "symbol": "AAPL",
+                "account-number": "5WX06827",
                 "instrument-type": "Equity",
+                "symbol": "AAPL",
                 "underlying-symbol": "AAPL",
-                "quantity": "100",
-                "quantity-direction": "Long",
-                "close-price": "282.48",
-                "average-open-price": "288.7",
-                "average-yearly-market-close-price": "123.18",
-                "average-daily-market-close-price": "282.48",
-                "multiplier": 1,
+                "quantity": 1,
+                "average-open-price": "1.0",
+                "close-price": "0.0",
                 "cost-effect": "Credit",
-                "is-suppressed": false,
                 "is-frozen": false,
-                "restricted-quantity": "0.0",
+                "is-suppressed": false,
+                "multiplier": 1,
+                "quantity-direction": "Long",
+                "restricted-quantity": 0,
                 "realized-day-gain": "0.0",
-                "realized-day-gain-effect": "None",
-                "realized-day-gain-date": "2022-11-01",
                 "realized-today": "0.0",
-                "realized-today-effect": "None",
-                "realized-today-date": "2022-11-01",
-                "created-at": "2022-08-22T17:56:51.872+00:00",
-                "updated-at": "2022-11-01T21:49:54.095+00:00"
+                "created-at": "2025-05-28T13:38:50.850+00:00",
+                "updated-at": "2025-05-28T13:38:50.850+00:00"
             }
         ]
     },

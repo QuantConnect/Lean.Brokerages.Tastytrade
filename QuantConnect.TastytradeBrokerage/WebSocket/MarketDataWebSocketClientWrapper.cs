@@ -91,6 +91,11 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </remarks>
     protected override void SendMessageByTimerElapsed(object _, ElapsedEventArgs __)
     {
+        if (!IsOpen)
+        {
+            return;
+        }
+
         Send(new KeepAlive().ToJson());
     }
 

@@ -13,89 +13,140 @@
  * limitations under the License.
 */
 
+using System;
 using NUnit.Framework;
 using QuantConnect.Tests;
+using QuantConnect.Orders;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
+using System.Collections.Generic;
+using QuantConnect.Configuration;
 using QuantConnect.Tests.Brokerages;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
-[TestFixture, Ignore("Not implemented")]
+[TestFixture]
 public partial class TastytradeBrokerageTests : BrokerageTests
 {
-    protected override Symbol Symbol { get; }
-    protected override SecurityType SecurityType { get; }
+    protected override Symbol Symbol => Symbols.AAPL;
+
+    protected override SecurityType SecurityType => throw new NotImplementedException("This property must be overridden and should not be used directly.");
 
     protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
     {
-        throw new System.NotImplementedException();
+        var baseUrl = Config.Get("tastytrade-api-url");
+        var baseWSUrl = Config.Get("tastytrade-websocket-url");
+        var username = Config.Get("tastytrade-username");
+        var password = Config.Get("tastytrade-password");
+        var accountNumber = Config.Get("tastytrade-account-number");
+
+        return new TastytradeBrokerage(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider);
     }
-    protected override bool IsAsync()
-    {
-        throw new System.NotImplementedException();
-    }
+
+    protected override bool IsAsync() => false;
 
     protected override decimal GetAskPrice(Symbol symbol)
     {
-        throw new System.NotImplementedException();
+        throw new NotImplementedException();
     }
 
-
-    /// <summary>
-    /// Provides the data required to test each order type in various cases
-    /// </summary>
-    private static TestCaseData[] OrderParameters()
+    private static IEnumerable<OrderTestMetaData> OrderTestParameters
     {
-        return new[]
+        get
         {
-                new TestCaseData(new MarketOrderTestParameters(Symbols.BTCUSD)).SetName("MarketOrder"),
-                new TestCaseData(new LimitOrderTestParameters(Symbols.BTCUSD, 10000m, 0.01m)).SetName("LimitOrder"),
-                new TestCaseData(new StopMarketOrderTestParameters(Symbols.BTCUSD, 10000m, 0.01m)).SetName("StopMarketOrder"),
-                new TestCaseData(new StopLimitOrderTestParameters(Symbols.BTCUSD, 10000m, 0.01m)).SetName("StopLimitOrder"),
-                new TestCaseData(new LimitIfTouchedOrderTestParameters(Symbols.BTCUSD, 10000m, 0.01m)).SetName("LimitIfTouchedOrder")
-            };
+            var aapl = Symbols.AAPL;
+            yield return new OrderTestMetaData(OrderType.Market, aapl);
+        }
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void CancelOrders(OrderTestParameters parameters)
+    private decimal _defaultQuantity = 1;
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown()
     {
+        _defaultQuantity = 1;
+    }
+
+    protected override decimal GetDefaultQuantity()
+    {
+        return _defaultQuantity;
+    }
+
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void CancelOrders(OrderTestMetaData orderTestMetaData)
+    {
+        _defaultQuantity = 10;
+
+        var parameters = GetOrderTestParameters(orderTestMetaData);
+
         base.CancelOrders(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void LongFromZero(OrderTestParameters parameters)
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void LongFromZero(OrderTestMetaData orderTestMetaData)
     {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
         base.LongFromZero(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void CloseFromLong(OrderTestParameters parameters)
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void CloseFromLong(OrderTestMetaData orderTestMetaData)
     {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
         base.CloseFromLong(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void ShortFromZero(OrderTestParameters parameters)
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void ShortFromZero(OrderTestMetaData orderTestMetaData)
     {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
         base.ShortFromZero(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void CloseFromShort(OrderTestParameters parameters)
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void CloseFromShort(OrderTestMetaData orderTestMetaData)
     {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
         base.CloseFromShort(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void ShortFromLong(OrderTestParameters parameters)
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void ShortFromLong(OrderTestMetaData orderTestMetaData)
     {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
         base.ShortFromLong(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderParameters))]
-    public override void LongFromShort(OrderTestParameters parameters)
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void LongFromShort(OrderTestMetaData orderTestMetaData)
     {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
         base.LongFromShort(parameters);
+    }
+
+    /// <summary>
+    /// Represents the parameters required for testing an order, including order type, symbol, and price limits.
+    /// </summary>
+    /// <param name="OrderType">The type of order being tested (e.g., Market, Limit, Stop).</param>
+    /// <param name="Symbol">The financial symbol for the order, such as a stock or option ticker.</param>
+    /// <param name="HighLimit">The high limit price for the order (if applicable).</param>
+    /// <param name="LowLimit">The low limit price for the order (if applicable).</param>
+    public record OrderTestMetaData(OrderType OrderType, Symbol Symbol, decimal HighLimit = 0, decimal LowLimit = 0);
+
+    private static OrderTestParameters GetOrderTestParameters(OrderTestMetaData orderTestMetaData)
+    {
+        return GetOrderTestParameters(orderTestMetaData.OrderType, orderTestMetaData.Symbol, orderTestMetaData.HighLimit, orderTestMetaData.LowLimit);
+    }
+
+    private static OrderTestParameters GetOrderTestParameters(OrderType orderType, Symbol symbol, decimal highLimit, decimal lowLimit)
+    {
+        return orderType switch
+        {
+            OrderType.Market => new MarketOrderTestParameters(symbol),
+            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit),
+            OrderType.StopMarket => new StopMarketOrderTestParameters(symbol, highLimit, lowLimit),
+            OrderType.StopLimit => new StopLimitOrderTestParameters(symbol, highLimit, lowLimit),
+            _ => throw new NotImplementedException()
+        };
     }
 }

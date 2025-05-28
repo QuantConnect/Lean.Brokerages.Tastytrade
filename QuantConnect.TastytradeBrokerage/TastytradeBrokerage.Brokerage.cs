@@ -14,11 +14,19 @@
 */
 
 using System;
+using System.Linq;
+using System.Threading;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
+using QuantConnect.Orders.Fees;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using LeanOrder = QuantConnect.Orders.Order;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using LeanOrderStatus = QuantConnect.Orders.OrderStatus;
+using BrokerageOrder = QuantConnect.Brokerages.Tastytrade.Models.Orders.Order;
+using BrokerageOrderStatus = QuantConnect.Brokerages.Tastytrade.Models.Enum.OrderStatus;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -33,6 +41,22 @@ public partial class TastytradeBrokerage
     private ISecurityProvider _securityProvider;
 
     /// <summary>
+    /// A thread-safe cache for tracking pending orders awaiting confirmation from the WebSocket.
+    /// </summary>
+    /// <remarks>
+    /// This cache is used to synchronize order submission and acknowledgment. It is structured as follows:
+    /// <list type="bullet">
+    ///   <item>
+    ///     <description><b>Key:</b> The brokerage order ID used to uniquely identify the order.</description>
+    ///   </item>
+    ///   <item>
+    ///     <description><b>Value:</b> An <see cref="AutoResetEvent"/> used to signal when the order status update is received.</description>
+    ///   </item>
+    /// </list>
+    /// </remarks>
+    private readonly ConcurrentDictionary<string, AutoResetEvent> _pendingOrderCache = new();
+
+    /// <summary>
     /// Gets all holdings for the account
     /// </summary>
     /// <returns>The current holdings from the account</returns>
@@ -40,12 +64,66 @@ public partial class TastytradeBrokerage
     {
         var positions = _tastytradeApiClient.GetAccountPositions().SynchronouslyAwaitTaskResult();
 
-        foreach (var position in positions)
+        if (positions.Count == 0)
         {
-
+            return [];
         }
 
-        return [];
+        var holdings = new List<Holding>();
+        foreach (var position in positions)
+        {
+            if (!TryGetLeanSymbol(position.Symbol, position.InstrumentType, out var leanSymbol, out var exceptionMessage, position.UnderlyingSymbol))
+            {
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, 1, $"{exceptionMessage}. Position details: {position}."));
+                continue;
+            }
+
+            holdings.Add(new Holding()
+            {
+                AveragePrice = position.AverageOpenPrice,
+                Quantity = position.Quantity,
+                Symbol = leanSymbol
+            });
+        }
+
+        return holdings;
+    }
+
+    /// <summary>
+    /// Attempts to map a Tastytrade <paramref name="symbol"/> and <paramref name="instrumentType"/> 
+    /// to a Lean-compatible <see cref="Symbol"/>.
+    /// </summary>
+    /// <param name="symbol">The string representation of the financial instrument's symbol.</param>
+    /// <param name="instrumentType">The type of the instrument (e.g., Equity, Option) <see cref="InstrumentType"/>.</param>
+    /// <param name="leanSymbol">
+    /// The resulting Lean-compatible <see cref="Symbol"/> if the mapping is successful. 
+    /// This is an output parameter.
+    /// </param>
+    /// <param name="exceptionMessage">
+    /// An error message describing the failure reason if the mapping is unsuccessful. 
+    /// This is an output parameter.
+    /// </param>
+    /// <param name="optionUnderlyingSymbol">
+    /// The underlying symbol for options, used to distinguish between regular options 
+    /// and index options. This parameter is optional and defaults to <c>null</c>.
+    /// </param>
+    /// <returns>
+    /// <c>true</c> if the mapping is successful; otherwise, <c>false</c>.
+    /// </returns>
+    private bool TryGetLeanSymbol(string symbol, InstrumentType instrumentType, out Symbol leanSymbol, out string exceptionMessage, string optionUnderlyingSymbol = null)
+    {
+        leanSymbol = default;
+        exceptionMessage = default;
+        try
+        {
+            leanSymbol = _symbolMapper.GetLeanSymbol(symbol, instrumentType.ConvertInstrumentTypeToSecurityType(optionUnderlyingSymbol), Market.USA);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            exceptionMessage = ex.Message;
+            return false;
+        }
     }
 
     /// <summary>
@@ -63,9 +141,10 @@ public partial class TastytradeBrokerage
     /// NOTE: The order objects returned do not have QC order IDs.
     /// </summary>
     /// <returns>The open orders returned from IB</returns>
-    public override List<Order> GetOpenOrders()
+    public override List<LeanOrder> GetOpenOrders()
     {
-        throw new NotImplementedException();
+        //throw new NotImplementedException();
+        return [];
     }
 
     /// <summary>
@@ -73,7 +152,7 @@ public partial class TastytradeBrokerage
     /// </summary>
     /// <param name="order">The order to be placed</param>
     /// <returns>True if the request for a new order has been placed, false otherwise</returns>
-    public override bool PlaceOrder(Order order)
+    public override bool PlaceOrder(LeanOrder order)
     {
         if (!CanSubscribe(order.Symbol))
         {
@@ -82,7 +161,41 @@ public partial class TastytradeBrokerage
 
         var brokerageOrder = ConvertLeanOrderToBrokerageOrder(order);
 
-        var response = _tastytradeApiClient.SubmitOrder(brokerageOrder);
+        var brokerageId = default(string);
+        var isPlaced = default(bool);
+        var pendingSubmittedOrderResetEvent = new AutoResetEvent(false);
+        _messageHandler.WithLockedStream(() =>
+        {
+            try
+            {
+                brokerageId = _tastytradeApiClient.SubmitOrder(brokerageOrder).SynchronouslyAwaitTaskResult().Order.Id;
+            }
+            catch (Exception ex)
+            {
+                OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Place Order Event: " + ex.Message)
+                {
+                    Status = LeanOrderStatus.Invalid
+                });
+                return;
+            }
+
+            order.BrokerId.Add(brokerageId);
+            _pendingOrderCache[brokerageId] = pendingSubmittedOrderResetEvent;
+            isPlaced = true;
+        });
+
+        if (isPlaced && !pendingSubmittedOrderResetEvent.WaitOne(TimeSpan.FromSeconds(10)))
+        {
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, $"{nameof(TastytradeBrokerage)}.{nameof(PlaceOrder)}: " +
+                $"didn't get response from WebSocket by BrokerageId = {brokerageId} and Lean Order = {order}"));
+        }
+
+        OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Place Order Event: Submitted")
+        {
+            Status = LeanOrderStatus.Submitted
+        });
+
+        pendingSubmittedOrderResetEvent?.Dispose();
 
         return true;
     }
@@ -92,7 +205,7 @@ public partial class TastytradeBrokerage
     /// </summary>
     /// <param name="order">The new order information</param>
     /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
-    public override bool UpdateOrder(Order order)
+    public override bool UpdateOrder(LeanOrder order)
     {
         throw new NotImplementedException();
     }
@@ -102,9 +215,72 @@ public partial class TastytradeBrokerage
     /// </summary>
     /// <param name="order">The order to cancel</param>
     /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
-    public override bool CancelOrder(Order order)
+    public override bool CancelOrder(LeanOrder order)
     {
         throw new NotImplementedException();
+    }
+
+    protected override void OnOrderUpdateReceived(BrokerageOrder orderUpdate)
+    {
+        switch (orderUpdate.Status)
+        {
+            case BrokerageOrderStatus.Live:
+                if (_pendingOrderCache.TryGetValue(orderUpdate.Id, out var resetEvent))
+                {
+                    resetEvent.Set();
+                }
+                break;
+            case BrokerageOrderStatus.Filled:
+                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, out var leanOrder))
+                {
+                    // TODO: orderUpdate add override ToString()
+                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
+                    break;
+                }
+
+                var leg = orderUpdate.Legs.FirstOrDefault();
+                var fill = leg.Fills.FirstOrDefault();
+                var orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
+                {
+                    Status = LeanOrderStatus.Filled,
+                    FillQuantity = leg.Action.IsBuy() ? fill.Quantity : decimal.Negate(fill.Quantity),
+                    FillPrice = fill.FillPrice
+                };
+
+                //var orderEvent = new OrderEvent(leanOrder, orderFill.BaseEvent.OrderFillCompletedEventOrderLegQuantityInfo.ExecutionInfo.ExecutionTimeStamp?.DateTime ?? DateTime.UtcNow, OrderFee.Zero)
+                //{
+                //    Status = leanStatus,
+                //    FillQuantity = legQuantityInfo.ExecutionInfo.ExecutionQuantity * quantitySign,
+                //    FillPrice = orderFill.BaseEvent.OrderFillCompletedEventOrderLegQuantityInfo.ExecutionInfo.ExecutionPrice
+                //};
+
+                OnOrderEvent(orderEvent);
+
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to retrieve a Lean order by its brokerage order ID.
+    /// </summary>
+    /// <param name="brokerageOrderId">The brokerage order ID to search for.</param>
+    /// <param name="leanOrder">
+    /// When this method returns, contains the Lean order associated with the specified brokerage order ID, 
+    /// if found; otherwise, <c>null</c>.
+    /// </param>
+    /// <returns>
+    /// <c>true</c> if an order with the specified brokerage ID is found; otherwise, <c>false</c>.
+    /// </returns>
+    private bool TryGetLeanOrderByBrokerageId(string brokerageOrderId, out LeanOrder leanOrder)
+    {
+        leanOrder = _orderProvider.GetOrdersByBrokerageId(brokerageOrderId).FirstOrDefault();
+
+        if (leanOrder == null)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -117,7 +293,7 @@ public partial class TastytradeBrokerage
     /// <exception cref="NotSupportedException">
     /// Thrown when the order type is not supported for conversion.
     /// </exception>
-    private OrderBaseRequest ConvertLeanOrderToBrokerageOrder(Order order)
+    private OrderBaseRequest ConvertLeanOrderToBrokerageOrder(LeanOrder order)
     {
         var (timeInForce, expiryDateTime) = order.Properties.TimeInForce.GetBrokerageTimeInForceByLeanTimeInForce();
 
@@ -135,7 +311,7 @@ public partial class TastytradeBrokerage
         switch (order)
         {
             case MarketOrder:
-                brokerageOrder = new MarketOrderRequest(timeInForce, expiryDateTime, legs);
+                brokerageOrder = new MarketOrderRequest(legs);
                 break;
             case LimitOrder lo:
                 brokerageOrder = new LimitOrderRequest(timeInForce, expiryDateTime, legs, lo.LimitPrice, order.Direction);

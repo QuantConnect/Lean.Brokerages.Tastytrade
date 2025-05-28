@@ -58,6 +58,11 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="e">Event data associated with the timer's elapsed event.</param>
     protected override void SendMessageByTimerElapsed(object sender, ElapsedEventArgs e)
     {
+        if (!IsOpen)
+        {
+            return;
+        }
+
         var sessionToken = _tastyTradeApiClient.GetSessionToken(default).SynchronouslyAwaitTaskResult();
         Send(new Heartbeat(sessionToken, NextRequestId).ToJson());
     }

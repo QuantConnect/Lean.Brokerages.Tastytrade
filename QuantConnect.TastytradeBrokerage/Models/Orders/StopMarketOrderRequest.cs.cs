@@ -22,7 +22,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Orders;
 /// <summary>
 /// Represents a stop market order that becomes a market order once the stop price is reached.
 /// </summary>
-public class StopMarketOrderRequest : MarketOrderRequest
+public class StopMarketOrderRequest : OrderBaseRequest
 {
     /// <summary>
     /// Gets the order type (Stop).

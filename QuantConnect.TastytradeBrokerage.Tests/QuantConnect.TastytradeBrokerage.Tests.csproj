@@ -50,6 +50,9 @@
       <None Update="TestData\Error_Not_Permitted.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
+      <None Update="TestData\Error_Responses.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
       <None Update="TestData\Get_Account_Balance.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>

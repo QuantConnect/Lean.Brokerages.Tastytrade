@@ -136,7 +136,18 @@ public class TastytradeBrokerageSymbolMapper
     /// <exception cref="NotImplementedException">Always thrown. Functionality not implemented yet.</exception>
     public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string market, DateTime expirationDate = default, decimal strike = 0, OptionRight optionRight = OptionRight.Call)
     {
-        throw new NotImplementedException();
+        var leanSymbol = _brokerageSymbolsByLeanSymbol.FirstOrDefault(x => x.Value.BrokerageSymbol == brokerageSymbol).Key;
+        if (leanSymbol != null)
+        {
+            return leanSymbol;
+        }
+        switch (securityType)
+        {
+            case SecurityType.Equity:
+                return Symbol.Create(brokerageSymbol, securityType, market);
+            default:
+                throw new NotImplementedException();
+        }
     }
 
     /// <summary>

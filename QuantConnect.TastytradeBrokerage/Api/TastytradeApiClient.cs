@@ -79,7 +79,7 @@ public sealed class TastytradeApiClient
     /// Retrieves the current open positions for the associated Tastytrade account.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of positions.</returns>
-    public async Task<IEnumerable<Position>> GetAccountPositions()
+    public async Task<IReadOnlyCollection<Position>> GetAccountPositions()
     {
         return (await SendRequestAsync<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{AccountNumber}/positions")).Data.Items;
     }
@@ -151,7 +151,7 @@ public sealed class TastytradeApiClient
 
                 if (Log.DebuggingEnabled)
                 {
-                    Log.Debug($"{nameof(TastytradeApiClient)}:{nameof(SendRequestAsync)}.Response: {response}");
+                    Log.Debug($"{nameof(TastytradeApiClient)}:{nameof(SendRequestAsync)}.Response: {response}. RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}");
                 }
 
                 return response.DeserializeKebabCase<BaseResponse<T>>();

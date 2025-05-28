@@ -13,14 +13,15 @@
  * limitations under the License.
 */
 
-using System;
 using QuantConnect.Data;
 using QuantConnect.Util;
 using QuantConnect.Logging;
 using QuantConnect.Interfaces;
+using QuantConnect.Securities;
 using QuantConnect.Configuration;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
+using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -38,6 +39,16 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     private EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
 
     /// <summary>
+    /// Handles incoming account content messages and processes them using the <see cref="BrokerageConcurrentMessageHandler{T}"/>.
+    /// </summary>
+    private BrokerageConcurrentMessageHandler<Order> _messageHandler;
+
+    /// <summary>
+    /// Order provider
+    /// </summary>
+    private IOrderProvider _orderProvider;
+
+    /// <summary>
     /// The Tastytrade api client implementation.
     /// </summary>
     private TastytradeApiClient _tastytradeApiClient;
@@ -50,7 +61,7 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     /// <summary>
     /// Returns true if we're currently connected to the broker
     /// </summary>
-    public override bool IsConnected { get; }
+    public override bool IsConnected => AccountUpdatesWebSocket?.IsOpen ?? false && IsAccountWebSocketInitialized;
 
     /// <summary>
     /// Parameterless constructor for brokerage
@@ -59,21 +70,28 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     public TastytradeBrokerage() : base(BrokerageName)
     { }
 
-    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm) : base(BrokerageName)
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider)
+    : base(BrokerageName)
     {
-        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, algorithm);
+        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider);
     }
 
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
+        : this(baseUrl, baseWSUrl, username, password, accountNumber, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio)
+    {
 
-    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
+    }
+
+    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider)
     {
         _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
         _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
         _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
 
-        _securityProvider = algorithm?.Portfolio;
+        _securityProvider = securityProvider;
         _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
         _symbolMapper = new(_tastytradeApiClient);
+        _orderProvider = orderProvider;
 
         _aggregator = Composer.Instance.GetPart<IDataAggregator>();
         if (_aggregator == null)
@@ -85,11 +103,7 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
 
         Initialize(baseWSUrl, _tastytradeApiClient);
 
-        // Useful for some brokerages:
-
-        // Brokerage helper class to lock websocket message stream while executing an action, for example placing an order
-        // avoid race condition with placing an order and getting filled events before finished placing
-        // _messageHandler = new BrokerageConcurrentMessageHandler<>();
+        _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceived);
 
         // Rate gate limiter useful for API/WS calls
         // _connectionRateLimiter = new RateGate();
@@ -108,7 +122,7 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     /// </summary>
     public override void Disconnect()
     {
-        throw new NotImplementedException();
+        base.Disconnect();
     }
 
     private bool CanSubscribe(Symbol symbol)
@@ -118,11 +132,6 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
             return false;
         }
 
-        throw new NotImplementedException();
-    }
-
-    protected override void OnMessage(object sender, WebSocketMessage e)
-    {
-        throw new NotImplementedException();
+        return true;
     }
 }

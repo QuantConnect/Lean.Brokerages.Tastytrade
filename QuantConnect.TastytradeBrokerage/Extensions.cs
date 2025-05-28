@@ -113,4 +113,33 @@ public static class Extensions
             _ => throw new NotSupportedException($"{nameof(Extensions)}.{nameof(ConvertLeanSecurityTypeToBrokerageInstrumentType)}: No mapping exists for security type '{securityType}'."),
         };
     }
+
+    /// <summary>
+    /// Converts an <see cref="InstrumentType"/> to a corresponding <see cref="SecurityType"/>.
+    /// </summary>
+    /// <param name="instrumentType">The instrument type to convert.</param>
+    /// <param name="optionUnderlyingSymbol">An optional underlying symbol used for options.</param>
+    /// <returns>The corresponding <see cref="SecurityType"/>.</returns>
+    /// <exception cref="NotSupportedException">Thrown when the provided <paramref name="instrumentType"/> is not supported.</exception>
+    public static SecurityType ConvertInstrumentTypeToSecurityType(this InstrumentType instrumentType, string optionUnderlyingSymbol = default) => instrumentType switch
+    {
+        // TODO: Add missed support types.
+        InstrumentType.Equity => SecurityType.Equity,
+        _ => throw new NotSupportedException($"{nameof(Extensions)}.{nameof(ConvertInstrumentTypeToSecurityType)}: The InstrumentType '{instrumentType}' is not supported.")
+    };
+
+    /// <summary>
+    /// Determines whether the specified <see cref="OrderAction"/> represents a buy action.
+    /// </summary>
+    /// <param name="orderAction">The order action to evaluate.</param>
+    /// <returns><c>true</c> if the action is a buy-type (e.g., Buy, BuyToOpen, BuyToClose); otherwise, <c>false</c>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when the <paramref name="orderAction"/> is not a recognized buy or sell action.
+    /// </exception>
+    public static bool IsBuy(this OrderAction orderAction) => orderAction switch
+    {
+        OrderAction.Buy or OrderAction.BuyToOpen or OrderAction.BuyToClose => true,
+        OrderAction.Sell or OrderAction.SellToClose or OrderAction.SellToOpen => false,
+        _ => throw new ArgumentOutOfRangeException(nameof(orderAction), orderAction, "Unsupported order action")
+    };
 }

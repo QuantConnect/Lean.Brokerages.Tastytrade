@@ -105,4 +105,23 @@ public enum EventType
     /// </summary>
     [EnumMember(Value = "FEED_DATA")]
     FeedData = 11,
+
+    /// <summary>
+    /// An event related to orders placed, modified, or cancelled by the client or system.
+    /// </summary>
+    Order = 12,
+
+    /// <summary>
+    /// A notification containing account balance information, including updates to cash, margin, or other funds.
+    /// </summary>
+    AccountBalance = 13,
+
+    /// <summary>
+    /// </summary>
+    CurrentPosition = 14,
+
+    /// <summary>
+    /// Indicates the current trading status of a symbol or market.
+    /// </summary>
+    TradingStatus = 15
 }

@@ -35,7 +35,7 @@ public class MarketOrderRequest : OrderBaseRequest
     /// <param name="timeInForce">Time in force for the order.</param>
     /// <param name="expiryDateTime">Expiration date if <paramref name="timeInForce"/> is GTC.</param>
     /// <param name="legs">The order legs to execute.</param>
-    public MarketOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs)
-        : base(timeInForce, expiryDateTime, legs)
+    public MarketOrderRequest(IReadOnlyCollection<LegAttributes> legs)
+        : base(TimeInForce.Day, null, legs)
     { }
 }

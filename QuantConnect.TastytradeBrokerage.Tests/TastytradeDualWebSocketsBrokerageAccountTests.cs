@@ -25,6 +25,7 @@ using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
+using BrokerageOrder = QuantConnect.Brokerages.Tastytrade.Models.Orders.Order;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -120,7 +121,7 @@ public class TastytradeDualWebSocketsBrokerageAccountTests
         {
             throw new NotImplementedException();
         }
-        protected override void OnMessage(object sender, WebSocketMessage e)
+        protected override void OnMessageHandler(object sender, WebSocketMessage e)
         {
             switch (e.Data)
             {
@@ -149,9 +150,9 @@ public class TastytradeDualWebSocketsBrokerageAccountTests
 
         protected override bool Subscribe(IEnumerable<Symbol> symbols) => throw new NotImplementedException();
 
-        protected override void OnMarketDataMessage(object sender, WebSocketMessage e)
+        protected override void OnOrderUpdateReceived(BrokerageOrder orderUpdates)
         {
-            throw new NotSupportedException();
+
         }
 
         public override bool CancelOrder(Order order) => throw new NotImplementedException();
