@@ -15,6 +15,7 @@
 
 using System;
 using Newtonsoft.Json;
+using QuantConnect.Orders;
 using QuantConnect.Securities;
 using QuantConnect.Orders.TimeInForces;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -68,13 +69,17 @@ public static class Extensions
         => MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType).TimeZone;
 
     /// <summary>
-    /// Gets the BrokerageTimeInForce and optional cancellation time based on the TimeInForce value.
+    /// Converts a Lean <see cref="Orders.TimeInForce"/> to a corresponding <see cref="BrokerageTimeInForce"/> value 
+    /// and optionally returns the expiry <see cref="DateTime"/> if applicable.
     /// </summary>
-    /// <param name="timeInForce">The TimeInForce value.</param>
-    /// <returns>A tuple containing the Duration and optional expiry DateTime.</returns>
+    /// <param name="timeInForce">The Lean <see cref="Orders.TimeInForce"/> value.</param>
+    /// <returns>
+    /// A tuple containing the <see cref="BrokerageTimeInForce"/> and an optional expiry <see cref="DateTime"/>.
+    /// </returns>
+    /// <exception cref="NotSupportedException">Thrown when the specified <paramref name="timeInForce"/> is not supported.</exception>
     public static (BrokerageTimeInForce TimeInForce, DateTime? ExpiryDateTime) GetBrokerageTimeInForceByLeanTimeInForce(this Orders.TimeInForce timeInForce)
     {
-        var expiryDateTime = default(DateTime?); // Use nullable DateTime for clarity
+        var expiryDateTime = default(DateTime?);
         var duration = default(BrokerageTimeInForce);
         switch (timeInForce)
         {
@@ -92,6 +97,30 @@ public static class Extensions
                 throw new NotSupportedException($"{nameof(Extensions)}.{nameof(GetBrokerageTimeInForceByLeanTimeInForce)}: The TimeInForce '{timeInForce}' is not supported.");
         }
         return (duration, expiryDateTime);
+    }
+
+    /// <summary>
+    /// Tries to assign a Lean <see cref="Orders.TimeInForce"/> to <see cref="OrderProperties"/> based on a <see cref="BrokerageTimeInForce"/> value and optional expiration date.
+    /// </summary>
+    /// <param name="orderProperties">The <see cref="OrderProperties"/> to update.</param>
+    /// <param name="timeInForce">The brokerage <see cref="BrokerageTimeInForce"/> value.</param>
+    /// <param name="goodTilDateTime">The expiration <see cref="DateTime"/> for GoodTilDate orders.</param>
+    /// <returns><c>true</c> if the mapping was successful; otherwise, <c>false</c>.</returns>
+    public static bool TryGetLeanTimeInForce(this OrderProperties orderProperties, BrokerageTimeInForce timeInForce, DateTime goodTilDateTime)
+    {
+        switch (timeInForce)
+        {
+            case BrokerageTimeInForce.GoodTillCancel:
+                return true;
+            case BrokerageTimeInForce.Day:
+                orderProperties.TimeInForce = Orders.TimeInForce.Day;
+                return true;
+            case BrokerageTimeInForce.GoodTilDate:
+                orderProperties.TimeInForce = Orders.TimeInForce.GoodTilDate(goodTilDateTime);
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>
@@ -115,31 +144,61 @@ public static class Extensions
     }
 
     /// <summary>
-    /// Converts an <see cref="InstrumentType"/> to a corresponding <see cref="SecurityType"/>.
+    /// Converts the specified <see cref="InstrumentType"/> to its corresponding <see cref="SecurityType"/>.
     /// </summary>
     /// <param name="instrumentType">The instrument type to convert.</param>
-    /// <param name="optionUnderlyingSymbol">An optional underlying symbol used for options.</param>
-    /// <returns>The corresponding <see cref="SecurityType"/>.</returns>
-    /// <exception cref="NotSupportedException">Thrown when the provided <paramref name="instrumentType"/> is not supported.</exception>
-    public static SecurityType ConvertInstrumentTypeToSecurityType(this InstrumentType instrumentType, string optionUnderlyingSymbol = default) => instrumentType switch
+    /// <param name="isIndex">
+    /// A value indicating whether the underlying equity is an index.
+    /// This is used to differentiate between standard options and index options.
+    /// </param>
+    /// <returns>
+    /// The corresponding <see cref="SecurityType"/> for the given <paramref name="instrumentType"/>.
+    /// </returns>
+    /// <exception cref="NotSupportedException">
+    /// Thrown when the specified <paramref name="instrumentType"/> is not supported by this conversion.
+    /// </exception>
+    public static SecurityType ConvertInstrumentTypeToSecurityType(this InstrumentType instrumentType) => instrumentType switch
     {
-        // TODO: Add missed support types.
         InstrumentType.Equity => SecurityType.Equity,
+        InstrumentType.EquityOption => SecurityType.Option,
+        InstrumentType.Future => SecurityType.Future,
         _ => throw new NotSupportedException($"{nameof(Extensions)}.{nameof(ConvertInstrumentTypeToSecurityType)}: The InstrumentType '{instrumentType}' is not supported.")
     };
 
     /// <summary>
-    /// Determines whether the specified <see cref="OrderAction"/> represents a buy action.
+    /// Converts the given quantity to a signed value based on the order action.
+    /// Positive for buy actions, negative for sell actions.
     /// </summary>
     /// <param name="orderAction">The order action to evaluate.</param>
-    /// <returns><c>true</c> if the action is a buy-type (e.g., Buy, BuyToOpen, BuyToClose); otherwise, <c>false</c>.</returns>
+    /// <param name="quantity">The quantity to convert to a signed value.</param>
+    /// <returns>
+    /// A signed decimal: positive if the action is a buy, negative if it is a sell.
+    /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown when the <paramref name="orderAction"/> is not a recognized buy or sell action.
+    /// Thrown when the specified <paramref name="orderAction"/> is not supported for signed quantity conversion.
     /// </exception>
-    public static bool IsBuy(this OrderAction orderAction) => orderAction switch
+    public static decimal ToSignedQuantity(this OrderAction orderAction, decimal quantity) => orderAction switch
     {
-        OrderAction.Buy or OrderAction.BuyToOpen or OrderAction.BuyToClose => true,
-        OrderAction.Sell or OrderAction.SellToClose or OrderAction.SellToOpen => false,
-        _ => throw new ArgumentOutOfRangeException(nameof(orderAction), orderAction, "Unsupported order action")
+        OrderAction.Buy or OrderAction.BuyToOpen or OrderAction.BuyToClose => quantity,
+        OrderAction.Sell or OrderAction.SellToClose or OrderAction.SellToOpen => decimal.Negate(quantity),
+        _ => throw new ArgumentOutOfRangeException(nameof(orderAction), orderAction, $"Unsupported order action '{orderAction}' for signed quantity conversion.")
     };
+
+    /// <summary>
+    /// Encodes special characters in a symbol to make it URL-safe.
+    /// Specifically replaces slashes (/) with their URL-encoded form (%2f).
+    /// </summary>
+    /// <param name="symbol">The symbol string to encode (e.g., "BRK/B").</param>
+    /// <returns>The URL-encoded symbol (e.g., "BRK%2fB").</returns>
+    /// <example>
+    /// Example usage:
+    /// <code>
+    /// string encoded = "BRK/B".UrlEncodeSymbol();
+    /// // encoded == "BRK%2fB"
+    /// </code>
+    /// </example>
+    public static string UrlEncodeSymbol(this string symbol)
+    {
+        return symbol?.Replace("/", "%2f") ?? string.Empty;
+    }
 }

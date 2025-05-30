@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Api;
 
@@ -119,6 +120,50 @@ public sealed class TastytradeApiClient
     }
 
     /// <summary>
+    /// Retrieves all live orders for the account, including those with statuses:
+    /// Received, Routed, InFlight, and Live.
+    /// </summary>
+    /// <returns>
+    /// A task that represents the asynchronous operation. The task result contains 
+    /// a read-only collection of <see cref="Order"/> objects representing live orders.
+    /// </returns>
+    /// <remarks>
+    /// The query includes multiple order statuses and limits the result to 100 items per page.
+    /// </remarks>
+    public async Task<IReadOnlyCollection<Order>> GetLiveOrders()
+    {
+        var query = $"status[]={OrderStatus.Received}&status[]={OrderStatus.Routed}&status[]={OrderStatus.InFlight}&status[]={OrderStatus.Live}&per-page=100";
+        return (await SendRequestAsync<ResponseList<Order>>(HttpMethod.Get, $"/accounts/{AccountNumber}/orders?{query}")).Data.Items;
+    }
+
+    /// <summary>
+    /// Cancels an order by its unique identifier.
+    /// </summary>
+    /// <param name="id">The unique ID of the order to be canceled.</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation.
+    /// </returns>
+    /// <remarks>
+    /// This method issues a DELETE request to the brokerage API to cancel the order associated with the specified ID.
+    /// </remarks>
+    public async Task CancelOrderById(string id)
+    {
+        await SendRequestAsync<object>(HttpMethod.Delete, $"/accounts/{AccountNumber}/orders/{id}");
+    }
+
+    /// <summary>
+    /// Determines whether the specified symbol corresponds to an index, based on its underlying equity definition.
+    /// </summary>
+    /// <param name="symbol">The equity option symbol to check.</param>
+    /// <returns>
+    /// The task result contains <c>true</c> if the underlying equity is an index; otherwise, <c>false</c>.
+    /// </returns>
+    public async Task<bool> IsUnderlyingEquityAnIndexAsync(string symbol)
+    {
+        return (await SendRequestAsync<Equity>(HttpMethod.Get, $"/instruments/equities/{symbol.UrlEncodeSymbol()}")).Data.IsIndex;
+    }
+
+    /// <summary>
     /// Sends an HTTP request and parses the response from the Tastytrade API.
     /// </summary>
     /// <typeparam name="T">The type of the expected response data.</typeparam>
@@ -145,8 +190,17 @@ public sealed class TastytradeApiClient
 
                 if (!responseMessage.IsSuccessStatusCode)
                 {
-                    var error = response.DeserializeKebabCase<ErrorResponse>().Error;
-                    throw new HttpRequestException(error.ToString() + $", RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}", null, responseMessage.StatusCode);
+                    var errorBuilder = new StringBuilder();
+                    try
+                    {
+                        errorBuilder.Append(response.DeserializeKebabCase<ErrorResponse>().Error);
+                    }
+                    catch (Newtonsoft.Json.JsonSerializationException)
+                    {
+                        errorBuilder.Append(response);
+                    }
+
+                    throw new HttpRequestException(errorBuilder.ToString() + $",RequestUri: [{requestMessage.Method.Method}] {requestMessage.RequestUri}, Body: {jsonBody}", null, responseMessage.StatusCode);
                 }
 
                 if (Log.DebuggingEnabled)

@@ -56,27 +56,26 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         {
             var aapl = Symbols.AAPL;
             yield return new OrderTestMetaData(OrderType.Market, aapl);
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 4m, 2m);
+
+            var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
+            yield return new OrderTestMetaData(OrderType.Market, option);
+            yield return new OrderTestMetaData(OrderType.Limit, option, 4m, 2m);
+
+            var index = Symbol.Create("SPX", SecurityType.Index, Market.USA);
+            var indexOption = Symbol.CreateOption(index, Market.USA, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5635m, new DateTime(2025, 06, 20));
+            yield return new OrderTestMetaData(OrderType.Market, indexOption);
+            yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 2m);
+
+            var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
+            yield return new OrderTestMetaData(OrderType.Market, SP500EMini);
+            yield return new OrderTestMetaData(OrderType.Limit, SP500EMini, 4m, 2m);
         }
-    }
-
-    private decimal _defaultQuantity = 1;
-
-    [OneTimeTearDown]
-    public void OneTimeTearDown()
-    {
-        _defaultQuantity = 1;
-    }
-
-    protected override decimal GetDefaultQuantity()
-    {
-        return _defaultQuantity;
     }
 
     [Test, TestCaseSource(nameof(OrderTestParameters))]
     public void CancelOrders(OrderTestMetaData orderTestMetaData)
     {
-        _defaultQuantity = 10;
-
         var parameters = GetOrderTestParameters(orderTestMetaData);
 
         base.CancelOrders(parameters);

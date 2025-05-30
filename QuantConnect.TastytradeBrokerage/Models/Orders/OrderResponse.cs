@@ -48,9 +48,39 @@ public class Order
     public string Id { get; }
 
     /// <summary>
+    /// Gets the date and time when the order was cancelled.
+    /// </summary>
+    public DateTime CancelledAt { get; }
+
+    /// <summary>
+    /// Gets the current type of the order.
+    /// </summary>
+    public OrderType OrderType { get; }
+
+    /// <summary>
+    /// Gets the limit price associated with the order.
+    /// </summary>
+    public decimal Price { get; }
+
+    /// <summary>
+    /// Gets the date and time when the order was received.
+    /// </summary>
+    public DateTime ReceivedAt { get; }
+
+    /// <summary>
     /// Gets the current status of the order.
     /// </summary>
     public OrderStatus Status { get; }
+
+    /// <summary>
+    /// Gets the time-in-force designation for the order.
+    /// </summary>
+    public TimeInForce TimeInForce { get; }
+
+    /// <summary>
+    /// Gets the symbol of the underlying security for the order.
+    /// </summary>
+    public string UnderlyingSymbol { get; }
 
     /// <summary>
     /// Gets the collection of legs that make up the order.
@@ -61,14 +91,34 @@ public class Order
     /// Initializes a new instance of the <see cref="Order"/> class.
     /// </summary>
     /// <param name="id">The unique order ID.</param>
+    /// <param name="cancelledAt">The date and time when the order was cancelled.</param>
+    /// <param name="orderType">The type of the order.</param>
+    /// <param name="price">The price associated with the order.</param>
+    /// <param name="receivedAt">The date and time when the order was received.</param>
     /// <param name="status">The status of the order.</param>
+    /// <param name="timeInForce">The time-in-force value for the order.</param>
+    /// <param name="underlyingSymbol">The symbol of the underlying asset.</param>
     /// <param name="legs">The collection of legs for the order.</param>
     [JsonConstructor]
-    public Order(string id, OrderStatus status, IReadOnlyCollection<Leg> legs)
+    public Order(string id, DateTime cancelledAt, OrderType orderType, decimal price, DateTime receivedAt, OrderStatus status, TimeInForce timeInForce, string underlyingSymbol, IReadOnlyCollection<Leg> legs)
     {
         Id = id;
+        CancelledAt = cancelledAt;
+        OrderType = orderType;
+        Price = price;
+        ReceivedAt = receivedAt;
         Status = status;
+        TimeInForce = timeInForce;
+        UnderlyingSymbol = underlyingSymbol;
         Legs = legs;
+    }
+
+    /// <summary>
+    /// Returns a string that represents the current order.
+    /// </summary>
+    public override string ToString()
+    {
+        return $"Order ID: {Id}, Type: {OrderType}, Price: {Price}, ReceivedAt: {ReceivedAt:yyyy-MM-dd HH:mm:ss}, Status: {Status}, TIF: {TimeInForce}, Underlying: {UnderlyingSymbol}, Legs: [{string.Join("; ", Legs)}]";
     }
 }
 
@@ -83,6 +133,11 @@ public class Leg
     public OrderAction Action { get; }
 
     /// <summary>
+    /// Gets the type of instrument for the leg.
+    /// </summary>
+    public InstrumentType InstrumentType { get; }
+
+    /// <summary>
     /// Gets the total quantity for this leg.
     /// </summary>
     public decimal Quantity { get; }
@@ -93,6 +148,11 @@ public class Leg
     public decimal RemainingQuantity { get; }
 
     /// <summary>
+    /// Gets the symbol for the instrument in this leg.
+    /// </summary>
+    public string Symbol { get; }
+
+    /// <summary>
     /// Gets the fills associated with this leg.
     /// </summary>
     public IReadOnlyCollection<Fill> Fills { get; }
@@ -101,16 +161,28 @@ public class Leg
     /// Initializes a new instance of the <see cref="Leg"/> class.
     /// </summary>
     /// <param name="action">The order action for the leg.</param>
+    /// <param name="instrumentType">The type of instrument.</param>
     /// <param name="quantity">The total quantity of the leg.</param>
     /// <param name="remainingQuantity">The remaining unfilled quantity.</param>
+    /// <param name="symbol">The symbol of the instrument.</param>
     /// <param name="fills">The fills associated with the leg.</param>
     [JsonConstructor]
-    public Leg(OrderAction action, decimal quantity, decimal remainingQuantity, IReadOnlyCollection<Fill> fills)
+    public Leg(OrderAction action, InstrumentType instrumentType, decimal quantity, decimal remainingQuantity, string symbol, IReadOnlyCollection<Fill> fills)
     {
         Action = action;
+        InstrumentType = instrumentType;
         Quantity = quantity;
         RemainingQuantity = remainingQuantity;
+        Symbol = symbol;
         Fills = fills;
+    }
+
+    /// <summary>
+    /// Returns a string that represents the current leg.
+    /// </summary>
+    public override string ToString()
+    {
+        return $"Action: {Action}, Type: {InstrumentType}, Symbol: {Symbol}, Quantity: {Quantity}, Remaining: {RemainingQuantity}, Fills: [{string.Join("; ", Fills)}]";
     }
 }
 
@@ -145,5 +217,13 @@ public class Fill
         FillPrice = fillPrice;
         FilledAt = filledAt;
         Quantity = quantity;
+    }
+
+    /// <summary>
+    /// Returns a string that represents the current fill.
+    /// </summary>
+    public override string ToString()
+    {
+        return $"Qty: {Quantity} @ {FillPrice} on {FilledAt:yyyy-MM-dd HH:mm:ss}";
     }
 }

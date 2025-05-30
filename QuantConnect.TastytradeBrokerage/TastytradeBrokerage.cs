@@ -56,7 +56,7 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     /// <summary>
     /// Provides the mapping between Lean symbols and brokerage specific symbols.
     /// </summary>
-    private TastytradeBrokerageSymbolMapper _symbolMapper;
+    private protected TastytradeBrokerageSymbolMapper _symbolMapper;
 
     /// <summary>
     /// Returns true if we're currently connected to the broker

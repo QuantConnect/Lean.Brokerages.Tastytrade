@@ -18,6 +18,7 @@ using NUnit.Framework;
 using QuantConnect.Tests;
 using QuantConnect.Securities;
 using System.Collections.Generic;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -29,16 +30,50 @@ public class TastytradeBrokerageSymbolMapperTests
     /// </summary>
     private TastytradeBrokerageSymbolMapper _symbolMapper;
 
+    private TastyTradeBrokerageSymbolMapperStub _symbolMapperStub;
+
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
         _symbolMapper = new(TestSetup.CreateTastytradeApiClient());
+        _symbolMapperStub = new(_symbolMapper);
     }
 
-    [Test]
-    public void ReturnsCorrectLeanSymbol()
+    private static IEnumerable<TestCaseData> BrokerageSymbolTestCases
     {
+        get
+        {
+            var aapl = Symbols.AAPL;
+            yield return new("AAPL", InstrumentType.Equity, "AAPL", aapl);
+            var aaplOptionContract = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
+            yield return new("AAPL  250620C00200000", InstrumentType.EquityOption, "AAPL", aaplOptionContract);
 
+            var BRK_B = Symbol.Create("BRK.B", SecurityType.Equity, Market.USA);
+            yield return new("BRK/B", InstrumentType.Equity, "BRK/B", BRK_B);
+            var BRK_B_OptionContract = Symbol.CreateOption(BRK_B, BRK_B.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 190m, new DateTime(2025, 06, 20));
+            yield return new("BRKB  250620C00190000", InstrumentType.EquityOption, "BRK/B", BRK_B_OptionContract);
+
+            var spx = Symbols.SPX;
+            var spxOptionContract = Symbol.CreateOption(spx, spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5635m, new DateTime(2025, 06, 20));
+            yield return new("SPX   250620C05635000", InstrumentType.EquityOption, "SPX", spxOptionContract);
+
+            var spxw = Symbol.CreateOption(spx, "SPXW", spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 1400m, new DateTime(2025, 05, 30));
+            yield return new("SPXW  250530C01400000", InstrumentType.EquityOption, "SPX", spxw);
+
+            var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
+            yield return new("/ESM5", InstrumentType.Future, "/ES", SP500EMini);
+        }
+    }
+
+    [Test, TestCaseSource(nameof(BrokerageSymbolTestCases))]
+    public void ReturnsCorrectLeanSymbol(string brokerageSymbol, InstrumentType instrumentType, string optionUnderlyingSymbol, Symbol expectedLeanSymbol)
+    {
+        if (!_symbolMapperStub.TryGetLeanSymbol(brokerageSymbol, instrumentType, out var actualLeanSymbol, out var exceptionMessage, optionUnderlyingSymbol))
+        {
+            Assert.Fail(exceptionMessage);
+        }
+
+        Assert.AreEqual(expectedLeanSymbol, actualLeanSymbol);
     }
 
     private static IEnumerable<TestCaseData> LeanSymbolTestCases
@@ -114,5 +149,24 @@ public class TastytradeBrokerageSymbolMapperTests
         Assert.IsNotEmpty(brokerageStreamMarketDataSymbol);
         Assert.IsNotNull(brokerageStreamMarketDataSymbol);
         Assert.AreEqual(expectedBrokerageStreamSymbol, brokerageStreamMarketDataSymbol);
+    }
+
+    /// <summary>
+    /// Stub implementation of <see cref="TastytradeBrokerage"/> used for unit testing.
+    /// Allows injecting a specific <see cref="TastytradeBrokerageSymbolMapper"/> instance
+    /// to initialize only the symbol mapping functionality for isolated testing.
+    /// </summary>
+    private class TastyTradeBrokerageSymbolMapperStub : TastytradeBrokerage
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TastyTradeBrokerageSymbolMapperStub"/> class
+        /// with the provided symbol mapper. This constructor is intended for use in unit tests
+        /// where only the symbol mapping functionality is needed.
+        /// </summary>
+        /// <param name="symbolMapper">The symbol mapper instance to inject for testing.</param>
+        public TastyTradeBrokerageSymbolMapperStub(TastytradeBrokerageSymbolMapper symbolMapper)
+        {
+            _symbolMapper = symbolMapper ?? throw new ArgumentNullException(nameof(symbolMapper));
+        }
     }
 }

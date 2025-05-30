@@ -201,4 +201,15 @@ public class Position
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
     }
+
+
+    /// <summary>
+    /// Returns a string that represents the current position.
+    /// </summary>
+    public override string ToString()
+    {
+        return $"Position [Account={AccountNumber}, Symbol={Symbol}, InstrumentType={InstrumentType}, Quantity={Quantity}, Direction={QuantityDirection}, " +
+               $"AvgOpenPrice={AverageOpenPrice}, ClosePrice={ClosePrice}, RealizedToday={RealizedToday} {RealizedTodayEffect}, " +
+               $"RealizedDayGain={RealizedDayGain} {RealizedDayGainEffect}, CreatedAt={CreatedAt:yyyy-MM-dd}, UpdatedAt={UpdatedAt:yyyy-MM-dd}]";
+    }
 }

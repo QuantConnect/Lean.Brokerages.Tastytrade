@@ -35,7 +35,12 @@ public class TastytradeBrokerageSymbolMapper
     /// <summary>
     /// A cache mapping Lean symbols to their corresponding brokerage and stream symbols.
     /// </summary>
-    private readonly ConcurrentDictionary<Symbol, BrokerageSymbols> _brokerageSymbolsByLeanSymbol = [];
+    private static readonly ConcurrentDictionary<Symbol, BrokerageSymbols> _brokerageSymbolsByLeanSymbol = [];
+
+    /// <summary>
+    /// A cache mapping brokerage symbols to their corresponding Lean symbols.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, Symbol> _leanSymbolByBrokerageSymbol = [];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeBrokerageSymbolMapper"/> class.
@@ -44,6 +49,60 @@ public class TastytradeBrokerageSymbolMapper
     public TastytradeBrokerageSymbolMapper(TastytradeApiClient tastytradeApiClient)
     {
         _tastytradeApiClient = tastytradeApiClient;
+    }
+
+    /// <summary>
+    /// Converts a brokerage symbol back into a Lean symbol.
+    /// </summary>
+    /// <param name="brokerageSymbol">The brokerage symbol to convert.</param>
+    /// <param name="securityType">The security type (e.g., Equity, Option, Future).</param>
+    /// <param name="market">The market (e.g., "USA").</param>
+    /// <param name="expirationDate">The expiration date for derivatives, if applicable.</param>
+    /// <param name="strike">The strike price for options, if applicable.</param>
+    /// <param name="optionRight">The option right (Call or Put), if applicable.</param>
+    /// <returns>A new <see cref="Symbol"/> instance representing the Lean symbol.</returns>
+    /// <exception cref="NotImplementedException">Always thrown. Functionality not implemented yet.</exception>
+    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol)
+    {
+        if (_leanSymbolByBrokerageSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
+        {
+            return leanSymbol;
+        }
+
+        switch (securityType)
+        {
+            case SecurityType.Equity:
+                leanSymbol = Symbol.Create(ToOptionLeanTickerFormat(brokerageSymbol), securityType, Market.USA);
+                break;
+            case SecurityType.Future:
+                leanSymbol = SymbolRepresentation.ParseFutureSymbol(ToFutureLeanTickerFormat(brokerageSymbol));
+                break;
+            case SecurityType.Option:
+                var isIndex = _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(underlyingBrokerageSymbol).SynchronouslyAwaitTaskResult();
+
+                if (isIndex)
+                {
+                    leanSymbol = SymbolRepresentation.ParseOptionTickerOSI(brokerageSymbol, SecurityType.IndexOption, SecurityType.IndexOption.DefaultOptionStyle(), Market.USA);
+                }
+                else
+                {
+                    if (!SymbolRepresentation.TryDecomposeOptionTickerOSI(brokerageSymbol, out _, out var osiExpiry, out var osiRight, out var osiStrike))
+                    {
+                        throw new ArgumentException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetLeanSymbol)}: Failed to decompose option ticker '{brokerageSymbol}'. Ensure the symbol follows the correct OSI format.");
+                    }
+
+                    var underlyingSymbol = Symbol.Create(ToOptionLeanTickerFormat(underlyingBrokerageSymbol), SecurityType.Equity, Market.USA);
+                    leanSymbol = Symbol.CreateOption(underlyingSymbol, Market.USA, securityType.DefaultOptionStyle(), osiRight, osiStrike, osiExpiry);
+                }
+                break;
+            default:
+                throw new NotImplementedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetLeanSymbol)}: " +
+                    $"The security type '{securityType}' with brokerage symbol '{brokerageSymbol}' is not supported.");
+        }
+
+        SynchronizeCachedSymbolCollection(leanSymbol, brokerageSymbol, default);
+
+        return leanSymbol;
     }
 
     /// <summary>
@@ -85,9 +144,30 @@ public class TastytradeBrokerageSymbolMapper
                 throw new NotSupportedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetBrokerageSymbols)}.");
         }
 
-        _brokerageSymbolsByLeanSymbol[symbol] = new(brokerageSymbol, brokerageStreamMarketDataSymbol);
+        SynchronizeCachedSymbolCollection(symbol, brokerageSymbol, brokerageStreamMarketDataSymbol);
 
         return (brokerageSymbol, brokerageStreamMarketDataSymbol);
+    }
+
+    /// <summary>
+    /// Ensures the internal symbol caches are synchronized with the provided Lean symbol,
+    /// brokerage symbol, and brokerage stream symbol. If the stream symbol is not provided,
+    /// it delegates synchronization to <see cref="GetBrokerageSymbols(Symbol)"/>.
+    /// </summary>
+    /// <param name="leanSymbol">The Lean symbol to associate with brokerage symbols.</param>
+    /// <param name="brokerageSymbol">The brokerage-specific symbol.</param>
+    /// <param name="brokerageStreamMarketDataSymbol">The brokerage stream symbol used for market data.</param>
+    private void SynchronizeCachedSymbolCollection(Symbol leanSymbol, string brokerageSymbol, string brokerageStreamMarketDataSymbol)
+    {
+        if (string.IsNullOrEmpty(brokerageStreamMarketDataSymbol))
+        {
+            GetBrokerageSymbols(leanSymbol);
+            // Synchronization happens within GetBrokerageSymbols if stream symbol is missing
+            return;
+        }
+
+        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BrokerageSymbols(brokerageSymbol, brokerageStreamMarketDataSymbol);
+        _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
     }
 
     /// <summary>
@@ -124,33 +204,6 @@ public class TastytradeBrokerageSymbolMapper
     }
 
     /// <summary>
-    /// Converts a brokerage symbol back into a Lean symbol.
-    /// </summary>
-    /// <param name="brokerageSymbol">The brokerage symbol to convert.</param>
-    /// <param name="securityType">The security type (e.g., Equity, Option, Future).</param>
-    /// <param name="market">The market (e.g., "USA").</param>
-    /// <param name="expirationDate">The expiration date for derivatives, if applicable.</param>
-    /// <param name="strike">The strike price for options, if applicable.</param>
-    /// <param name="optionRight">The option right (Call or Put), if applicable.</param>
-    /// <returns>A new <see cref="Symbol"/> instance representing the Lean symbol.</returns>
-    /// <exception cref="NotImplementedException">Always thrown. Functionality not implemented yet.</exception>
-    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string market, DateTime expirationDate = default, decimal strike = 0, OptionRight optionRight = OptionRight.Call)
-    {
-        var leanSymbol = _brokerageSymbolsByLeanSymbol.FirstOrDefault(x => x.Value.BrokerageSymbol == brokerageSymbol).Key;
-        if (leanSymbol != null)
-        {
-            return leanSymbol;
-        }
-        switch (securityType)
-        {
-            case SecurityType.Equity:
-                return Symbol.Create(brokerageSymbol, securityType, market);
-            default:
-                throw new NotImplementedException();
-        }
-    }
-
-    /// <summary>
     /// Converts a Lean ticker symbol to a brokerage-compatible format by replacing periods with slashes.
     /// </summary>
     /// <param name="leanTicker">The Lean ticker symbol to be converted.</param>
@@ -183,5 +236,43 @@ public class TastytradeBrokerageSymbolMapper
     private static string ToOptionBrokerageTickerFormat(string leanTicker)
     {
         return leanTicker.Replace(".", string.Empty);
+    }
+
+    /// <summary>
+    /// Converts an option symbol from brokerage format to Lean format by replacing slashes with periods.
+    /// </summary>
+    /// <param name="brokerageTicker">The brokerage-formatted ticker symbol.</param>
+    /// <returns>The Lean-compatible ticker format with slashes replaced by periods.</returns>
+    /// <remarks>
+    /// This method is useful when receiving option tickers from brokerages that use slashes ('/') instead of periods ('.').
+    /// </remarks>
+    private static string ToOptionLeanTickerFormat(string brokerageTicker)
+    {
+        return brokerageTicker.Replace('/', '.');
+    }
+
+    /// <summary>
+    /// Converts a futures ticker from brokerage format to Lean format by removing slashes.
+    /// </summary>
+    /// <param name="brokerageTicker">The brokerage-formatted ticker symbol for futures.</param>
+    /// <returns>The Lean-compatible futures ticker without slashes.</returns>
+    /// <remarks>
+    /// <para>Futures tickers from brokerages often include slashes to separate contract components. 
+    /// This method removes them for compatibility with Lean’s symbol parsing.</para>
+    /// <para><b>Example:</b></para>
+    /// <list type="bullet">
+    /// <item>
+    /// <term>Brokerage</term>
+    /// <description><c>/ESU25</c></description>
+    /// </item>
+    /// <item>
+    /// <term>Lean</term>
+    /// <description><c>ESU25</c></description>
+    /// </item>
+    /// </list>
+    /// </remarks>
+    private static string ToFutureLeanTickerFormat(string brokerageTicker)
+    {
+        return brokerageTicker.Replace("/", "");
     }
 }

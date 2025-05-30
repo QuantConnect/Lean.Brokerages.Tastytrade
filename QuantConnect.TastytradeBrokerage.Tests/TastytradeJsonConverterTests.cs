@@ -618,6 +618,85 @@ public class TastytradeJsonConverterTests
         Assert.AreNotEqual(default, fill.FilledAt);
     }
 
+    [Test]
+    public void DeserializeRestOpenOrderResponse()
+    {
+        var jsonContent = @"{
+    ""data"": {
+        ""items"": [
+            {
+                ""id"": 270727,
+                ""account-number"": ""5WX06827"",
+                ""cancellable"": true,
+                ""editable"": true,
+                ""edited"": false,
+                ""ext-client-order-id"": ""870000000200042187"",
+                ""ext-exchange-order-number"": ""8590205319"",
+                ""ext-global-order-number"": 2,
+                ""global-request-id"": ""b0e4f008f233846f928bbef5387026b5"",
+                ""order-type"": ""Limit"",
+                ""price"": ""190.0"",
+                ""price-effect"": ""Debit"",
+                ""received-at"": ""2025-05-29T11:12:54.952+00:00"",
+                ""size"": 10,
+                ""status"": ""Live"",
+                ""time-in-force"": ""GTC"",
+                ""underlying-instrument-type"": ""Equity"",
+                ""underlying-symbol"": ""AAPL"",
+                ""updated-at"": 1748520985000,
+                ""legs"": [
+                    {
+                        ""action"": ""Buy to Open"",
+                        ""instrument-type"": ""Equity"",
+                        ""quantity"": 10,
+                        ""remaining-quantity"": 10,
+                        ""symbol"": ""AAPL"",
+                        ""fills"": []
+                    }
+                ]
+            }
+        ]
+    },
+    ""context"": ""/accounts/5WX06827/orders"",
+    ""pagination"": {
+        ""per-page"": 100,
+        ""page-offset"": 0,
+        ""item-offset"": 0,
+        ""total-items"": 1,
+        ""total-pages"": 1,
+        ""current-item-count"": 1,
+        ""previous-link"": null,
+        ""next-link"": null,
+        ""paging-link-template"": null
+    }
+}";
+
+        var orders = jsonContent.DeserializeKebabCase<BaseResponse<ResponseList<Order>>>().Data.Items;
+
+        Assert.AreEqual(1, orders.Count);
+        foreach (var order in orders)
+        {
+            Assert.AreEqual("270727", order.Id);
+            Assert.AreEqual(OrderType.Limit, order.OrderType);
+            Assert.AreEqual(190m, order.Price);
+            Assert.AreEqual(OrderStatus.Live, order.Status);
+            Assert.AreEqual(TimeInForce.GoodTillCancel, order.TimeInForce);
+            Assert.AreEqual("AAPL", order.UnderlyingSymbol);
+            Assert.AreNotEqual(default, order.ReceivedAt);
+
+            Assert.AreEqual(1, order.Legs.Count);
+            foreach (var leg in order.Legs)
+            {
+                Assert.AreEqual(OrderAction.BuyToOpen, leg.Action);
+                Assert.AreEqual(InstrumentType.Equity, leg.InstrumentType);
+                Assert.AreEqual(10, leg.Quantity);
+                Assert.AreEqual(10, leg.RemainingQuantity);
+                Assert.AreEqual("AAPL", leg.Symbol);
+                Assert.AreEqual(0, leg.Fills.Count);
+            }
+        }
+    }
+
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)
     {
         foreach (var item in expected)

@@ -13,6 +13,7 @@
  * limitations under the License.
 */
 
+using System;
 using NUnit.Framework;
 using QuantConnect.Util;
 using System.Threading.Tasks;
@@ -81,5 +82,28 @@ public class TastytradeBrokerageAdditionalTests
         Assert.IsNotEmpty(res.Symbol);
         Assert.IsNotNull(res.StreamerSymbol);
         Assert.IsNotEmpty(res.StreamerSymbol);
+    }
+
+    [TestCase("SPY", false)]
+    [TestCase("SPX", true)]
+    [TestCase("BRK/B", false)]
+    public async Task IsUnderlyingEquityAnIndexAsync(string symbol, bool expectedIsIndex)
+    {
+        var actualIsIndex = await _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(symbol);
+        Assert.AreEqual(expectedIsIndex, actualIsIndex);
+    }
+
+    [Test]
+    public async Task GetLiveOrders()
+    {
+        var res = await _tastytradeApiClient.GetLiveOrders();
+
+        Assert.IsNotNull(res);
+    }
+
+    [TestCase("123")]
+    public void CancelOrderWithWrongId(string id)
+    {
+        Assert.ThrowsAsync<Exception>(async () => await _tastytradeApiClient.CancelOrderById(id));
     }
 }
