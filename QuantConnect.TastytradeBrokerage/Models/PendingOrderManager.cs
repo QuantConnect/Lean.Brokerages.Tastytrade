@@ -22,7 +22,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models;
 /// <summary>
 /// Handles synchronization for Lean orders using an <see cref="AutoResetEvent"/>.
 /// </summary>
-public class PendingSubmittedOrderManager : IDisposable
+public class PendingOrderManager : IDisposable
 {
     /// <summary>
     /// Gets the Lean order being managed.
@@ -30,21 +30,29 @@ public class PendingSubmittedOrderManager : IDisposable
     public Order LeanOrder { get; }
 
     /// <summary>
+    /// Gets the target order status that should trigger an action (e.g., signaling).
+    /// </summary>
+    public OrderStatus InvokeOrderStatus { get; }
+
+    /// <summary>
     /// Gets the synchronization event used for order processing coordination.
     /// </summary>
     public AutoResetEvent AutoResetEvent { get; } = new(false);
 
+
     /// <summary>
-    /// Initializes a new instance of the <see cref="PendingSubmittedOrderManager"/> class.
+    /// Initializes a new instance of the <see cref="PendingOrderManager"/> class.
     /// </summary>
     /// <param name="leanOrder">The Lean order to manage.</param>
-    public PendingSubmittedOrderManager(Order leanOrder)
+    /// <param name="invokeOrderStatus">The order status that, when triggered, will be used to signal processing completion or continuation.</param>
+    public PendingOrderManager(Order leanOrder, OrderStatus invokeOrderStatus)
     {
         LeanOrder = leanOrder;
+        InvokeOrderStatus = invokeOrderStatus;
     }
 
     /// <summary>
-    /// Releases resources used by the <see cref="PendingSubmittedOrderManager"/> instance.
+    /// Releases resources used by the <see cref="PendingOrderManager"/> instance.
     /// </summary>
     public void Dispose()
     {

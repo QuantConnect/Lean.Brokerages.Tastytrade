@@ -48,6 +48,11 @@ public class Order
     public string Id { get; }
 
     /// <summary>
+    /// Expire date when <see cref="TimeInForce.GoodTilDate"/>
+    /// </summary>
+    public DateTime GtcDate { get; }
+
+    /// <summary>
     /// Gets the date and time when the order was cancelled.
     /// </summary>
     public DateTime CancelledAt { get; }
@@ -73,6 +78,11 @@ public class Order
     public OrderStatus Status { get; }
 
     /// <summary>
+    /// Gets the stop price associated with the order.
+    /// </summary>
+    public decimal StopTrigger { get; }
+
+    /// <summary>
     /// Gets the time-in-force designation for the order.
     /// </summary>
     public TimeInForce TimeInForce { get; }
@@ -92,22 +102,26 @@ public class Order
     /// </summary>
     /// <param name="id">The unique order ID.</param>
     /// <param name="cancelledAt">The date and time when the order was cancelled.</param>
+    /// <param name="gtcDate">The Expire date of order.</param>
     /// <param name="orderType">The type of the order.</param>
     /// <param name="price">The price associated with the order.</param>
     /// <param name="receivedAt">The date and time when the order was received.</param>
     /// <param name="status">The status of the order.</param>
+    /// <param name="stopTrigger">The stop price associated with the order.</param>
     /// <param name="timeInForce">The time-in-force value for the order.</param>
     /// <param name="underlyingSymbol">The symbol of the underlying asset.</param>
     /// <param name="legs">The collection of legs for the order.</param>
     [JsonConstructor]
-    public Order(string id, DateTime cancelledAt, OrderType orderType, decimal price, DateTime receivedAt, OrderStatus status, TimeInForce timeInForce, string underlyingSymbol, IReadOnlyCollection<Leg> legs)
+    public Order(string id, DateTime cancelledAt, DateTime gtcDate, OrderType orderType, decimal price, DateTime receivedAt, OrderStatus status, decimal stopTrigger, TimeInForce timeInForce, string underlyingSymbol, IReadOnlyCollection<Leg> legs)
     {
         Id = id;
+        GtcDate = gtcDate;
         CancelledAt = cancelledAt;
         OrderType = orderType;
         Price = price;
         ReceivedAt = receivedAt;
         Status = status;
+        StopTrigger = stopTrigger;
         TimeInForce = timeInForce;
         UnderlyingSymbol = underlyingSymbol;
         Legs = legs;

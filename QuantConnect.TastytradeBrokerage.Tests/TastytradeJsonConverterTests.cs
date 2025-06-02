@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -624,32 +624,34 @@ public class TastytradeJsonConverterTests
         var jsonContent = @"{
     ""data"": {
         ""items"": [
-            {
-                ""id"": 270727,
+{
+                ""id"": 270976,
                 ""account-number"": ""5WX06827"",
                 ""cancellable"": true,
                 ""editable"": true,
                 ""edited"": false,
-                ""ext-client-order-id"": ""870000000200042187"",
-                ""ext-exchange-order-number"": ""8590205319"",
-                ""ext-global-order-number"": 2,
-                ""global-request-id"": ""b0e4f008f233846f928bbef5387026b5"",
-                ""order-type"": ""Limit"",
-                ""price"": ""190.0"",
+                ""ext-client-order-id"": ""80000000b700042280"",
+                ""ext-exchange-order-number"": ""785979286144"",
+                ""ext-global-order-number"": 183,
+                ""global-request-id"": ""c73256d0ea9995bde1d4b8e75f8ee549"",
+                ""order-type"": ""Stop Limit"",
+                ""price"": ""4.0"",
                 ""price-effect"": ""Debit"",
-                ""received-at"": ""2025-05-29T11:12:54.952+00:00"",
-                ""size"": 10,
+                ""received-at"": ""2025-05-30T13:55:00.653+00:00"",
+                ""size"": 1,
+                ""source"": ""QuantConnect"",
                 ""status"": ""Live"",
+                ""stop-trigger"": ""2.0"",
                 ""time-in-force"": ""GTC"",
                 ""underlying-instrument-type"": ""Equity"",
                 ""underlying-symbol"": ""AAPL"",
-                ""updated-at"": 1748520985000,
+                ""updated-at"": 1748613301843,
                 ""legs"": [
                     {
                         ""action"": ""Buy to Open"",
                         ""instrument-type"": ""Equity"",
-                        ""quantity"": 10,
-                        ""remaining-quantity"": 10,
+                        ""quantity"": 1,
+                        ""remaining-quantity"": 1,
                         ""symbol"": ""AAPL"",
                         ""fills"": []
                     }
@@ -676,10 +678,11 @@ public class TastytradeJsonConverterTests
         Assert.AreEqual(1, orders.Count);
         foreach (var order in orders)
         {
-            Assert.AreEqual("270727", order.Id);
-            Assert.AreEqual(OrderType.Limit, order.OrderType);
-            Assert.AreEqual(190m, order.Price);
+            Assert.AreEqual("270976", order.Id);
+            Assert.AreEqual(OrderType.StopLimit, order.OrderType);
+            Assert.AreEqual(4m, order.Price);
             Assert.AreEqual(OrderStatus.Live, order.Status);
+            Assert.AreEqual(2m, order.StopTrigger);
             Assert.AreEqual(TimeInForce.GoodTillCancel, order.TimeInForce);
             Assert.AreEqual("AAPL", order.UnderlyingSymbol);
             Assert.AreNotEqual(default, order.ReceivedAt);
@@ -689,13 +692,76 @@ public class TastytradeJsonConverterTests
             {
                 Assert.AreEqual(OrderAction.BuyToOpen, leg.Action);
                 Assert.AreEqual(InstrumentType.Equity, leg.InstrumentType);
-                Assert.AreEqual(10, leg.Quantity);
-                Assert.AreEqual(10, leg.RemainingQuantity);
+                Assert.AreEqual(1, leg.Quantity);
+                Assert.AreEqual(1, leg.RemainingQuantity);
                 Assert.AreEqual("AAPL", leg.Symbol);
                 Assert.AreEqual(0, leg.Fills.Count);
             }
         }
     }
+
+    [Test]
+    public void DeserializeRestOpenOrderResponseWithGoodTilDateTimeInForce()
+    {
+        var jsonContent = @"{
+    ""data"": {
+        ""items"": [
+            {
+                ""id"": 271261,
+                ""account-number"": ""5WX06827"",
+                ""cancellable"": true,
+                ""editable"": true,
+                ""edited"": false,
+                ""global-request-id"": ""f556ad1d5578bae1bc67cc503f31d9a6"",
+                ""gtc-date"": ""2025-06-20"",
+                ""order-type"": ""Limit"",
+                ""price"": ""4.0"",
+                ""price-effect"": ""Debit"",
+                ""received-at"": ""2025-06-01T20:24:06.428+00:00"",
+                ""size"": 1,
+                ""source"": ""QuantConnect"",
+                ""status"": ""Received"",
+                ""time-in-force"": ""GTD"",
+                ""underlying-instrument-type"": ""Equity"",
+                ""underlying-symbol"": ""AAPL"",
+                ""updated-at"": 1748809446428,
+                ""legs"": [
+                    {
+                        ""action"": ""Buy to Open"",
+                        ""instrument-type"": ""Equity"",
+                        ""quantity"": 1,
+                        ""remaining-quantity"": 1,
+                        ""symbol"": ""AAPL"",
+                        ""fills"": []
+                    }
+                ]
+            }
+        ]
+    },
+    ""context"": ""/accounts/5WX06827/orders"",
+    ""pagination"": {
+        ""per-page"": 100,
+        ""page-offset"": 0,
+        ""item-offset"": 0,
+        ""total-items"": 1,
+        ""total-pages"": 1,
+        ""current-item-count"": 1,
+        ""previous-link"": null,
+        ""next-link"": null,
+        ""paging-link-template"": null
+    }
+}";
+
+        var orders = jsonContent.DeserializeKebabCase<BaseResponse<ResponseList<Order>>>().Data.Items;
+
+        foreach (var order in orders)
+        {
+            Assert.AreEqual(TimeInForce.GoodTilDate, order.TimeInForce);
+            Assert.AreNotEqual(default, order.GtcDate);
+            Assert.AreEqual(new DateTime(2025, 06, 20), order.GtcDate);
+        }
+    }
+
     [Test]
     public void DeserializeRestFutureOptionChainResponse()
     {

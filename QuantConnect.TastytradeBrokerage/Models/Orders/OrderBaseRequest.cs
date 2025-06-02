@@ -65,6 +65,11 @@ public abstract class OrderBaseRequest
     public decimal? Price { get; protected set; }
 
     /// <summary>
+    /// It allows Tastytrade team to better identify all QuantConnect orders coming through for the best service when need and reporting tools.
+    /// </summary>
+    public string Source => "QuantConnect";
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="OrderBaseRequest"/> class without specifying a price effect.
     /// This constructor is typically used for orders that do not require a directional price impact (e.g., raw market orders).
     /// </summary>

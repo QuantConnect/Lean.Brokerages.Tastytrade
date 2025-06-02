@@ -103,7 +103,7 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
 
         Initialize(baseWSUrl, _tastytradeApiClient);
 
-        _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceived);
+        _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
 
         // Rate gate limiter useful for API/WS calls
         // _connectionRateLimiter = new RateGate();

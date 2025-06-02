@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -150,6 +150,22 @@ public sealed class TastytradeApiClient
     public async Task CancelOrderById(string id)
     {
         await SendRequestAsync<object>(HttpMethod.Delete, $"/accounts/{AccountNumber}/orders/{id}");
+    }
+
+    /// <summary>
+    /// Replaces an existing order by its ID with new order parameters.
+    /// </summary>
+    /// <param name="id">The unique identifier of the existing order to be replaced.</param>
+    /// <param name="order">The new order request containing updated parameters.</param>
+    /// <returns>
+    /// A task representing the asynchronous operation. The task result contains the ID of the newly replaced order.
+    /// </returns>
+    /// <exception cref="HttpRequestException">
+    /// Thrown if the request to replace the order fails (e.g., due to network issues or an invalid response).
+    /// </exception>
+    public async Task<string> ReplaceOrderById(string id, OrderBaseRequest order)
+    {
+        return (await SendRequestAsync<Order>(HttpMethod.Patch, $"/accounts/{AccountNumber}/orders/{id}", order.ToJson())).Data.Id;
     }
 
     /// <summary>

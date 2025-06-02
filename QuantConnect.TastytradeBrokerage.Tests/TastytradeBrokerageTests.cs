@@ -15,6 +15,7 @@
 
 using System;
 using NUnit.Framework;
+using System.Threading;
 using QuantConnect.Tests;
 using QuantConnect.Orders;
 using QuantConnect.Interfaces;
@@ -22,6 +23,7 @@ using QuantConnect.Securities;
 using System.Collections.Generic;
 using QuantConnect.Configuration;
 using QuantConnect.Tests.Brokerages;
+using QuantConnect.Orders.TimeInForces;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -56,20 +58,28 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         {
             var aapl = Symbols.AAPL;
             yield return new OrderTestMetaData(OrderType.Market, aapl);
-            yield return new OrderTestMetaData(OrderType.Limit, aapl, 4m, 2m);
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m);
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(new DateTime(2025, 06, 20)) });
+            yield return new OrderTestMetaData(OrderType.StopMarket, aapl, 2m, 3m);
+            yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 4m);
 
             var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
             yield return new OrderTestMetaData(OrderType.Market, option);
-            yield return new OrderTestMetaData(OrderType.Limit, option, 4m, 2m);
+            yield return new OrderTestMetaData(OrderType.Limit, option, 2m, 4m);
+            yield return new OrderTestMetaData(OrderType.StopMarket, option, 2m, 3m);
+            yield return new OrderTestMetaData(OrderType.StopLimit, option, 2m, 4m);
 
             var index = Symbol.Create("SPX", SecurityType.Index, Market.USA);
             var indexOption = Symbol.CreateOption(index, Market.USA, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5635m, new DateTime(2025, 06, 20));
             yield return new OrderTestMetaData(OrderType.Market, indexOption);
-            yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 2m);
+            yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 4m);
+            yield return new OrderTestMetaData(OrderType.StopMarket, indexOption, 2m, 3m);
+            yield return new OrderTestMetaData(OrderType.StopLimit, indexOption, 2m, 4m);
 
-            var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
-            yield return new OrderTestMetaData(OrderType.Market, SP500EMini);
-            yield return new OrderTestMetaData(OrderType.Limit, SP500EMini, 4m, 2m);
+            // Future. TODO: It doesn't work in SandBox
+            //var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
+            //yield return new OrderTestMetaData(OrderType.Market, SP500EMini);
+            //yield return new OrderTestMetaData(OrderType.Limit, SP500EMini, 4m, 2m);
         }
     }
 
@@ -123,6 +133,54 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         base.LongFromShort(parameters);
     }
 
+    [Test]
+    public void LongFromZeroAndUpdate()
+    {
+        var orderTestMetaData = new OrderTestMetaData(OrderType.Limit, Symbols.AAPL, 2m, 4m);
+        var parameters = GetOrderTestParameters(orderTestMetaData);
+
+        var order = PlaceOrderWaitForStatus(parameters.CreateLongOrder(GetDefaultQuantity()), parameters.ExpectedStatus) as LimitOrder;
+
+        var updateOrderRequest = new UpdateOrderRequest(DateTime.UtcNow, order.Id, new()
+        {
+            LimitPrice = order.LimitPrice - 0.01m,
+            //Quantity = order.Quantity + 1000m
+        });
+
+        order.ApplyUpdateOrderRequest(updateOrderRequest);
+
+        using var canceledOrderStatusEvent = new AutoResetEvent(false);
+        using var updatedOrderStatusEvent = new AutoResetEvent(false);
+        Brokerage.OrdersStatusChanged += (_, orderEvents) =>
+        {
+            var eventOrderStatus = orderEvents[0].Status;
+
+            order.Status = eventOrderStatus;
+
+            switch (eventOrderStatus)
+            {
+                case OrderStatus.UpdateSubmitted:
+                    updatedOrderStatusEvent.Set();
+                    break;
+                case OrderStatus.Canceled:
+                    canceledOrderStatusEvent.Set();
+                    break;
+            }
+        };
+
+        if (!Brokerage.UpdateOrder(order))
+        {
+            Assert.Fail("Order is updated well.");
+        }
+
+        Assert.IsTrue(updatedOrderStatusEvent.WaitOne(TimeSpan.FromSeconds(10)));
+
+        if (!Brokerage.CancelOrder(order) || !canceledOrderStatusEvent.WaitOne(TimeSpan.FromSeconds(5)))
+        {
+            Assert.Fail("Order is not canceled well.");
+        }
+    }
+
     /// <summary>
     /// Represents the parameters required for testing an order, including order type, symbol, and price limits.
     /// </summary>
@@ -130,21 +188,21 @@ public partial class TastytradeBrokerageTests : BrokerageTests
     /// <param name="Symbol">The financial symbol for the order, such as a stock or option ticker.</param>
     /// <param name="HighLimit">The high limit price for the order (if applicable).</param>
     /// <param name="LowLimit">The low limit price for the order (if applicable).</param>
-    public record OrderTestMetaData(OrderType OrderType, Symbol Symbol, decimal HighLimit = 0, decimal LowLimit = 0);
+    public record OrderTestMetaData(OrderType OrderType, Symbol Symbol, decimal HighLimit = 0, decimal LowLimit = 0, IOrderProperties OrderProperties = default);
 
     private static OrderTestParameters GetOrderTestParameters(OrderTestMetaData orderTestMetaData)
     {
-        return GetOrderTestParameters(orderTestMetaData.OrderType, orderTestMetaData.Symbol, orderTestMetaData.HighLimit, orderTestMetaData.LowLimit);
+        return GetOrderTestParameters(orderTestMetaData.OrderType, orderTestMetaData.Symbol, orderTestMetaData.HighLimit, orderTestMetaData.LowLimit, orderTestMetaData.OrderProperties);
     }
 
-    private static OrderTestParameters GetOrderTestParameters(OrderType orderType, Symbol symbol, decimal highLimit, decimal lowLimit)
+    private static OrderTestParameters GetOrderTestParameters(OrderType orderType, Symbol symbol, decimal highLimit, decimal lowLimit, IOrderProperties orderProperties)
     {
         return orderType switch
         {
-            OrderType.Market => new MarketOrderTestParameters(symbol),
-            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit),
-            OrderType.StopMarket => new StopMarketOrderTestParameters(symbol, highLimit, lowLimit),
-            OrderType.StopLimit => new StopLimitOrderTestParameters(symbol, highLimit, lowLimit),
+            OrderType.Market => new MarketOrderTestParameters(symbol, orderProperties),
+            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
+            OrderType.StopMarket => new StopMarketOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
+            OrderType.StopLimit => new StopLimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
             _ => throw new NotImplementedException()
         };
     }
