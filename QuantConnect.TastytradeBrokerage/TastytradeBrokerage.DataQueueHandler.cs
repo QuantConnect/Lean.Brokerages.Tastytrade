@@ -15,14 +15,15 @@
 
 using System;
 using NodaTime;
-using System.Linq;
 using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Packets;
+using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using QuantConnect.Data.Market;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade;
@@ -52,12 +53,29 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     private readonly ConcurrentDictionary<Symbol, DateTimeZone> _exchangeTimeZoneByLeanSymbol = new();
 
     /// <summary>
+    /// A thread-safe dictionary that stores the order books by brokerage symbols.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, LevelOneService> _levelOneServices = new();
+
+    /// <summary>
     /// Sets the job we're subscribing for
     /// </summary>
     /// <param name="job">Job we're subscribing for</param>
     public void SetJob(LiveNodePacket job)
     {
-        throw new NotImplementedException();
+        Initialize(
+            baseUrl: job.BrokerageData.TryGetValue("tastytrade-api-url", out var baseUrl) ? baseUrl : string.Empty,
+            baseWSUrl: job.BrokerageData.TryGetValue("tastytrade-websocket-url", out var baseWSUrl) ? baseWSUrl : string.Empty,
+            username: job.BrokerageData.TryGetValue("tastytrade-username", out var username) ? username : string.Empty,
+            password: job.BrokerageData.TryGetValue("tastytrade-password", out var password) ? password : string.Empty,
+            accountNumber: null,
+            orderProvider: null,
+            securityProvider: null);
+
+        if (!IsConnected)
+        {
+            Connect();
+        }
     }
 
     /// <summary>
@@ -95,10 +113,20 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
     protected override bool Subscribe(IEnumerable<Symbol> symbols)
     {
-        // TODO: use SymbolMapper
-        var brokerageSymbols = symbols.Select(x => x.Value);
+        var brokerageStreamSymbols = new List<string>();
+        foreach (var symbol in symbols)
+        {
+            _exchangeTimeZoneByLeanSymbol[symbol] = symbol.GetSymbolExchangeTimeZone();
 
-        MarketDataUpdatesWebSocket.Send(new FeedSubscription(brokerageSymbols).ToJson());
+            var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
+
+            _levelOneServices[brokerageStreamSymbol] = new(symbol);
+            _levelOneServices[brokerageStreamSymbol].BestBidAskUpdated += OnBestBidAskUpdated;
+
+            brokerageStreamSymbols.Add(brokerageStreamSymbol);
+        }
+
+        MarketDataUpdatesWebSocket.Send(new FeedSubscription(brokerageStreamSymbols).ToJson());
 
         return true;
     }
@@ -109,33 +137,120 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
     private bool Unsubscribe(IEnumerable<Symbol> symbols)
     {
-        // TODO: use SymbolMapper
-        var brokerageSymbols = symbols.Select(x => x.Value);
+        var brokerageStreamSymbols = new List<string>();
+        foreach (var symbol in symbols)
+        {
+            _exchangeTimeZoneByLeanSymbol.Remove(symbol, out _);
 
-        MarketDataUpdatesWebSocket.Send(new FeedUnSubscription(brokerageSymbols).ToJson());
+            var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
+
+            if (_levelOneServices.TryRemove(brokerageStreamSymbol, out var orderBook))
+            {
+                orderBook.BestBidAskUpdated -= OnBestBidAskUpdated;
+            }
+
+            brokerageStreamSymbols.Add(brokerageStreamSymbol);
+        }
+
+        MarketDataUpdatesWebSocket.Send(new FeedUnSubscription(brokerageStreamSymbols).ToJson());
 
         return true;
     }
 
     protected override void OnTradeReceived(TradeContent trade)
     {
-        var leanSymbol = trade.Symbol; // TODO: Get LeanSymbol
-
-        if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(leanSymbol, out var exchangeTimeZone))
+        if (trade.Price <= 0 && trade.Size <= 0)
         {
             return;
         }
 
-        var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone), leanSymbol, string.Empty, string.Empty, trade.Size, trade.Price);
-
-        lock (_synchronizationContext)
+        if (_levelOneServices.TryGetValue(trade.Symbol, out var orderBook))
         {
-            _aggregator.Update(tick);
+            if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(orderBook.Symbol, out var exchangeTimeZone))
+            {
+                return;
+            }
+
+            var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone), orderBook.Symbol, string.Empty, string.Empty, trade.Size, trade.Price);
+
+            lock (_synchronizationContext)
+            {
+                _aggregator.Update(tick);
+            }
+        }
+        else
+        {
+            Log.Error($"{nameof(TastytradeBrokerage)}.{nameof(OnTradeReceived)}: Symbol {trade.Symbol} not found in order books. This could indicate an unexpected symbol or a missing initialization step.");
         }
     }
 
     protected override void OnQuoteReceived(QuoteContent quote)
     {
-        throw new NotImplementedException();
+        if (_levelOneServices.TryGetValue(quote.Symbol, out var levelOneService))
+        {
+            UpdateLevelOneRow(quote.AskPrice, quote.AskSize, levelOneService.BestAskPrice, levelOneService.BestAskSize, levelOneService.UpdateAskRow);
+            UpdateLevelOneRow(quote.BidPrice, quote.BidSize, levelOneService.BestBidPrice, levelOneService.BestBidSize, levelOneService.UpdateBidRow);
+        }
+        else
+        {
+            Log.Error($"{nameof(TastytradeBrokerage)}.{nameof(OnQuoteReceived)}: Symbol {quote.Symbol} not found in order books. This could indicate an unexpected symbol or a missing initialization step.");
+        }
+    }
+
+    /// <summary>
+    /// Updates a level one row with the given price and size, considering best available values if needed.
+    /// </summary>
+    /// <param name="price">The price to update, if available.</param>
+    /// <param name="size">The size associated with the price, if available.</param>
+    /// <param name="bestPrice">The best known price to use as a fallback if <paramref name="price"/> is unavailable.</param>
+    /// <param name="bestSize">The best known size to use as a fallback if <paramref name="size"/> is unavailable.</param>
+    /// <param name="updateRowAction">The action to execute to update the row.</param>
+    internal static void UpdateLevelOneRow(decimal? price, decimal? size, decimal bestPrice, decimal bestSize, Action<decimal, decimal> updateRowAction)
+    {
+        if (size.HasValue && size.Value != 0)
+        {
+            if (price.HasValue && price.Value != 0)
+            {
+                updateRowAction(price.Value, size.Value);
+            }
+            else if (bestPrice != 0)
+            {
+                updateRowAction(bestPrice, size.Value);
+            }
+        }
+        else if (price.HasValue && price.Value != 0)
+        {
+            updateRowAction(price.Value, bestSize);
+        }
+    }
+
+    /// <summary>
+    /// Handles updates to the best bid and ask prices and updates the aggregator with a new quote tick.
+    /// </summary>
+    /// <param name="sender">The source of the event.</param>
+    /// <param name="bestBidAskUpdatedEvent">The event arguments containing best bid and ask details.</param>
+    private void OnBestBidAskUpdated(object sender, BestBidAskUpdatedEventArgs bestBidAskUpdatedEvent)
+    {
+        if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(bestBidAskUpdatedEvent.Symbol, out var exchangeTimeZone))
+        {
+            return;
+        }
+
+        var tick = new Tick
+        {
+            AskPrice = bestBidAskUpdatedEvent.BestAskPrice,
+            BidPrice = bestBidAskUpdatedEvent.BestBidPrice,
+            Time = DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone),
+            Symbol = bestBidAskUpdatedEvent.Symbol,
+            TickType = TickType.Quote,
+            AskSize = bestBidAskUpdatedEvent.BestAskSize,
+            BidSize = bestBidAskUpdatedEvent.BestBidSize
+        };
+        tick.SetValue();
+
+        lock (_synchronizationContext)
+        {
+            _aggregator.Update(tick);
+        }
     }
 }

@@ -54,6 +54,11 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     private TastytradeApiClient _tastytradeApiClient;
 
     /// <summary>
+    /// Indicates whether the initialization process has already been completed.
+    /// </summary>
+    private bool _isInitialized;
+
+    /// <summary>
     /// Provides the mapping between Lean symbols and brokerage specific symbols.
     /// </summary>
     private protected TastytradeBrokerageSymbolMapper _symbolMapper;
@@ -61,7 +66,9 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     /// <summary>
     /// Returns true if we're currently connected to the broker
     /// </summary>
-    public override bool IsConnected => AccountUpdatesWebSocket?.IsOpen ?? false && IsAccountWebSocketInitialized;
+    public override bool IsConnected =>
+        (AccountUpdatesWebSocket?.IsOpen == true && MarketDataUpdatesWebSocket?.IsOpen == true) // 1. Brokerage + DQH
+        || (AccountUpdatesWebSocket == null && MarketDataUpdatesWebSocket?.IsOpen == true); // 2. DQH
 
     /// <summary>
     /// Parameterless constructor for brokerage
@@ -78,12 +85,16 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
 
     public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
         : this(baseUrl, baseWSUrl, username, password, accountNumber, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio)
-    {
-
-    }
+    { }
 
     protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider)
     {
+        if (_isInitialized)
+        {
+            return;
+        }
+        _isInitialized = true;
+
         _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
         _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
         _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
@@ -101,12 +112,16 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
 
-        Initialize(baseWSUrl, _tastytradeApiClient);
+        if (string.IsNullOrEmpty(accountNumber))
+        {
+            InitializeMarketDataUpdates(_tastytradeApiClient);
+        }
+        else
+        {
+            Initialize(baseWSUrl, _tastytradeApiClient);
+        }
 
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
-
-        // Rate gate limiter useful for API/WS calls
-        // _connectionRateLimiter = new RateGate();
     }
 
     /// <summary>
