@@ -17,9 +17,9 @@ using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
-using StreamDataResponse = QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData.Data;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
+using StreamDataResponse = QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData.Data;
 
 namespace QuantConnect.Brokerages.Tastytrade.Converters;
 
@@ -92,8 +92,8 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
         {
             trades.Add(new TradeContent(
                 symbol: jArray[i].ToString(),
-                price: jArray[i + 1].Value<decimal>(),
-                size: jArray[i + 2].Value<decimal>(),
+                price: decimal.TryParse(jArray[i + 1].ToString(), out var price) ? price : 0m,
+                size: decimal.TryParse(jArray[i + 2].ToString(), out var size) ? size : 0m,
                 tradeDateTime: Time.UnixMillisecondTimeStampToDateTime(jArray[i + 3].Value<decimal>())
                 ));
         }
@@ -112,10 +112,10 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
         {
             quotes.Add(new QuoteContent(
                 symbol: jArray[i].ToString(),
-                bidPrice: jArray[i + 1].Value<decimal>(),
-                askPrice: jArray[i + 2].Value<decimal>(),
-                bidSize: jArray[i + 3].Value<decimal>(),
-                askSize: jArray[i + 4].Value<decimal>()
+                bidPrice: decimal.TryParse(jArray[i + 1].ToString(), out var bidPrice) ? bidPrice : 0m,
+                askPrice: decimal.TryParse(jArray[i + 2].ToString(), out var askPrice) ? askPrice : 0m,
+                bidSize: decimal.TryParse(jArray[i + 3].ToString(), out var bidSize) ? bidSize : 0m,
+                askSize: decimal.TryParse(jArray[i + 4].ToString(), out var askSize) ? askSize : 0m
                 ));
         }
         return quotes;

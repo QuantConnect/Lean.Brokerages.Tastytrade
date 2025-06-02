@@ -281,7 +281,15 @@ public class TastytradeJsonConverterTests
             ""AAPL"",
             196.1,
             200.0,
-            1748020168804
+            1748020168804,
+            ""SPX"",
+            5931.91,
+            ""NaN"",
+            1748892788016,
+            ""./ESU25P900:XCME"",
+            ""NaN"",
+            ""NaN"",
+            0
         ]
     ]
 }";
@@ -291,13 +299,13 @@ public class TastytradeJsonConverterTests
         Assert.AreEqual(EventType.FeedData, feedData.Type);
         Assert.AreEqual(1, feedData.Channel);
         Assert.AreEqual(MarketDataEvent.Trade, feedData.Data.EventType);
-        Assert.AreEqual(3, feedData.Data.Content.Count);
+        Assert.AreEqual(5, feedData.Data.Content.Count);
         Assert.IsInstanceOf<IReadOnlyCollection<TradeContent>>(feedData.Data.Content);
         foreach (var trade in feedData.Data.Content.Cast<TradeContent>())
         {
             AssertIsNotNullAndIsNotEmpty(trade.Symbol);
-            Assert.Greater(trade.Price, 0);
-            Assert.Greater(trade.Size, 0);
+            Assert.GreaterOrEqual(trade.Price, 0);
+            Assert.GreaterOrEqual(trade.Size, 0);
             Assert.AreNotEqual(default, trade.TradeDateTime);
         }
     }
