@@ -13,19 +13,55 @@
  * limitations under the License.
 */
 
+using Moq;
+using System;
 using NUnit.Framework;
 using QuantConnect.Util;
+using QuantConnect.Packets;
 using QuantConnect.Interfaces;
+using System.Collections.Generic;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
-[TestFixture, Ignore("This test requires a configured TastytradeBrokerageFactory")]
+[TestFixture]
 public class TastytradeBrokerageFactoryTests
 {
-    [Test]
-    public void InitializesFactoryFromComposer()
+    [TestCase("", "", "", "", null, true, "Missing key: tastytrade-account-number")]
+    public void InitializesFactoryFromComposer(string baseUrl, string baseWSUrl, string userName, string password, string accountNumber, bool shouldThrowException, string exceptionMessage)
     {
         using var factory = Composer.Instance.Single<IBrokerageFactory>(instance => instance.BrokerageType == typeof(TastytradeBrokerage));
         Assert.IsNotNull(factory);
+
+        var newBrokerageData = new Dictionary<string, string>();
+
+        if (baseUrl != null)
+        {
+            newBrokerageData["tastytrade-api-url"] = baseUrl;
+        }
+
+        if (baseWSUrl != null)
+        {
+            newBrokerageData["tastytrade-websocket-url"] = baseWSUrl;
+        }
+
+        if (userName != null)
+        {
+            newBrokerageData["tastytrade-username"] = userName;
+        }
+
+        if (password != null)
+        {
+            newBrokerageData["tastytrade-password"] = password;
+        }
+
+        if (accountNumber != null)
+        {
+            newBrokerageData["tastytrade-account-number"] = accountNumber;
+        }
+
+        var liveNodePacket = new LiveNodePacket() { BrokerageData = newBrokerageData };
+
+        var exception = Assert.Throws<ArgumentException>(() => factory.CreateBrokerage(liveNodePacket, new Mock<IAlgorithm>().Object));
+        Assert.True(exception.Message.EndsWith(exceptionMessage));
     }
 }

@@ -14,10 +14,12 @@
 */
 
 using System;
+using QuantConnect.Util;
 using QuantConnect.Packets;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using System.Collections.Generic;
+using QuantConnect.Configuration;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -33,7 +35,14 @@ public class TastytradeBrokerageFactory : BrokerageFactory
     /// The implementation of this property will create the brokerage data dictionary required for
     /// running live jobs. See <see cref="IJobQueueHandler.NextJob"/>
     /// </remarks>
-    public override Dictionary<string, string> BrokerageData { get; }
+    public override Dictionary<string, string> BrokerageData => new()
+    {
+        {"tastytrade-api-url", Config.Get("tastytrade-api-url") },
+        {"tastytrade-websocket-url", Config.Get("tastytrade-websocket-url")},
+        {"tastytrade-username", Config.Get("tastytrade-username")},
+        {"tastytrade-password",  Config.Get("tastytrade-password")},
+        {"tastytrade-account-number",  Config.Get("tastytrade-account-number")},
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeBrokerageFactory"/> class
@@ -46,10 +55,7 @@ public class TastytradeBrokerageFactory : BrokerageFactory
     /// Gets a brokerage model that can be used to model this brokerage's unique behaviors
     /// </summary>
     /// <param name="orderProvider">The order provider</param>
-    public override IBrokerageModel GetBrokerageModel(IOrderProvider orderProvider)
-    {
-        throw new NotImplementedException();
-    }
+    public override IBrokerageModel GetBrokerageModel(IOrderProvider orderProvider) => new TastytradeBrokerageModel();
 
     /// <summary>
     /// Creates a new IBrokerage instance
@@ -59,7 +65,25 @@ public class TastytradeBrokerageFactory : BrokerageFactory
     /// <returns>A new brokerage instance</returns>
     public override IBrokerage CreateBrokerage(LiveNodePacket job, IAlgorithm algorithm)
     {
-        throw new NotImplementedException();
+        var errors = new List<string>();
+
+        var baseUrl = Read<string>(job.BrokerageData, "tastytrade-api-url", errors);
+        var baseWSUrl = Read<string>(job.BrokerageData, "tastytrade-websocket-url", errors);
+        var userName = Read<string>(job.BrokerageData, "tastytrade-username", errors);
+        var password = Read<string>(job.BrokerageData, "tastytrade-password", errors);
+        var accountNumber = Read<string>(job.BrokerageData, "tastytrade-account-number", errors);
+
+        if (errors.Count != 0)
+        {
+            // if we had errors then we can't create the instance
+            throw new ArgumentException(string.Join(Environment.NewLine, errors));
+        }
+
+        var tt = new TastytradeBrokerage(baseUrl, baseWSUrl, userName, password, accountNumber, algorithm);
+
+        Composer.Instance.AddPart<IDataQueueHandler>(tt);
+
+        return tt;
     }
 
     /// <summary>
@@ -67,6 +91,6 @@ public class TastytradeBrokerageFactory : BrokerageFactory
     /// </summary>
     public override void Dispose()
     {
-        throw new NotImplementedException();
+        // Not needed
     }
 }
