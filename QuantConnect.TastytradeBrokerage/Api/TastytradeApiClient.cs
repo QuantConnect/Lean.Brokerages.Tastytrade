@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -15,6 +15,7 @@
 
 using System;
 using System.Text;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
@@ -161,6 +162,33 @@ public sealed class TastytradeApiClient
     public async Task<bool> IsUnderlyingEquityAnIndexAsync(string symbol)
     {
         return (await SendRequestAsync<Equity>(HttpMethod.Get, $"/instruments/equities/{symbol.UrlEncodeSymbol()}")).Data.IsIndex;
+    }
+
+    /// <summary>
+    /// Retrieves a specific future option from the option chains for the given underlying future symbol.
+    /// </summary>
+    /// <param name="underlyingFutureTicker">The ticker symbol of the underlying future.</param>
+    /// <param name="expirationDate">The expiration date of the desired option.</param>
+    /// <param name="strike">The strike price of the desired option.</param>
+    /// <param name="optionType">The type of the option (e.g., Call or Put).</param>
+    /// <returns>
+    /// A <see cref="FutureOption"/> object that matches the specified expiration date, strike price, and option type.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when no matching future option is found in the option chains for the given parameters.
+    /// </exception>
+    public async Task<FutureOption> GetFutureOptionChains(string underlyingFutureTicker, DateTime expirationDate, decimal strike, OptionType optionType)
+    {
+        var futureOptions = (await SendRequestAsync<ResponseList<FutureOption>>(HttpMethod.Get, $"/futures-option-chains/{underlyingFutureTicker}")).Data.Items;
+        var matchingOption = futureOptions.FirstOrDefault(fo => fo.IsMatchFor(expirationDate, strike, optionType));
+
+        if (matchingOption.Equals(default(FutureOption)))
+        {
+            throw new InvalidOperationException($"{nameof(TastytradeApiClient)}.{nameof(GetFutureOptionChains)}: No matching future option found for ticker '{underlyingFutureTicker}', " +
+                                                $"expiration '{expirationDate:yyyy-MM-dd}', strike '{strike}', type '{optionType}'.");
+        }
+
+        return matchingOption;
     }
 
     /// <summary>

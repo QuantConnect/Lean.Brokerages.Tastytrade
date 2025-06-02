@@ -16,6 +16,7 @@
 using System;
 using Newtonsoft.Json;
 using QuantConnect.Orders;
+using System.Globalization;
 using QuantConnect.Securities;
 using QuantConnect.Orders.TimeInForces;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -162,6 +163,7 @@ public static class Extensions
         InstrumentType.Equity => SecurityType.Equity,
         InstrumentType.EquityOption => SecurityType.Option,
         InstrumentType.Future => SecurityType.Future,
+        InstrumentType.FutureOption => SecurityType.FutureOption,
         _ => throw new NotSupportedException($"{nameof(Extensions)}.{nameof(ConvertInstrumentTypeToSecurityType)}: The InstrumentType '{instrumentType}' is not supported.")
     };
 
@@ -200,5 +202,27 @@ public static class Extensions
     public static string UrlEncodeSymbol(this string symbol)
     {
         return symbol?.Replace("/", "%2f") ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Converts the decimal value to a string using the invariant culture and trims any trailing zeros.
+    /// Uses the "G29" format specifier to preserve up to 29 significant digits without scientific notation unless necessary.
+    /// </summary>
+    /// <param name="value">The decimal value to convert.</param>
+    /// <returns>
+    /// A string representation of the decimal value without trailing zeros and using "." as the decimal separator.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// decimal value1 = 123.45000m;
+    /// string result1 = value1.ToTrimmedStringInvariant(); // "123.45"
+    /// 
+    /// decimal value2 = 100.0000m;
+    /// string result2 = value2.ToTrimmedStringInvariant(); // "100"
+    /// </code>
+    /// </example>
+    public static string ToTrimmedStringInvariant(this decimal value)
+    {
+        return value.ToString("G29", CultureInfo.InvariantCulture);
     }
 }

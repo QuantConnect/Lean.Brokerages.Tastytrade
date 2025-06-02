@@ -62,6 +62,14 @@ public class TastytradeBrokerageSymbolMapperTests
 
             var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
             yield return new("/ESM5", InstrumentType.Future, "/ES", SP500EMini);
+
+            var SP500EMini2 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 09, 19));
+            var SP500EMini_OptionContract = Symbol.CreateOption(SP500EMini2, SP500EMini.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 900m, new DateTime(2025, 09, 19));
+            yield return new("./ESU5 ESU5  250919P900", InstrumentType.FutureOption, "ES", SP500EMini_OptionContract);
+
+            var SP500EMini3 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2026, 03, 20));
+            var SP500EMini_OptionContract3 = Symbol.CreateOption(SP500EMini3, SP500EMini.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 4100m, new DateTime(2026, 03, 20));
+            yield return new("./ESH6 ESH6  260320C4100", InstrumentType.FutureOption, "ES", SP500EMini_OptionContract3);
         }
     }
 
@@ -123,10 +131,13 @@ public class TastytradeBrokerageSymbolMapperTests
             // ES - Future
             var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
             yield return new(SP500EMini, "/ESM5", "/ESM25:XCME");
+            var SP500EMini2 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 09, 19));
+            yield return new(Symbol.CreateOption(SP500EMini2, SP500EMini2.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 900m, new DateTime(2025, 09, 19)), "./ESU5 ESU5  250919P900", "./ESU25P900:XCME");
 
             // GC - Future
             var Gold = Symbol.CreateFuture(Futures.Metals.Gold, Market.CME, new DateTime(2025, 12, 29));
             yield return new(Gold, "/GCZ5", "/GCZ25:XCEC");
+            yield return new(Symbol.CreateOption(Gold, Gold.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 2095m, new DateTime(2025, 06, 25)), "./GCQ5 OGN5  250625P2095", "./OGN25P2095:XCEC");
 
             // GBP - Future
             var GBP = Symbol.CreateFuture(Futures.Currencies.GBP, Market.CME, new DateTime(2025, 12, 15));

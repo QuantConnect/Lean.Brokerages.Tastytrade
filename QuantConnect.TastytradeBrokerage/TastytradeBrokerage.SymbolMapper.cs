@@ -15,10 +15,13 @@
 
 using System;
 using System.Linq;
+using System.Globalization;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -56,10 +59,6 @@ public class TastytradeBrokerageSymbolMapper
     /// </summary>
     /// <param name="brokerageSymbol">The brokerage symbol to convert.</param>
     /// <param name="securityType">The security type (e.g., Equity, Option, Future).</param>
-    /// <param name="market">The market (e.g., "USA").</param>
-    /// <param name="expirationDate">The expiration date for derivatives, if applicable.</param>
-    /// <param name="strike">The strike price for options, if applicable.</param>
-    /// <param name="optionRight">The option right (Call or Put), if applicable.</param>
     /// <returns>A new <see cref="Symbol"/> instance representing the Lean symbol.</returns>
     /// <exception cref="NotImplementedException">Always thrown. Functionality not implemented yet.</exception>
     public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol)
@@ -94,6 +93,9 @@ public class TastytradeBrokerageSymbolMapper
                     var underlyingSymbol = Symbol.Create(ToOptionLeanTickerFormat(underlyingBrokerageSymbol), SecurityType.Equity, Market.USA);
                     leanSymbol = Symbol.CreateOption(underlyingSymbol, Market.USA, securityType.DefaultOptionStyle(), osiRight, osiStrike, osiExpiry);
                 }
+                break;
+            case SecurityType.FutureOption:
+                leanSymbol = ParseBrokerageFutureOptionSymbol(brokerageSymbol);
                 break;
             default:
                 throw new NotImplementedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetLeanSymbol)}: " +
@@ -139,6 +141,9 @@ public class TastytradeBrokerageSymbolMapper
                 break;
             case SecurityType.Future:
                 (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateFutureBrokerageSymbols(symbol).SynchronouslyAwaitTaskResult();
+                break;
+            case SecurityType.FutureOption:
+                (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateFutureOptionBrokerageSymbols(symbol).SynchronouslyAwaitTaskResult();
                 break;
             default:
                 throw new NotSupportedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetBrokerageSymbols)}.");
@@ -186,7 +191,7 @@ public class TastytradeBrokerageSymbolMapper
             underlying += " ";
         }
 
-        return ($"{underlying,-6}{expiryDate}{optionRight}{symbol.ID.StrikePrice * 1000m:00000000}", $".{underlying}{expiryDate}{optionRight}{symbol.ID.StrikePrice.ToStringInvariant("G29")}");
+        return ($"{underlying,-6}{expiryDate}{optionRight}{symbol.ID.StrikePrice * 1000m:00000000}", $".{underlying}{expiryDate}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}");
     }
 
     /// <summary>
@@ -201,6 +206,61 @@ public class TastytradeBrokerageSymbolMapper
         var future = await _tastytradeApiClient.GetInstrumentFuture(futureTicker);
 
         return (future.Symbol, future.StreamerSymbol);
+    }
+
+    /// <summary>
+    /// Generates the brokerage symbols for a given QuantConnect <see cref="Symbol"/> representing a future option.
+    /// </summary>
+    /// <param name="symbol">
+    /// The QuantConnect <see cref="Symbol"/> representing the future option for which to generate brokerage symbols.
+    /// </param>
+    /// <returns>
+    /// A tuple containing:
+    /// <list type="bullet">
+    /// <item><description><c>brokerageSymbol</c>: The brokerage's standard symbol representation.</description></item>
+    /// <item><description><c>brokerageStreamMarketDataSymbol</c>: The symbol used by the brokerage for market data streaming.</description></item>
+    /// </list>
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if no matching future option is found for the given symbol parameters.
+    /// </exception>
+    private async Task<(string brokerageSymbol, string brokerageStreamMarketDataSymbol)> GenerateFutureOptionBrokerageSymbols(Symbol symbol)
+    {
+        var optionType = symbol.ID.OptionRight == OptionRight.Put ? OptionType.Put : OptionType.Call;
+
+        var futureOption = await _tastytradeApiClient.GetFutureOptionChains(symbol.ID.Underlying.Symbol, symbol.ID.Date, symbol.ID.StrikePrice, optionType);
+
+        return (futureOption.Symbol, futureOption.StreamerSymbol);
+    }
+
+    /// <summary>
+    /// Parses a brokerage-formatted future option symbol string into a <see cref="Symbol"/> object.
+    /// </summary>
+    /// <param name="brokerageSymbol">
+    /// The future option symbol string in brokerage format, expected in the format: <c>&lt;something&gt; &lt;ticker&gt; yyMMddP/CStrike</c>.
+    /// For example: <c>"TT ZN 250819C126500"</c>.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Symbol"/> object representing the parsed future option, including its underlying symbol,
+    /// market, option type, strike price, and expiration date.
+    /// </returns>
+    /// <exception cref="FormatException">
+    /// Thrown when the input string does not match the expected format.
+    /// </exception>
+    private Symbol ParseBrokerageFutureOptionSymbol(string brokerageSymbol)
+    {
+        var match = Regex.Match(brokerageSymbol, @"^\s*(\S+)\s+(\S+)\s+(\d{6})([PC])(\d+)$");
+
+        if (!match.Success)
+            throw new FormatException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(ParseBrokerageFutureOptionSymbol)}: Input '{brokerageSymbol}' is not in a valid option format (expected 'yyMMddP/CStrike').");
+
+        var ticker = match.Groups[2].Value;
+        var expiry = DateTime.ParseExact(match.Groups[3].Value, "yyMMdd", CultureInfo.InvariantCulture);
+        var right = match.Groups[4].Value[0] == 'C' ? OptionRight.Call : OptionRight.Put;
+        var strike = Convert.ToDecimal(match.Groups[5].Value);
+
+        var underylingSymbol = SymbolRepresentation.ParseFutureSymbol(ticker);
+        return Symbol.CreateOption(underylingSymbol, underylingSymbol.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), right, strike, expiry);
     }
 
     /// <summary>

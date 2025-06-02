@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -694,6 +694,81 @@ public class TastytradeJsonConverterTests
                 Assert.AreEqual("AAPL", leg.Symbol);
                 Assert.AreEqual(0, leg.Fills.Count);
             }
+        }
+    }
+    [Test]
+    public void DeserializeRestFutureOptionChainResponse()
+    {
+        var jsonContent = @"{
+    ""data"": {
+        ""items"": [
+            {
+                ""active"": true,
+                ""days-to-expiration"": 26,
+                ""display-factor"": ""0.01"",
+                ""exchange"": ""CME"",
+                ""exchange-symbol"": ""OGN5 P2095"",
+                ""exercise-style"": ""American"",
+                ""expiration-date"": ""2025-06-25"",
+                ""expires-at"": ""2025-06-25T17:30:00.000+00:00"",
+                ""future-price-ratio"": ""1.0"",
+                ""is-closing-only"": false,
+                ""is-confirmed"": true,
+                ""is-exercisable-weekly"": true,
+                ""is-primary-deliverable"": true,
+                ""is-vanilla"": true,
+                ""last-trade-time"": ""0"",
+                ""maturity-date"": ""2025-06-25"",
+                ""multiplier"": ""1.0"",
+                ""notional-value"": ""1.0"",
+                ""option-root-symbol"": ""OG"",
+                ""option-type"": ""P"",
+                ""product-code"": ""GC"",
+                ""root-symbol"": ""/GC"",
+                ""security-exchange"": ""4"",
+                ""settlement-type"": ""Future"",
+                ""stops-trading-at"": ""2025-06-25T17:30:00.000+00:00"",
+                ""streamer-symbol"": ""./OGN25P2095:XCEC"",
+                ""strike-factor"": ""1.0"",
+                ""strike-price"": ""2095.0"",
+                ""sx-id"": ""0"",
+                ""symbol"": ""./GCQ5 OGN5  250625P2095"",
+                ""underlying-count"": ""1.0"",
+                ""underlying-symbol"": ""/GCQ5"",
+                ""future-option-product"": {
+                    ""cash-settled"": false,
+                    ""clearing-code"": ""37"",
+                    ""clearing-exchange-code"": ""04"",
+                    ""clearing-price-multiplier"": ""1.0"",
+                    ""clearport-code"": ""OG"",
+                    ""code"": ""OG"",
+                    ""display-factor"": ""0.01"",
+                    ""exchange"": ""CME"",
+                    ""expiration-type"": ""Regular"",
+                    ""is-rollover"": false,
+                    ""legacy-code"": ""OG"",
+                    ""market-sector"": ""Metals"",
+                    ""product-type"": ""Physical"",
+                    ""root-symbol"": ""OG"",
+                    ""settlement-delay-days"": 0,
+                    ""supported"": true
+                }
+            }
+        ]
+    },
+    ""context"": ""/futures-option-chains/GC""
+}";
+
+        var futureOptions = jsonContent.DeserializeKebabCase<BaseResponse<ResponseList<FutureOption>>>().Data.Items;
+
+        Assert.AreEqual(1, futureOptions.Count);
+        foreach (var futureOption in futureOptions)
+        {
+            Assert.AreEqual(new DateTime(2025, 06, 25), futureOption.ExpirationDate);
+            Assert.AreEqual(OptionType.Put, futureOption.OptionType);
+            Assert.AreEqual("./OGN25P2095:XCEC", futureOption.StreamerSymbol);
+            Assert.AreEqual(2095m, futureOption.StrikePrice);
+            Assert.AreEqual("./GCQ5 OGN5  250625P2095", futureOption.Symbol);
         }
     }
 

@@ -106,4 +106,12 @@ public class TastytradeBrokerageAdditionalTests
     {
         Assert.ThrowsAsync<Exception>(async () => await _tastytradeApiClient.CancelOrderById(id));
     }
+
+    [Test]
+    public async Task GetFutureOptionChain()
+    {
+        var res = await _tastytradeApiClient.GetInstrumentFuture("GC");
+
+        Assert.IsNotNull(res);
+    }
 }
