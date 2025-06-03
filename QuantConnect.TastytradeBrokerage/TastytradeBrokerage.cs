@@ -36,8 +36,6 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     /// </summary>
     private static readonly string BrokerageName = "Tastytrade";
 
-    private EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
-
     /// <summary>
     /// Handles incoming account content messages and processes them using the <see cref="BrokerageConcurrentMessageHandler{T}"/>.
     /// </summary>
@@ -95,9 +93,11 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
         }
         _isInitialized = true;
 
-        _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
-        _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
-        _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
+        SubscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager()
+        {
+            SubscribeImpl = (s, t) => Subscribe(s),
+            UnsubscribeImpl = (s, t) => Unsubscribe(s)
+        };
 
         _securityProvider = securityProvider;
         _tastytradeApiClient = new(baseUrl, username, password, accountNumber);

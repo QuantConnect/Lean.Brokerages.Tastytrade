@@ -42,15 +42,22 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     private DateTime _tokenExpirationTime;
 
     /// <summary>
+    /// Event triggered to initiate the re-subscription process.
+    /// </summary>
+    private event Action ReSubscriptionProcess;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MarketDataWebSocketClientWrapper"/> class.
     /// Automatically subscribes to notifications and initializes the WebSocket using a fresh token and DxLink URL.
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used to retrieve tokens and URLs.</param>
-    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient)
+    /// <param name="reSubscriptionHandler">An event handler for re-subscribing to data streams when needed.</param>
+    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler)
         : base(tastytradeApiClient)
     {
         Open += SubscribeOnNotifications;
         Initialize(GetApiQuoteTokenAndDxLinkUrl().DxLinkUrl);
+        ReSubscriptionProcess += reSubscriptionHandler;
     }
 
     /// <summary>
@@ -176,6 +183,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             WaitOrTimeout(autoResetEvent, "FEED_SETUP");
 
             AuthenticatedResetEvent.Set();
+            ReSubscriptionProcess?.Invoke();
         }
         finally
         {

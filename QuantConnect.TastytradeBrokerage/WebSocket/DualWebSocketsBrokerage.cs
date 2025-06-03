@@ -32,9 +32,6 @@ public abstract class DualWebSocketsBrokerage : Brokerage
 {
     private const int ConnectionTimeout = 30000;
 
-    protected bool IsAccountWebSocketInitialized { get; private set; }
-    protected bool IsMarketWebSocketInitialized { get; private set; }
-
     protected BaseWebSocketClientWrapper AccountUpdatesWebSocket { get; private set; }
     protected BaseWebSocketClientWrapper MarketDataUpdatesWebSocket { get; private set; }
 
@@ -48,14 +45,7 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     /// </summary>
     protected void InitializeAccountUpdates(string accountUpdatesWsUrl, TastytradeApiClient tastytradeApiClient)
     {
-        if (IsAccountWebSocketInitialized)
-        {
-            return;
-        }
-
         AccountUpdatesWebSocket = new AccountWebSocketClientWrapper(tastytradeApiClient, accountUpdatesWsUrl);
-
-        IsAccountWebSocketInitialized = true;
     }
 
     /// <summary>
@@ -63,20 +53,7 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     /// </summary>
     protected void InitializeMarketDataUpdates(TastytradeApiClient tastytradeApiClient)
     {
-        if (IsMarketWebSocketInitialized)
-        {
-            return;
-        }
-
-        MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper(tastytradeApiClient);
-
-        //MarketDataUpdatesWebSocket.Open += (sender, args) =>
-        //{
-        //    Log.Trace($"{nameof(DualWebSocketsBrokerage)}: WebSocket.Open. Subscribing");
-        //    Subscribe(GetSubscribed());
-        //};
-
-        IsMarketWebSocketInitialized = true;
+        MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper(tastytradeApiClient, OnReSubscriptionProcess);
     }
 
     /// <summary>
@@ -211,12 +188,24 @@ public abstract class DualWebSocketsBrokerage : Brokerage
     protected abstract bool Subscribe(IEnumerable<Symbol> symbols);
 
     /// <summary>
-    /// Gets a list of current subscriptions
+    /// Initiates the re-subscription process for available symbols.
+    /// If there are no subscriptions available, the process is exited early.
     /// </summary>
-    /// <returns></returns>
-    protected virtual IEnumerable<Symbol> GetSubscribed()
+    private void OnReSubscriptionProcess()
     {
-        return SubscriptionManager?.GetSubscribedSymbols() ?? Enumerable.Empty<Symbol>();
+        Log.Trace($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnReSubscriptionProcess)}: Starting re-subscription process...");
+
+        var subscribedSymbols = SubscriptionManager?.GetSubscribedSymbols() ?? [];
+
+        if (!subscribedSymbols.Any())
+        {
+            Log.Trace($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnReSubscriptionProcess)}: No symbols found for re-subscription. Skipping.");
+            return;
+        }
+
+        Subscribe(subscribedSymbols);
+
+        Log.Trace($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnReSubscriptionProcess)}: Re-subscription process completed successfully.");
     }
 
     /// <summary>

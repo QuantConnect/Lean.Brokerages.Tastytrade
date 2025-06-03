@@ -92,7 +92,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         }
 
         var enumerator = _aggregator.Add(dataConfig, newDataAvailableHandler);
-        _subscriptionManager.Subscribe(dataConfig);
+        SubscriptionManager.Subscribe(dataConfig);
 
         return enumerator;
     }
@@ -103,7 +103,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="dataConfig">Subscription config to be removed</param>
     public void Unsubscribe(SubscriptionDataConfig dataConfig)
     {
-        _subscriptionManager.Unsubscribe(dataConfig);
+        SubscriptionManager.Unsubscribe(dataConfig);
         _aggregator.Remove(dataConfig);
     }
 
@@ -116,12 +116,18 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         var brokerageStreamSymbols = new List<string>();
         foreach (var symbol in symbols)
         {
-            _exchangeTimeZoneByLeanSymbol[symbol] = symbol.GetSymbolExchangeTimeZone();
+            if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(symbol, out _))
+            {
+                _exchangeTimeZoneByLeanSymbol[symbol] = symbol.GetSymbolExchangeTimeZone();
+            }
 
             var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
 
-            _levelOneServices[brokerageStreamSymbol] = new(symbol);
-            _levelOneServices[brokerageStreamSymbol].BestBidAskUpdated += OnBestBidAskUpdated;
+            if (!_levelOneServices.TryGetValue(brokerageStreamSymbol, out _))
+            {
+                _levelOneServices[brokerageStreamSymbol] = new(symbol);
+                _levelOneServices[brokerageStreamSymbol].BestBidAskUpdated += OnBestBidAskUpdated;
+            }
 
             brokerageStreamSymbols.Add(brokerageStreamSymbol);
         }
