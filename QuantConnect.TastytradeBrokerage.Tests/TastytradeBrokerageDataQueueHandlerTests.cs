@@ -49,6 +49,7 @@ public partial class TastytradeBrokerageTests
 
             var spx = Symbols.SPX;
             var spxOptionContract = Symbol.CreateOption(spx, spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5635m, new DateTime(2025, 06, 20));
+            yield return new TestCaseData(new[] { spx }, Resolution.Tick);
             yield return new TestCaseData(new[] { spx, spxOptionContract }, Resolution.Tick);
             yield return new TestCaseData(new[] { spxOptionContract }, Resolution.Second);
             yield return new TestCaseData(new[] { spxOptionContract }, Resolution.Minute);
@@ -64,6 +65,8 @@ public partial class TastytradeBrokerageTests
             yield return new TestCaseData(new[] { SP500EMini_OptionContract }, Resolution.Tick);
 
             yield return new TestCaseData(new[] { SP500EMini, SP500EMini_OptionContract }, Resolution.Tick);
+
+            yield return new TestCaseData(new[] { AAPL, aaplOptionContract, spx, spxOptionContract, spxw, SP500EMini, SP500EMini_OptionContract }, Resolution.Tick);
         }
     }
 
@@ -113,7 +116,7 @@ public partial class TastytradeBrokerageTests
             ProcessFeed(brokerage.Subscribe(config, (sender, args) =>
             {
                 var dataPoint = ((NewDataAvailableEventArgs)args).DataPoint;
-                //Log.Trace($"{dataPoint}. Time span: {dataPoint.Time} - {dataPoint.EndTime}");
+                Log.Trace($"{dataPoint}. Time span: {dataPoint.Time} - {dataPoint.EndTime}");
             }),
             cancellationTokenSource.Token,
             300,

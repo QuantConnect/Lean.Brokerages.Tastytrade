@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -97,6 +97,8 @@ public partial class TastytradeBrokerage
                     continue;
             }
 
+            // TODO: Consider retrieving real-time market prices for each symbol.
+            // We can use a batch request to improve performance instead of individual calls.
 
             holdings.Add(new Holding()
             {
@@ -313,7 +315,8 @@ public partial class TastytradeBrokerage
                 // Placeholder entry to indicate this order is being replaced; avoids invoke order not found message when handle WebSocket messages.
                 _pendingOrderCache[brokerageId] = null;
                 _pendingOrderCache[newBrokerageId] = pendingUpdatedOrder;
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 isUpdatedSuccessfully = false;
                 OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, "Update Order: " + ex.Message));
