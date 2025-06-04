@@ -110,7 +110,7 @@ public class TastytradeBrokerageAdditionalTests
     [Test]
     public async Task GetFutureOptionChain()
     {
-        var res = await _tastytradeApiClient.GetInstrumentFuture("GC");
+        var res = await _tastytradeApiClient.GetInstrumentFuture("GCZ5");
 
         Assert.IsNotNull(res);
     }
