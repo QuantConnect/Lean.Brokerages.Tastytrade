@@ -49,9 +49,30 @@ public partial class TastytradeBrokerageTests : BrokerageTests
 
     protected override decimal GetAskPrice(Symbol symbol)
     {
-        throw new NotImplementedException();
+        // In the sandbox environment, limit orders priced at $3 or below are filled immediately.
+        // We return $2 here to ensure the order is filled during testing.
+        return 2m;
     }
 
+    /// <summary>
+    /// Gets a collection of test parameters used for validating various order types in a simulated environment.
+    /// </summary>
+    /// <remarks>
+    /// <b>Sandbox Behavior Rules:</b>
+    /// <list type="bullet">
+    /// <item>
+    /// <description>Market orders will always fill at a price of <c>$1</c>.</description>
+    /// </item>
+    /// <item>
+    /// <description>Limit orders with a price less than or equal to <c>$3</c> will fill immediately.</description>
+    /// </item>
+    /// <item>
+    /// <description>Limit orders with a price greater than or equal to <c>$3</c> will be marked as <c>Live</c> and will not fill.</description>
+    /// </item>
+    /// </list>
+    /// This collection includes test cases for equities, options, and index options. 
+    /// Futures are excluded due to unsupported sandbox behavior (see commented section).
+    /// </remarks>
     private static IEnumerable<OrderTestMetaData> OrderTestParameters
     {
         get
@@ -99,17 +120,17 @@ public partial class TastytradeBrokerageTests : BrokerageTests
     }
 
     [Test, TestCaseSource(nameof(OrderTestParameters))]
-    public void CloseFromLong(OrderTestMetaData orderTestMetaData)
-    {
-        var parameters = GetOrderTestParameters(orderTestMetaData);
-        base.CloseFromLong(parameters);
-    }
-
-    [Test, TestCaseSource(nameof(OrderTestParameters))]
     public void ShortFromZero(OrderTestMetaData orderTestMetaData)
     {
         var parameters = GetOrderTestParameters(orderTestMetaData);
         base.ShortFromZero(parameters);
+    }
+
+    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    public void CloseFromLong(OrderTestMetaData orderTestMetaData)
+    {
+        var parameters = GetOrderTestParameters(orderTestMetaData);
+        base.CloseFromLong(parameters);
     }
 
     [Test, TestCaseSource(nameof(OrderTestParameters))]
@@ -119,14 +140,37 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         base.CloseFromShort(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    private static IEnumerable<OrderTestMetaData> CrossZeroOrderTestParameters
+    {
+        get
+        {
+            var aapl = Symbols.AAPL;
+            yield return new OrderTestMetaData(OrderType.Market, aapl);
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 2.9m);
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 2.9m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(new DateTime(2025, 06, 20)) });
+            yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 2.9m);
+
+            var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
+            yield return new OrderTestMetaData(OrderType.Market, option);
+            yield return new OrderTestMetaData(OrderType.Limit, option, 2m, 2.9m);
+            yield return new OrderTestMetaData(OrderType.StopLimit, option, 2m, 2.9m);
+
+            var index = Symbol.Create("SPX", SecurityType.Index, Market.USA);
+            var indexOption = Symbol.CreateOption(index, Market.USA, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5635m, new DateTime(2025, 06, 20));
+            yield return new OrderTestMetaData(OrderType.Market, indexOption);
+            yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 2.9m);
+            yield return new OrderTestMetaData(OrderType.StopLimit, indexOption, 2m, 2.9m);
+        }
+    }
+
+    [Test, TestCaseSource(nameof(CrossZeroOrderTestParameters))]
     public void ShortFromLong(OrderTestMetaData orderTestMetaData)
     {
         var parameters = GetOrderTestParameters(orderTestMetaData);
         base.ShortFromLong(parameters);
     }
 
-    [Test, TestCaseSource(nameof(OrderTestParameters))]
+    [Test, TestCaseSource(nameof(CrossZeroOrderTestParameters))]
     public void LongFromShort(OrderTestMetaData orderTestMetaData)
     {
         var parameters = GetOrderTestParameters(orderTestMetaData);
@@ -143,8 +187,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
 
         var updateOrderRequest = new UpdateOrderRequest(DateTime.UtcNow, order.Id, new()
         {
-            LimitPrice = order.LimitPrice - 0.01m,
-            //Quantity = order.Quantity + 1000m
+            LimitPrice = order.LimitPrice - 0.5m,
         });
 
         order.ApplyUpdateOrderRequest(updateOrderRequest);

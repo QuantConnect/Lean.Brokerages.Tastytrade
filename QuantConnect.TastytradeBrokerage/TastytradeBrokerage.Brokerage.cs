@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -22,6 +22,7 @@ using QuantConnect.Orders.Fees;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using QuantConnect.Brokerages.CrossZero;
 using LeanOrder = QuantConnect.Orders.Order;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -256,11 +257,53 @@ public partial class TastytradeBrokerage
             return false;
         }
 
-        var brokerageOrder = ConvertLeanOrderToBrokerageOrder(order);
+        var holdingQuantity = _securityProvider.GetHoldingsQuantity(order.Symbol);
+        var isPlaceCrossOrder = TryCrossZeroPositionOrder(order, holdingQuantity);
 
+        if (isPlaceCrossOrder == null)
+        {
+            var orderAction = ResolveOrderAction(order.Direction, order.SecurityType, holdingQuantity);
+            PlaceOrderCommon(order, order.AbsoluteQuantity, orderAction);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Places a cross-zero order and returns a response with the assigned brokerage ID.
+    /// </summary>
+    /// <param name="crossZeroOrderRequest">The cross-zero order request containing details for execution.</param>
+    /// <param name="isPlaceOrderWithLeanEvent">Whether to emit Lean order events during submission.</param>
+    /// <returns>
+    /// A <see cref="CrossZeroOrderResponse"/> with the assigned brokerage ID, or <c>default</c> if submission failed.
+    /// </returns>
+    protected override CrossZeroOrderResponse PlaceCrossZeroOrder(CrossZeroFirstOrderRequest crossZeroOrderRequest, bool isPlaceOrderWithLeanEvent = true)
+    {
+        var orderAction = ResolveOrderAction(crossZeroOrderRequest.LeanOrder.SecurityType, crossZeroOrderRequest.OrderPosition);
+        var response = PlaceOrderCommon(crossZeroOrderRequest.LeanOrder, crossZeroOrderRequest.AbsoluteOrderQuantity, orderAction, isPlaceOrderWithLeanEvent);
+
+        return string.IsNullOrEmpty(response) ? default : new CrossZeroOrderResponse(response, true);
+    }
+
+    /// <summary>
+    /// Core logic for submitting an order to the brokerage and managing pending state.
+    /// </summary>
+    /// <param name="order">The Lean order to convert and submit.</param>
+    /// <param name="orderQuantity">The quantity for the order.</param>
+    /// <param name="orderAction">The brokerage-specific order action (buy/sell etc.).</param>
+    /// <param name="isInvokeSubmitEvent">Whether to emit a Lean order submitted event.</param>
+    /// <returns>The brokerage-assigned order ID, or <c>null</c> if submission failed.</returns>
+    private string PlaceOrderCommon(LeanOrder order, decimal orderQuantity, OrderAction orderAction, bool isInvokeSubmitEvent = true)
+    {
+        var brokerageOrder = ConvertLeanOrderToBrokerageOrder(order, orderQuantity, orderAction);
         var brokerageId = default(string);
         var isPlaced = default(bool);
-        var pendingSubmittedOrder = new PendingOrderManager(order, LeanOrderStatus.Submitted);
+
+        var pendingSubmittedOrder = new PendingOrderManager(order, LeanOrderStatus.Submitted)
+        {
+            IsInvokeOrderEvent = isInvokeSubmitEvent
+        };
+
         _messageHandler.WithLockedStream(() =>
         {
             try
@@ -289,7 +332,7 @@ public partial class TastytradeBrokerage
 
         pendingSubmittedOrder?.Dispose();
 
-        return true;
+        return brokerageId;
     }
 
     /// <summary>
@@ -300,7 +343,8 @@ public partial class TastytradeBrokerage
     public override bool UpdateOrder(LeanOrder order)
     {
         var brokerageId = order.BrokerId.LastOrDefault();
-        var brokerageOrder = ConvertLeanOrderToBrokerageOrder(order);
+        var orderAction = ResolveOrderAction(order.Direction, order.SecurityType, _securityProvider.GetHoldingsQuantity(order.Symbol));
+        var brokerageOrder = ConvertLeanOrderToBrokerageOrder(order, order.AbsoluteQuantity, orderAction);
         var isUpdatedSuccessfully = true;
         var pendingUpdatedOrder = new PendingOrderManager(order, LeanOrderStatus.UpdateSubmitted);
         var newBrokerageId = default(string);
@@ -377,36 +421,46 @@ public partial class TastytradeBrokerage
     }
 
     /// <summary>
-    /// Handles the internal processing of brokerage order updates.
-    /// Updates the corresponding Lean order state and emits <see cref="OrderEvent"/>s as appropriate.
+    /// Handles updates to brokerage orders by synchronizing them with their corresponding Lean orders
+    /// and emitting appropriate <see cref="OrderEvent"/>s.
     /// </summary>
-    /// <param name="brokerageOrder">The updated <see cref="BrokerageOrder"/> to process.</param>
+    /// <param name="orderUpdate">The updated <see cref="BrokerageOrder"/> to process.</param>
     /// <remarks>
-    /// Supported <see cref="BrokerageOrderStatus"/> values:
+    /// Supported <see cref="BrokerageOrderStatus"/> values and their effects:
     /// <list type="bullet">
-    /// <item><description>
-    /// <see cref="BrokerageOrderStatus.Routed"/> and <see cref="BrokerageOrderStatus.Received"/>:  
-    /// If the market is closed for the symbol, defers order submission.
-    /// </description></item>
-    /// <item><description>
-    /// <see cref="BrokerageOrderStatus.Live"/>:  
-    /// Immediately processes the order as a pending submission.
-    /// </description></item>
-    /// <item><description>
-    /// <see cref="BrokerageOrderStatus.Filled"/>:  
-    /// Emits a <see cref="OrderEvent"/> with fill details and marks the order as filled.
-    /// </description></item>
-    /// <item><description>
-    /// <see cref="BrokerageOrderStatus.Cancelled"/>:  
-    /// Emits a canceled <see cref="OrderEvent"/>, unless the order is part of an in-progress replacement.
-    /// </description></item>
-    /// <item><description>
-    /// <see cref="BrokerageOrderStatus.Expired"/>:  
-    /// Emits a canceled <see cref="OrderEvent"/> to reflect order expiration.  
-    /// <b>Note:</b> A reason/message for expiration is not currently included (TODO).
-    /// </description></item>
+    /// <item>
+    /// <term><see cref="BrokerageOrderStatus.Routed"/> / <see cref="BrokerageOrderStatus.Received"/></term>
+    /// <description>
+    /// If the associated market is closed, the order is deferred by placing it in the pending submission queue.
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <term><see cref="BrokerageOrderStatus.Live"/></term>
+    /// <description>
+    /// Immediately marks the order as submitted by processing it from the pending order cache.
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <term><see cref="BrokerageOrderStatus.Filled"/></term>
+    /// <description>
+    /// Emits a fill <see cref="OrderEvent"/> including price and quantity details, and updates order status to filled.
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <term><see cref="BrokerageOrderStatus.Cancelled"/></term>
+    /// <description>
+    /// Emits a canceled <see cref="OrderEvent"/>, unless the order is part of an in-progress replacement (e.g., a modification).
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <term><see cref="BrokerageOrderStatus.Expired"/></term>
+    /// <description>
+    /// Emits a canceled <see cref="OrderEvent"/> due to expiration.
+    /// <para><b>Note:</b> An explanatory message for expiration is currently not included (TODO).</para>
+    /// </description>
+    /// </item>
     /// </list>
-    /// If no matching Lean order is found for the brokerage update, a warning is logged.
+    /// If no matching Lean order is found for the update, a warning message is logged.
     /// </remarks>
     private void OnOrderUpdateReceivedHandler(BrokerageOrder orderUpdate)
     {
@@ -414,7 +468,7 @@ public partial class TastytradeBrokerage
         {
             case BrokerageOrderStatus.Routed:
             case BrokerageOrderStatus.Received:
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, out var leanOrder))
+                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, LeanOrderStatus.Submitted, out var leanOrder))
                 {
                     OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
                     break;
@@ -432,7 +486,8 @@ public partial class TastytradeBrokerage
                 ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAt);
                 break;
             case BrokerageOrderStatus.Filled:
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, out leanOrder))
+                var leanOrderStatus = LeanOrderStatus.Filled;
+                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out leanOrder))
                 {
                     OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
                     break;
@@ -442,11 +497,11 @@ public partial class TastytradeBrokerage
                 var fill = leg.Fills.FirstOrDefault();
                 var orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
                 {
-                    Status = LeanOrderStatus.Filled,
+                    Status = leanOrderStatus,
                     FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
                     FillPrice = fill.FillPrice
                 };
-                OnOrderEvent(orderEvent);
+                ProcessOrderEventWithCrossZeroCheck(leanOrder, orderEvent);
                 break;
             case BrokerageOrderStatus.Cancelled:
                 // Skip processing this order because it is part of an update in progress,
@@ -456,7 +511,8 @@ public partial class TastytradeBrokerage
                     break;
                 }
 
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, out leanOrder))
+                leanOrderStatus = LeanOrderStatus.Canceled;
+                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out leanOrder))
                 {
                     OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
                     break;
@@ -464,12 +520,13 @@ public partial class TastytradeBrokerage
 
                 orderEvent = new OrderEvent(leanOrder, orderUpdate.CancelledAt, OrderFee.Zero)
                 {
-                    Status = LeanOrderStatus.Canceled
+                    Status = leanOrderStatus
                 };
-                OnOrderEvent(orderEvent);
+                ProcessOrderEventWithCrossZeroCheck(leanOrder, orderEvent);
                 break;
             case BrokerageOrderStatus.Expired:
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, out leanOrder))
+                leanOrderStatus = LeanOrderStatus.Canceled;
+                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out leanOrder))
                 {
                     OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
                     break;
@@ -477,48 +534,72 @@ public partial class TastytradeBrokerage
 
                 // TODO: Add missed 'message' in OrderEvent "Why does it expire?"
                 orderEvent = new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero)
-                { Status = LeanOrderStatus.Canceled };
+                { Status = leanOrderStatus };
 
-                OnOrderEvent(orderEvent);
+                ProcessOrderEventWithCrossZeroCheck(leanOrder, orderEvent);
 
                 break;
         }
     }
 
     /// <summary>
-    /// Processes and finalizes the submission of a pending order.
-    /// If the order exists in the pending order cache, it removes it,
-    /// emits a submitted order event, and signals any waiting thread.
+    /// Finalizes the submission of a pending order identified by its brokerage ID.
+    /// If the order is found in the pending cache, it removes the entry, optionally emits 
+    /// a <see cref="OrderEvent"/>, and signals any thread waiting on the order's completion.
     /// </summary>
-    /// <param name="brokerageId">The unique brokerage order ID.</param>
-    /// <param name="receivedDateTime">The timestamp when the order was received.</param>
+    /// <param name="brokerageId">The unique brokerage-assigned order ID.</param>
+    /// <param name="receivedDateTime">The timestamp indicating when the order was acknowledged by the brokerage.</param>
     private void ProcessPendingOrderSubmission(string brokerageId, DateTime receivedDateTime)
     {
         if (!_pendingOrderCache.IsEmpty && _pendingOrderCache.TryRemove(brokerageId, out var orderManager))
         {
             orderManager.AutoResetEvent.Set();
 
-            OnOrderEvent(new OrderEvent(orderManager.LeanOrder, receivedDateTime, OrderFee.Zero)
+            if (orderManager.IsInvokeOrderEvent)
             {
-                Status = orderManager.InvokeOrderStatus
-            });
+                var orderEvent = new OrderEvent(orderManager.LeanOrder, receivedDateTime, OrderFee.Zero)
+                {
+                    Status = orderManager.InvokeOrderStatus
+                };
+
+                ProcessOrderEventWithCrossZeroCheck(orderManager.LeanOrder, orderEvent);
+            }
         }
     }
 
     /// <summary>
-    /// Attempts to retrieve a Lean order by its brokerage order ID.
+    /// Processes an incoming order event by first attempting to handle it as a cross-zero order.
+    /// If the event is not related to a cross-zero scenario, it is passed to the standard order handler.
     /// </summary>
-    /// <param name="brokerageOrderId">The brokerage order ID to search for.</param>
+    /// <param name="leanOrder">The Lean order associated with the event.</param>
+    /// <param name="orderEvent">The specific order event to process.</param>
+    private void ProcessOrderEventWithCrossZeroCheck(LeanOrder leanOrder, OrderEvent orderEvent)
+    {
+        if (!TryHandleRemainingCrossZeroOrder(leanOrder, orderEvent))
+        {
+            OnOrderEvent(orderEvent);
+        }
+    }
+
+    /// <summary>
+    /// Attempts to retrieve the corresponding LEAN order for a given brokerage order ID.
+    /// </summary>
+    /// <param name="brokerageOrderId">The brokerage-assigned order ID used for lookup.</param>
+    /// <param name="supposeOrderStatus">
+    /// The expected status of the order, used to resolve potential CrossZero orders before fallback.
+    /// </param>
     /// <param name="leanOrder">
-    /// When this method returns, contains the Lean order associated with the specified brokerage order ID, 
-    /// if found; otherwise, <c>null</c>.
+    /// When this method returns, contains the resolved <see cref="LeanOrder"/> if found; otherwise, <c>null</c>.
     /// </param>
     /// <returns>
-    /// <c>true</c> if an order with the specified brokerage ID is found; otherwise, <c>false</c>.
+    /// <c>true</c> if a matching LEAN order was found for the provided brokerage order ID; otherwise, <c>false</c>.
     /// </returns>
-    private bool TryGetLeanOrderByBrokerageId(string brokerageOrderId, out LeanOrder leanOrder)
+    private bool TryGetLeanOrderByBrokerageId(string brokerageOrderId, LeanOrderStatus supposeOrderStatus, out LeanOrder leanOrder)
     {
-        leanOrder = _orderProvider.GetOrdersByBrokerageId(brokerageOrderId).LastOrDefault();
+        if (!TryGetOrRemoveCrossZeroOrder(brokerageOrderId, supposeOrderStatus, out leanOrder))
+        {
+            leanOrder = _orderProvider.GetOrdersByBrokerageId(brokerageOrderId).LastOrDefault();
+        }
 
         if (leanOrder == null)
         {
@@ -529,27 +610,27 @@ public partial class TastytradeBrokerage
     }
 
     /// <summary>
-    /// Converts a LEAN <see cref="Order"/> into a brokerage-compatible <see cref="OrderBaseRequest"/>.
+    /// Converts a LEAN <see cref="LeanOrder"/> into a brokerage-compatible <see cref="OrderBaseRequest"/>.
     /// </summary>
     /// <param name="order">The LEAN order to convert.</param>
+    /// <param name="orderQuantity">The quantity of the order to be placed.</param>
+    /// <param name="orderAction">The resolved <see cref="OrderAction"/> based on order context and position.</param>
     /// <returns>
-    /// A brokerage-specific order request corresponding to the provided LEAN order.
+    /// A brokerage-specific <see cref="OrderBaseRequest"/> derived from the provided LEAN order.
     /// </returns>
     /// <exception cref="NotSupportedException">
-    /// Thrown when the order type is not supported for conversion.
+    /// Thrown if the given order type is not supported for conversion to the brokerage model.
     /// </exception>
-    private OrderBaseRequest ConvertLeanOrderToBrokerageOrder(LeanOrder order)
+    private OrderBaseRequest ConvertLeanOrderToBrokerageOrder(LeanOrder order, decimal orderQuantity, OrderAction orderAction)
     {
         var (timeInForce, expiryDateTime) = order.Properties.TimeInForce.GetBrokerageTimeInForceByLeanTimeInForce();
 
-        var holdingQuantity = _securityProvider.GetHoldingsQuantity(order.Symbol);
-        var orderAction = GetOrderActionByDirection(order.Direction, order.SecurityType, holdingQuantity);
         var brokerageSymbol = _symbolMapper.GetBrokerageSymbols(order.Symbol).brokerageSymbol;
         var instrumentType = order.SecurityType.ConvertLeanSecurityTypeToBrokerageInstrumentType();
 
         var legs = new List<LegAttributes>()
         {
-            new (orderAction, instrumentType, order.AbsoluteQuantity, brokerageSymbol)
+            new (orderAction, instrumentType, Math.Abs(orderQuantity), brokerageSymbol)
         };
 
         var brokerageOrder = default(OrderBaseRequest);
@@ -575,22 +656,33 @@ public partial class TastytradeBrokerage
     }
 
     /// <summary>
-    /// Resolves the appropriate <see cref="OrderAction"/> based on the order direction,
-    /// security type, and current holdings.
+    /// Determines the appropriate <see cref="OrderAction"/> for a given order direction,
+    /// security type, and current holdings quantity.
     /// </summary>
     /// <param name="orderDirection">The direction of the order (e.g., <see cref="OrderDirection.Buy"/> or <see cref="OrderDirection.Sell"/>).</param>
     /// <param name="securityType">The type of security being traded (e.g., Equity, Option, IndexOption).</param>
-    /// <param name="holdingsQuantity">The current number of units held for the given security.</param>
-    /// <returns>
-    /// A corresponding <see cref="OrderAction"/> that reflects the correct market instruction.
-    /// </returns>
+    /// <param name="holdingsQuantity">The current quantity of the security held in the portfolio.</param>
+    /// <returns>The corresponding <see cref="OrderAction"/> representing the correct market instruction.</returns>
     /// <exception cref="NotSupportedException">
-    /// Thrown when the specified order position or direction is not supported for the given security type.
+    /// Thrown when the order action cannot be determined due to unsupported position or security type.
     /// </exception>
-    private static OrderAction GetOrderActionByDirection(OrderDirection orderDirection, SecurityType securityType, decimal holdingsQuantity)
+    private static OrderAction ResolveOrderAction(OrderDirection orderDirection, SecurityType securityType, decimal holdingsQuantity)
     {
         var orderPosition = GetOrderPosition(orderDirection, holdingsQuantity);
+        return ResolveOrderAction(securityType, orderPosition);
+    }
 
+    /// <summary>
+    /// Resolves the appropriate <see cref="OrderAction"/> based on security type and calculated <see cref="OrderPosition"/>.
+    /// </summary>
+    /// <param name="securityType">The type of security (e.g., Equity, Option, Crypto).</param>
+    /// <param name="orderPosition">The logical order position (e.g., BuyToOpen, SellToClose).</param>
+    /// <returns>The resolved <see cref="OrderAction"/> matching the security and order context.</returns>
+    /// <exception cref="NotSupportedException">
+    /// Thrown if the <paramref name="orderPosition"/> is not valid for the specified <paramref name="securityType"/>.
+    /// </exception>
+    private static OrderAction ResolveOrderAction(SecurityType securityType, OrderPosition orderPosition)
+    {
         switch (securityType)
         {
             case SecurityType.Equity:
@@ -602,14 +694,14 @@ public partial class TastytradeBrokerage
                     OrderPosition.SellToOpen => OrderAction.SellToOpen,
                     OrderPosition.BuyToClose => OrderAction.BuyToClose,
                     OrderPosition.SellToClose => OrderAction.SellToClose,
-                    _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(GetOrderActionByDirection)}: The specified order position '{orderPosition}' is not supported.")
+                    _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order position '{orderPosition}' is not supported.")
                 };
             default:
-                return orderDirection switch
+                return orderPosition switch
                 {
-                    OrderDirection.Sell => OrderAction.Sell,
-                    OrderDirection.Buy => OrderAction.Buy,
-                    _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(GetOrderActionByDirection)}: The specified order direction '{orderDirection}' is not supported.")
+                    OrderPosition.BuyToOpen or OrderPosition.SellToClose => OrderAction.Buy,
+                    OrderPosition.BuyToClose or OrderPosition.SellToOpen => OrderAction.Sell,
+                    _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order direction '{orderPosition}' is not supported.")
                 };
         }
     }

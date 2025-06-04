@@ -35,10 +35,15 @@ public class PendingOrderManager : IDisposable
     public OrderStatus InvokeOrderStatus { get; }
 
     /// <summary>
+    /// Indicates whether the order submission event should be invoked.
+    /// Used in <c>CrossZeroOrder</c> processing to skip triggering the event for the second part of a split order.
+    /// </summary>
+    public bool IsInvokeOrderEvent { get; set; } = true;
+
+    /// <summary>
     /// Gets the synchronization event used for order processing coordination.
     /// </summary>
     public AutoResetEvent AutoResetEvent { get; } = new(false);
-
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PendingOrderManager"/> class.
