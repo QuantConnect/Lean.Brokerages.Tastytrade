@@ -490,7 +490,7 @@ public class TastytradeJsonConverterTests
                 order = new LimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, leanOrderDirection.Value);
                 break;
             case OrderType.Stop:
-                order = new StopMarketOrderRequest(timeInForce, expiryDateTime, legAttributes, stopPrice.Value);
+                order = new StopMarketOrderRequest(timeInForce, expiryDateTime, legAttributes, stopPrice.Value, instrumentType);
                 break;
             case OrderType.StopLimit:
                 order = new StopLimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, stopPrice.Value, leanOrderDirection.Value);

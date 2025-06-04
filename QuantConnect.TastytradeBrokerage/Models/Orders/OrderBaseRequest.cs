@@ -30,7 +30,7 @@ public abstract class OrderBaseRequest
     /// <summary>
     /// Gets the time in force (e.g., Day, GTC) for the order.
     /// </summary>
-    public TimeInForce TimeInForce { get; }
+    public TimeInForce TimeInForce { get; protected set; }
 
     /// <summary>
     /// Gets the expiration date for the order if <see cref="TimeInForce"/> is GoodTilDate.

@@ -36,9 +36,17 @@ public class StopMarketOrderRequest : OrderBaseRequest
     /// <param name="expiryDateTime">Expiration date if <paramref name="timeInForce"/> is GTC.</param>
     /// <param name="legs">The order legs to execute.</param>
     /// <param name="stopPrice">The stop trigger price for the order.</param>
-    public StopMarketOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal stopPrice)
+    /// <param name="instrumentType">The type of tradable financial instruments.</param>
+    public StopMarketOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal stopPrice, InstrumentType instrumentType)
         : base(timeInForce, expiryDateTime, legs)
     {
         StopPrice = stopPrice;
+
+        // For option orders (equity or future), force TimeInForce to Day due to broker limitations
+        if (timeInForce != TimeInForce.Day && (instrumentType == InstrumentType.EquityOption || instrumentType == InstrumentType.FutureOption))
+        {
+            TimeInForce = TimeInForce.Day;
+            Logging.Log.Debug($"{nameof(StopMarketOrderRequest)}: 'TimeInForce' was set to 'Day' automatically for {instrumentType} orders, overriding the original value '{timeInForce}'.");
+        }
     }
 }
