@@ -22,7 +22,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models;
 /// <summary>
 /// Represents a futures option contract with details such as expiration, strike price, and option type.
 /// </summary>
-public readonly struct FutureOption
+public sealed class FutureOption : BaseInstrument
 {
     /// <summary>
     /// Gets the expiration date of the option contract.
@@ -35,19 +35,9 @@ public readonly struct FutureOption
     public OptionType OptionType { get; }
 
     /// <summary>
-    /// Gets the streamer symbol used for real-time data feeds.
-    /// </summary>
-    public string StreamerSymbol { get; }
-
-    /// <summary>
     /// Gets the strike price of the option.
     /// </summary>
     public decimal StrikePrice { get; }
-
-    /// <summary>
-    /// Gets the unique symbol identifying this option instrument.
-    /// </summary>
-    public string Symbol { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FutureOption"/> struct with the specified values.
@@ -59,12 +49,11 @@ public readonly struct FutureOption
     /// <param name="symbol">The unique symbol identifying the option.</param>
     [JsonConstructor]
     public FutureOption(DateTime expirationDate, OptionType optionType, string streamerSymbol, decimal strikePrice, string symbol)
+        : base(symbol, streamerSymbol)
     {
         ExpirationDate = expirationDate;
         OptionType = optionType;
-        StreamerSymbol = streamerSymbol;
         StrikePrice = strikePrice;
-        Symbol = symbol;
     }
 
 
@@ -80,5 +69,17 @@ public readonly struct FutureOption
         return ExpirationDate.Date == expirationDate.Date &&
                StrikePrice == strike &&
                OptionType == optionType;
+    }
+
+    /// <summary>
+    /// Returns a string representation of the <see cref="FutureOption"/> instance,
+    /// including the symbol, option type, expiration date, strike price, and streamer symbol.
+    /// </summary>
+    /// <returns>
+    /// A human-readable <see cref="string"/> that describes the key properties of the option.
+    /// </returns>
+    public override string ToString()
+    {
+        return $"{Symbol} | {OptionType} | Exp: {ExpirationDate:yyyy-MM-dd} | Strike: {StrikePrice} | Streamer: {StreamerSymbol}";
     }
 }

@@ -36,13 +36,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
 
     protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
     {
-        var baseUrl = Config.Get("tastytrade-api-url");
-        var baseWSUrl = Config.Get("tastytrade-websocket-url");
-        var username = Config.Get("tastytrade-username");
-        var password = Config.Get("tastytrade-password");
-        var accountNumber = Config.Get("tastytrade-account-number");
-
-        return new TastytradeBrokerage(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider);
+        return TestSetup.CreateBrokerage(orderProvider, securityProvider);
     }
 
     protected override bool IsAsync() => false;

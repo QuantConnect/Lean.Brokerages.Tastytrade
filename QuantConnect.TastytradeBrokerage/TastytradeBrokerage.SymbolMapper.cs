@@ -55,13 +55,17 @@ public class TastytradeBrokerageSymbolMapper
     }
 
     /// <summary>
-    /// Converts a brokerage symbol back into a Lean symbol.
+    /// Converts a brokerage symbol into a Lean <see cref="Symbol"/> instance.
     /// </summary>
-    /// <param name="brokerageSymbol">The brokerage symbol to convert.</param>
-    /// <param name="securityType">The security type (e.g., Equity, Option, Future).</param>
+    /// <param name="brokerageSymbol">The full brokerage symbol representing the security.</param>
+    /// <param name="securityType">The <see cref="SecurityType"/> of the instrument (e.g., Equity, Option, Future, FutureOption).</param>
+    /// <param name="underlyingBrokerageSymbol">The brokerage symbol of the underlying instrument, used for options and future options.</param>
+    /// <param name="brokerageStreamMarketDataSymbol">An optional symbol used for real-time market data streaming.</param>
+    /// <param name="isOptionIndex">Optional flag indicating if the option is on an index (true) or equity (false). If null, this is resolved dynamically.</param>
     /// <returns>A new <see cref="Symbol"/> instance representing the Lean symbol.</returns>
-    /// <exception cref="NotImplementedException">Always thrown. Functionality not implemented yet.</exception>
-    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol)
+    /// <exception cref="ArgumentException">Thrown when option symbol decomposition fails.</exception>
+    /// <exception cref="NotImplementedException">Thrown when the given security type is not supported.</exception>
+    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol, string brokerageStreamMarketDataSymbol = default, bool? isOptionIndex = null)
     {
         if (_leanSymbolByBrokerageSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
         {
@@ -77,7 +81,8 @@ public class TastytradeBrokerageSymbolMapper
                 leanSymbol = SymbolRepresentation.ParseFutureSymbol(ToFutureLeanTickerFormat(brokerageSymbol));
                 break;
             case SecurityType.Option:
-                var isIndex = _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(underlyingBrokerageSymbol).SynchronouslyAwaitTaskResult();
+            case SecurityType.IndexOption:
+                var isIndex = isOptionIndex ?? _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(underlyingBrokerageSymbol).SynchronouslyAwaitTaskResult();
 
                 if (isIndex)
                 {
@@ -102,7 +107,7 @@ public class TastytradeBrokerageSymbolMapper
                     $"The security type '{securityType}' with brokerage symbol '{brokerageSymbol}' is not supported.");
         }
 
-        SynchronizeCachedSymbolCollection(leanSymbol, brokerageSymbol, default);
+        SynchronizeCachedSymbolCollection(leanSymbol, brokerageSymbol, brokerageStreamMarketDataSymbol);
 
         return leanSymbol;
     }
@@ -228,7 +233,7 @@ public class TastytradeBrokerageSymbolMapper
     {
         var optionType = symbol.ID.OptionRight == OptionRight.Put ? OptionType.Put : OptionType.Call;
 
-        var futureOption = await _tastytradeApiClient.GetFutureOptionChains(symbol.ID.Underlying.Symbol, symbol.ID.Date, symbol.ID.StrikePrice, optionType);
+        var futureOption = await _tastytradeApiClient.FindFutureOptionAsync(symbol.ID.Underlying.Symbol, symbol.ID.Date, symbol.ID.StrikePrice, optionType);
 
         return (futureOption.Symbol, futureOption.StreamerSymbol);
     }
@@ -254,7 +259,7 @@ public class TastytradeBrokerageSymbolMapper
         if (!match.Success)
             throw new FormatException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(ParseBrokerageFutureOptionSymbol)}: Input '{brokerageSymbol}' is not in a valid option format (expected 'yyMMddP/CStrike').");
 
-        var ticker = match.Groups[2].Value;
+        var ticker = ToFutureLeanTickerFormat(match.Groups[1].Value);
         var expiry = DateTime.ParseExact(match.Groups[3].Value, "yyMMdd", CultureInfo.InvariantCulture);
         var right = match.Groups[4].Value[0] == 'C' ? OptionRight.Call : OptionRight.Put;
         var strike = Convert.ToDecimal(match.Groups[5].Value);
@@ -312,27 +317,23 @@ public class TastytradeBrokerageSymbolMapper
     }
 
     /// <summary>
-    /// Converts a futures ticker from brokerage format to Lean format by removing slashes.
+    /// Converts a brokerage-formatted futures ticker into a Lean-compatible format by removing leading slashes or dots.
     /// </summary>
-    /// <param name="brokerageTicker">The brokerage-formatted ticker symbol for futures.</param>
-    /// <returns>The Lean-compatible futures ticker without slashes.</returns>
+    /// <param name="brokerageTicker">The futures ticker provided by the brokerage (e.g., <c>/ESU25</c> or <c>./ESU25</c>).</param>
+    /// <returns>The Lean-compatible ticker string with slashes and dots removed (e.g., <c>ESU25</c>).</returns>
     /// <remarks>
-    /// <para>Futures tickers from brokerages often include slashes to separate contract components. 
-    /// This method removes them for compatibility with Lean’s symbol parsing.</para>
-    /// <para><b>Example:</b></para>
+    /// <para>
+    /// Brokerages may prefix futures tickers with characters like '/' or './'. These are removed to conform with 
+    /// Lean’s expected format.
+    /// </para>
+    /// <para><b>Examples:</b></para>
     /// <list type="bullet">
-    /// <item>
-    /// <term>Brokerage</term>
-    /// <description><c>/ESU25</c></description>
-    /// </item>
-    /// <item>
-    /// <term>Lean</term>
-    /// <description><c>ESU25</c></description>
-    /// </item>
+    /// <item><description><c>/ESU25</c> → <c>ESU25</c></description></item>
+    /// <item><description><c>./ESU25</c> → <c>ESU25</c></description></item>
     /// </list>
     /// </remarks>
     private static string ToFutureLeanTickerFormat(string brokerageTicker)
     {
-        return brokerageTicker.Replace("/", "");
+        return brokerageTicker.Replace("/", string.Empty).Replace(".", string.Empty);
     }
 }

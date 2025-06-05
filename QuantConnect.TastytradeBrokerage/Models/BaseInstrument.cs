@@ -18,18 +18,29 @@ using Newtonsoft.Json;
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
-/// Represents a basic view of a future instrument, including its symbol and streamer symbol used for real-time data.
+/// Represents a base financial instrument containing core properties like symbol and streamer symbol.
 /// </summary>
-public sealed class Future : BaseInstrument
+public class BaseInstrument
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="Future"/> struct.
+    /// Gets the unique symbol identifying this option instrument.
     /// </summary>
-    /// <param name="symbol">The standard symbol for the future.</param>
-    /// <param name="streamerSymbol">The streamer symbol used for real-time updates.</param>
+    public string Symbol { get; }
+
+    /// <summary>
+    /// Gets the streamer symbol used for real-time data feeds.
+    /// </summary>
+    public string StreamerSymbol { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BaseInstrument"/> class.
+    /// </summary>
+    /// <param name="symbol">The unique identifier for the instrument.</param>
+    /// <param name="streamerSymbol">The symbol used for real-time market data feeds.</param>
     [JsonConstructor]
-    public Future(string symbol, string streamerSymbol)
-        : base(symbol, streamerSymbol)
+    public BaseInstrument(string symbol, string streamerSymbol)
     {
+        Symbol = symbol;
+        StreamerSymbol = streamerSymbol;
     }
 }

@@ -181,21 +181,46 @@ public sealed class TastytradeApiClient
     }
 
     /// <summary>
-    /// Retrieves a specific future option from the option chains for the given underlying future symbol.
+    /// Retrieves the full list of future options for the given underlying future ticker symbol.
+    /// </summary>
+    /// <param name="underlyingFutureTicker">The ticker symbol of the underlying future.</param>
+    /// <returns>
+    /// A read-only collection of <see cref="FutureOption"/> objects representing the available options.
+    /// </returns>
+    public async Task<IReadOnlyCollection<FutureOption>> GetFutureOptionChains(string underlyingFutureTicker)
+    {
+        return (await SendRequestAsync<ResponseList<FutureOption>>(HttpMethod.Get, $"/futures-option-chains/{underlyingFutureTicker}")).Data.Items;
+    }
+
+    /// <summary>
+    /// Retrieves the list of equity instruments (option underlyings) available for a given ticker.
+    /// </summary>
+    /// <param name="ticker">The symbol of the underlying asset (e.g., <c>AAPL</c>, <c>SPX</c>).</param>
+    /// <returns>
+    /// A task representing the asynchronous operation. The result contains a read-only collection of 
+    /// <see cref="Equity"/> instances associated with the specified ticker.
+    /// </returns>
+    public async Task<IReadOnlyCollection<Equity>> GetOptionChains(string ticker)
+    {
+        return (await SendRequestAsync<ResponseList<Equity>>(HttpMethod.Get, $"/option-chains/" + ticker)).Data.Items;
+    }
+
+    /// <summary>
+    /// Finds a specific future option contract based on expiration date, strike price, and option type.
     /// </summary>
     /// <param name="underlyingFutureTicker">The ticker symbol of the underlying future.</param>
     /// <param name="expirationDate">The expiration date of the desired option.</param>
     /// <param name="strike">The strike price of the desired option.</param>
     /// <param name="optionType">The type of the option (e.g., Call or Put).</param>
     /// <returns>
-    /// A <see cref="FutureOption"/> object that matches the specified expiration date, strike price, and option type.
+    /// A <see cref="FutureOption"/> matching the specified parameters.
     /// </returns>
     /// <exception cref="InvalidOperationException">
-    /// Thrown when no matching future option is found in the option chains for the given parameters.
+    /// Thrown if no matching future option is found.
     /// </exception>
-    public async Task<FutureOption> GetFutureOptionChains(string underlyingFutureTicker, DateTime expirationDate, decimal strike, OptionType optionType)
+    public async Task<FutureOption> FindFutureOptionAsync(string underlyingFutureTicker, DateTime expirationDate, decimal strike, OptionType optionType)
     {
-        var futureOptions = (await SendRequestAsync<ResponseList<FutureOption>>(HttpMethod.Get, $"/futures-option-chains/{underlyingFutureTicker}")).Data.Items;
+        var futureOptions = await GetFutureOptionChains(underlyingFutureTicker);
         var matchingOption = futureOptions.FirstOrDefault(fo => fo.IsMatchFor(expirationDate, strike, optionType));
 
         if (matchingOption.Equals(default(FutureOption)))

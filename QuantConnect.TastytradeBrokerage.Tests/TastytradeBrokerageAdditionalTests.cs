@@ -107,10 +107,11 @@ public class TastytradeBrokerageAdditionalTests
         Assert.ThrowsAsync<Exception>(async () => await _tastytradeApiClient.CancelOrderById(id));
     }
 
-    [Test]
-    public async Task GetFutureOptionChain()
+    [TestCase("AAPL")]
+    [TestCase("VIX")]
+    public async Task GetOptionChains(string ticker)
     {
-        var res = await _tastytradeApiClient.GetInstrumentFuture("GCZ5");
+        var res = await _tastytradeApiClient.GetOptionChains(ticker);
 
         Assert.IsNotNull(res);
     }
