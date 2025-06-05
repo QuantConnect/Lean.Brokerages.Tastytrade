@@ -251,17 +251,17 @@ public sealed class TastytradeApiClient
 
                 if (!responseMessage.IsSuccessStatusCode)
                 {
-                    var errorBuilder = new StringBuilder();
+                    var error = default(string);
                     try
                     {
-                        errorBuilder.Append(response.DeserializeKebabCase<ErrorResponse>().Error);
+                        error = response.DeserializeKebabCase<ErrorResponse>().Error.ToString();
                     }
                     catch (Newtonsoft.Json.JsonSerializationException)
                     {
-                        errorBuilder.Append(response);
+                        error = response;
                     }
 
-                    throw new HttpRequestException(errorBuilder.ToString() + $",RequestUri: [{requestMessage.Method.Method}] {requestMessage.RequestUri}, Body: {jsonBody}", null, responseMessage.StatusCode);
+                    throw new HttpRequestException(error + $",RequestUri: [{requestMessage.Method.Method}] {requestMessage.RequestUri}, Body: {jsonBody}", null, responseMessage.StatusCode);
                 }
 
                 if (Log.DebuggingEnabled)
