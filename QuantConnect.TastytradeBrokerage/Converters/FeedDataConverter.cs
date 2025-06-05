@@ -79,44 +79,53 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
         }
     }
 
-
     /// <summary>
-    /// Converts a JArray of trade entries to a collection of <see cref="TradeContent"/>.
+    /// Parses a JSON array representing trades and converts it into an array of <see cref="TradeContent"/> instances.
     /// </summary>
-    /// <param name="jArray">The JSON array representing trade data.</param>
-    /// <returns>A read-only collection of <see cref="TradeContent"/>.</returns>
-    private static IReadOnlyCollection<TradeContent> ConvertArrayToTradeContent(JArray jArray)
+    /// <param name="jArray">
+    /// A <see cref="JArray"/> where each trade entry consists of a fixed set of fields
+    /// (symbol, price, size, and Unix timestamp in milliseconds).
+    /// </param>
+    /// <returns>
+    /// An array of <see cref="TradeContent"/> objects populated from the provided JSON array.
+    /// </returns>
+    private static TradeContent[] ConvertArrayToTradeContent(JArray jArray)
     {
-        var trades = new List<TradeContent>();
-        for (int i = 0; i < jArray.Count; i += TradeFieldCount)
+        var trades = new TradeContent[jArray.Count / TradeFieldCount];
+        for (int i = 0, j = 0; i < trades.Length; i++, j += TradeFieldCount)
         {
-            trades.Add(new TradeContent(
-                symbol: jArray[i].ToString(),
-                price: decimal.TryParse(jArray[i + 1].ToString(), out var price) ? price : 0m,
-                size: decimal.TryParse(jArray[i + 2].ToString(), out var size) ? size : 0m,
-                tradeDateTime: Time.UnixMillisecondTimeStampToDateTime(jArray[i + 3].Value<decimal>())
-                ));
+            trades[i] = new TradeContent(
+                symbol: jArray[j].ToString(),
+                price: decimal.TryParse(jArray[j + 1].ToString(), out var price) ? price : 0m,
+                size: decimal.TryParse(jArray[j + 2].ToString(), out var size) ? size : 0m,
+                tradeDateTime: Time.UnixMillisecondTimeStampToDateTime(jArray[j + 3].Value<decimal>())
+            );
         }
         return trades;
     }
 
     /// <summary>
-    /// Converts a JArray of quote entries to a collection of <see cref="QuoteContent"/>.
+    /// Parses a JSON array representing quote data and converts it into an array of <see cref="QuoteContent"/> instances.
     /// </summary>
-    /// <param name="jArray">The JSON array representing quote data.</param>
-    /// <returns>A read-only collection of <see cref="QuoteContent"/>.</returns>
-    private static IReadOnlyCollection<QuoteContent> ConvertArrayToQuoteContent(JArray jArray)
+    /// <param name="jArray">
+    /// A <see cref="JArray"/> where each quote entry consists of a fixed set of fields
+    /// (symbol, bid price, ask price, bid size, and ask size).
+    /// </param>
+    /// <returns>
+    /// An array of <see cref="QuoteContent"/> objects populated from the provided JSON array.
+    /// </returns>
+    private static QuoteContent[] ConvertArrayToQuoteContent(JArray jArray)
     {
-        var quotes = new List<QuoteContent>();
-        for (int i = 0; i < jArray.Count; i += QuoteFieldCount)
+        var quotes = new QuoteContent[jArray.Count / QuoteFieldCount];
+        for (int i = 0, j = 0; i < quotes.Length; i++, j += QuoteFieldCount)
         {
-            quotes.Add(new QuoteContent(
-                symbol: jArray[i].ToString(),
-                bidPrice: decimal.TryParse(jArray[i + 1].ToString(), out var bidPrice) ? bidPrice : 0m,
-                askPrice: decimal.TryParse(jArray[i + 2].ToString(), out var askPrice) ? askPrice : 0m,
-                bidSize: decimal.TryParse(jArray[i + 3].ToString(), out var bidSize) ? bidSize : 0m,
-                askSize: decimal.TryParse(jArray[i + 4].ToString(), out var askSize) ? askSize : 0m
-                ));
+            quotes[i] = new QuoteContent(
+                symbol: jArray[j].ToString(),
+                bidPrice: decimal.TryParse(jArray[j + 1].ToString(), out var bidPrice) ? bidPrice : 0m,
+                askPrice: decimal.TryParse(jArray[j + 2].ToString(), out var askPrice) ? askPrice : 0m,
+                bidSize: decimal.TryParse(jArray[j + 3].ToString(), out var bidSize) ? bidSize : 0m,
+                askSize: decimal.TryParse(jArray[j + 4].ToString(), out var askSize) ? askSize : 0m
+                );
         }
         return quotes;
     }
