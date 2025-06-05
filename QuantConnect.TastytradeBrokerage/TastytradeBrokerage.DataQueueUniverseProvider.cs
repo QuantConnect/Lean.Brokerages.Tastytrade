@@ -63,7 +63,7 @@ public partial class TastytradeBrokerage : IDataQueueUniverseProvider
     /// <returns>An enumerable of Lean <see cref="Symbol"/> instances representing the option contracts.</returns>
     private IEnumerable<Symbol> GetOptionChains(string underlyingTicker, SecurityType securityType, bool isOptionIndex)
     {
-        var optionChains = _tastytradeApiClient.GetOptionChains(underlyingTicker).SynchronouslyAwaitTaskResult();
+        var optionChains = _tastytradeApiClient.GetOptionChains(underlyingTicker);
         foreach (var optionChain in optionChains)
         {
             yield return _symbolMapper.GetLeanSymbol(optionChain.Symbol, securityType, underlyingTicker, optionChain.StreamerSymbol, isOptionIndex);
@@ -78,7 +78,7 @@ public partial class TastytradeBrokerage : IDataQueueUniverseProvider
     /// <returns>An enumerable of Lean <see cref="Symbol"/> instances for valid future option contracts.</returns>
     private IEnumerable<Symbol> GetFutureOptionChains(string underlyingSymbol)
     {
-        var futureOptionChains = _tastytradeApiClient.GetFutureOptionChains(underlyingSymbol).SynchronouslyAwaitTaskResult();
+        var futureOptionChains = _tastytradeApiClient.GetFutureOptionChains(underlyingSymbol);
         var skippedSymbols = new StringBuilder();
         foreach (var optionContract in futureOptionChains)
         {

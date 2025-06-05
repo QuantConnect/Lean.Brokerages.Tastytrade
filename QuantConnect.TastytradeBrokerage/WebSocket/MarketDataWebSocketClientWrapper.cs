@@ -69,7 +69,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     {
         if (string.IsNullOrEmpty(_token) || DateTime.UtcNow >= _tokenExpirationTime)
         {
-            var apiQuoteToken = _tastyTradeApiClient.GetApiQuoteToken().SynchronouslyAwaitTaskResult();
+            var apiQuoteToken = _tastyTradeApiClient.GetApiQuoteToken();
 
             _token = apiQuoteToken.Token;
             // Quote streamer tokens are valid for 24 hours.

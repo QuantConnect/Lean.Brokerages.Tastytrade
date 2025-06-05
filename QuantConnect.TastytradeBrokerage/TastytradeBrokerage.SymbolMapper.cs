@@ -16,7 +16,6 @@
 using System;
 using System.Linq;
 using System.Globalization;
-using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using QuantConnect.Brokerages.Tastytrade.Api;
@@ -82,7 +81,7 @@ public class TastytradeBrokerageSymbolMapper
                 break;
             case SecurityType.Option:
             case SecurityType.IndexOption:
-                var isIndex = isOptionIndex ?? _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(underlyingBrokerageSymbol).SynchronouslyAwaitTaskResult();
+                var isIndex = isOptionIndex ?? _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(underlyingBrokerageSymbol);
 
                 if (isIndex)
                 {
@@ -145,10 +144,10 @@ public class TastytradeBrokerageSymbolMapper
                 (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateOptionBrokerageSymbols(symbol);
                 break;
             case SecurityType.Future:
-                (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateFutureBrokerageSymbols(symbol).SynchronouslyAwaitTaskResult();
+                (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateFutureBrokerageSymbols(symbol);
                 break;
             case SecurityType.FutureOption:
-                (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateFutureOptionBrokerageSymbols(symbol).SynchronouslyAwaitTaskResult();
+                (brokerageSymbol, brokerageStreamMarketDataSymbol) = GenerateFutureOptionBrokerageSymbols(symbol);
                 break;
             default:
                 throw new NotSupportedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetBrokerageSymbols)}.");
@@ -204,11 +203,11 @@ public class TastytradeBrokerageSymbolMapper
     /// </summary>
     /// <param name="symbol">The Lean future symbol.</param>
     /// <returns>A tuple with the brokerage symbol and the streaming market data symbol.</returns>
-    private async Task<(string brokerageSymbol, string brokerageStreamMarketDataSymbol)> GenerateFutureBrokerageSymbols(Symbol symbol)
+    private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureBrokerageSymbols(Symbol symbol)
     {
         var futureTicker = $"{symbol.ID.Symbol}{SymbolRepresentation.FuturesMonthLookup[symbol.ID.Date.Month]}{symbol.ID.Date.ToString("yy").Last()}";
 
-        var future = await _tastytradeApiClient.GetInstrumentFuture(futureTicker);
+        var future = _tastytradeApiClient.GetInstrumentFuture(futureTicker);
 
         return (future.Symbol, future.StreamerSymbol);
     }
@@ -229,11 +228,11 @@ public class TastytradeBrokerageSymbolMapper
     /// <exception cref="InvalidOperationException">
     /// Thrown if no matching future option is found for the given symbol parameters.
     /// </exception>
-    private async Task<(string brokerageSymbol, string brokerageStreamMarketDataSymbol)> GenerateFutureOptionBrokerageSymbols(Symbol symbol)
+    private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureOptionBrokerageSymbols(Symbol symbol)
     {
         var optionType = symbol.ID.OptionRight == OptionRight.Put ? OptionType.Put : OptionType.Call;
 
-        var futureOption = await _tastytradeApiClient.FindFutureOptionAsync(symbol.ID.Underlying.Symbol, symbol.ID.Date, symbol.ID.StrikePrice, optionType);
+        var futureOption = _tastytradeApiClient.FindFutureOptionAsync(symbol.ID.Underlying.Symbol, symbol.ID.Date, symbol.ID.StrikePrice, optionType);
 
         return (futureOption.Symbol, futureOption.StreamerSymbol);
     }

@@ -68,7 +68,7 @@ public partial class TastytradeBrokerage
     /// <returns>The current holdings from the account</returns>
     public override List<Holding> GetAccountHoldings()
     {
-        var positions = _tastytradeApiClient.GetAccountPositions().SynchronouslyAwaitTaskResult();
+        var positions = _tastytradeApiClient.GetAccountPositions();
 
         if (positions.Count == 0)
         {
@@ -155,7 +155,7 @@ public partial class TastytradeBrokerage
     /// <returns>The current cash balance for each currency available for trading</returns>
     public override List<CashAmount> GetCashBalance()
     {
-        var balance = _tastytradeApiClient.GetAccountBalances().SynchronouslyAwaitTaskResult();
+        var balance = _tastytradeApiClient.GetAccountBalances();
         return [new(balance.AvailableTradingFunds, balance.Currency)];
     }
 
@@ -166,7 +166,7 @@ public partial class TastytradeBrokerage
     /// <returns>The open orders returned from IB</returns>
     public override List<LeanOrder> GetOpenOrders()
     {
-        var brokerageOrders = _tastytradeApiClient.GetLiveOrders().SynchronouslyAwaitTaskResult();
+        var brokerageOrders = _tastytradeApiClient.GetLiveOrders();
 
         if (brokerageOrders.Count == 0)
         {
@@ -308,7 +308,7 @@ public partial class TastytradeBrokerage
         {
             try
             {
-                brokerageId = _tastytradeApiClient.SubmitOrder(brokerageOrder).SynchronouslyAwaitTaskResult().Order.Id;
+                brokerageId = _tastytradeApiClient.SubmitOrder(brokerageOrder).Order.Id;
             }
             catch (Exception ex)
             {
@@ -352,7 +352,7 @@ public partial class TastytradeBrokerage
         {
             try
             {
-                newBrokerageId = _tastytradeApiClient.ReplaceOrderById(brokerageId, brokerageOrder).SynchronouslyAwaitTaskResult();
+                newBrokerageId = _tastytradeApiClient.ReplaceOrderById(brokerageId, brokerageOrder);
 
                 OnOrderIdChangedEvent(new() { BrokerId = [newBrokerageId], OrderId = order.Id });
 
@@ -398,7 +398,7 @@ public partial class TastytradeBrokerage
         {
             try
             {
-                _tastytradeApiClient.CancelOrderById(brokerageId).SynchronouslyAwaitTask();
+                _tastytradeApiClient.CancelOrderById(brokerageId);
                 canceled = true;
             }
             catch (Exception ex)

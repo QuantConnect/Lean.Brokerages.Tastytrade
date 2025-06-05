@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -18,7 +18,6 @@ using System.Text;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
-using System.Threading.Tasks;
 using System.Net.Http.Headers;
 using QuantConnect.Brokerages.Tastytrade.Models;
 
@@ -73,13 +72,13 @@ public sealed class HttpTokenHandler : DelegatingHandler
     }
 
     /// <inheritdoc/>
-    protected async override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        _sessionToken = await GetSessionToken(cancellationToken);
+        _sessionToken = GetSessionToken(cancellationToken);
 
         request.Headers.Authorization = new AuthenticationHeaderValue(_sessionToken);
 
-        return await base.SendAsync(request, cancellationToken);
+        return base.Send(request, cancellationToken);
     }
 
     /// <summary>
@@ -87,15 +86,15 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid session token string.</returns>
-    public async Task<string> GetSessionToken(CancellationToken cancellationToken)
+    public string GetSessionToken(CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_sessionToken))
         {
-            _sessionToken = await CreateSession(_username, _password, cancellationToken);
+            _sessionToken = CreateSession(_username, _password, cancellationToken);
         }
         else if (DateTime.UtcNow >= _sessionExpirationTime)
         {
-            _sessionToken = await UpdateSession(_username, _rememberToken, cancellationToken);
+            _sessionToken = UpdateSession(_username, _rememberToken, cancellationToken);
         }
 
         return _sessionToken;
@@ -108,9 +107,9 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <param name="password">Password for login.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The new session token.</returns>
-    private async Task<string> CreateSession(string username, string password, CancellationToken cancellationToken)
+    private string CreateSession(string username, string password, CancellationToken cancellationToken)
     {
-        return await SendSessionAsync(new CreateSession(username, password.ToString()).ToJson(), cancellationToken);
+        return SendSession(new CreateSession(username, password.ToString()).ToJson(), cancellationToken);
     }
 
     /// <summary>
@@ -120,9 +119,9 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <param name="rememberToken">The token used to refresh the session.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The refreshed session token.</returns>
-    private async Task<string> UpdateSession(string username, string rememberToken, CancellationToken cancellationToken)
+    private string UpdateSession(string username, string rememberToken, CancellationToken cancellationToken)
     {
-        return await SendSessionAsync(new UpdateSession(username, rememberToken).ToJson(), cancellationToken);
+        return SendSession(new UpdateSession(username, rememberToken).ToJson(), cancellationToken);
     }
 
     /// <summary>
@@ -131,11 +130,11 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <param name="jsonBody">The JSON payload of the session request.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The session token received in the response.</returns>
-    private async Task<string> SendSessionAsync(string jsonBody, CancellationToken cancellationToken)
+    private string SendSession(string jsonBody, CancellationToken cancellationToken)
     {
-        var response = await ExecuteSessionRequestAsync(HttpMethod.Post, jsonBody, cancellationToken);
+        var response = ExecuteSessionRequest(HttpMethod.Post, jsonBody, cancellationToken);
 
-        var jsonContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        var jsonContent = response.ReadContentAsString(cancellationToken);
 
         var sessionResponse = jsonContent.DeserializeKebabCase<BaseResponse<SessionResponse>>().Data;
 
@@ -148,9 +147,9 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <summary>
     /// Destroys the current session.
     /// </summary>
-    private async Task DestroySessionAsync()
+    private void DestroySessionAsync()
     {
-        var response = await ExecuteSessionRequestAsync(HttpMethod.Delete, null, default);
+        var response = ExecuteSessionRequest(HttpMethod.Delete, null, default);
 
         if (response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.NoContent)
         {
@@ -160,7 +159,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
         }
         else
         {
-            var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody = response.ReadContentAsString();
             Log.Error($"{nameof(HttpTokenHandler)}.{nameof(DestroySessionAsync)}: Failed to destroy session. " +
                      $"StatusCode: {response.StatusCode}, Response: {responseBody}");
         }
@@ -173,7 +172,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <param name="jsonBody">The JSON payload, if any.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The HTTP response message.</returns>
-    private async Task<HttpResponseMessage> ExecuteSessionRequestAsync(HttpMethod httpMethod, string jsonBody, CancellationToken cancellationToken)
+    private HttpResponseMessage ExecuteSessionRequest(HttpMethod httpMethod, string jsonBody, CancellationToken cancellationToken)
     {
         using var requestMessage = new HttpRequestMessage(httpMethod, _baseUrlWithSessionEndpoint);
 
@@ -182,11 +181,11 @@ public sealed class HttpTokenHandler : DelegatingHandler
             requestMessage.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
         }
 
-        var responseMessage = await base.SendAsync(requestMessage, cancellationToken);
+        var responseMessage = base.Send(requestMessage, cancellationToken);
 
         if (!responseMessage.IsSuccessStatusCode)
         {
-            var jsonContent = await responseMessage.Content.ReadAsStringAsync(cancellationToken);
+            var jsonContent = responseMessage.ReadContentAsString(cancellationToken);
             var error = jsonContent.DeserializeKebabCase<ErrorResponse>().Error;
             throw new HttpRequestException(error.ToString(), null, responseMessage.StatusCode);
         }
@@ -199,7 +198,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
     {
         if (disposing)
         {
-            DestroySessionAsync().SynchronouslyAwaitTask();
+            DestroySessionAsync();
         }
     }
 }

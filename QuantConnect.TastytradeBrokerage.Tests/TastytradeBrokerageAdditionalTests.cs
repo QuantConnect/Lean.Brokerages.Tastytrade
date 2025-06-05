@@ -41,9 +41,9 @@ public class TastytradeBrokerageAdditionalTests
     }
 
     [Test]
-    public async Task GetAccountBalances()
+    public void GetAccountBalances()
     {
-        var res = await _tastytradeApiClient.GetAccountBalances();
+        var res = _tastytradeApiClient.GetAccountBalances();
 
         Assert.IsNotNull(res);
         Assert.GreaterOrEqual(res.CashBalance, 0m);
@@ -53,17 +53,17 @@ public class TastytradeBrokerageAdditionalTests
     }
 
     [Test]
-    public async Task GetAccountPositions()
+    public void GetAccountPositions()
     {
-        var res = await _tastytradeApiClient.GetAccountPositions();
+        var res = _tastytradeApiClient.GetAccountPositions();
 
         Assert.IsNotNull(res);
     }
 
     [Test]
-    public async Task GetApiQuoteToken()
+    public void GetApiQuoteToken()
     {
-        var res = await _tastytradeApiClient.GetApiQuoteToken();
+        var res = _tastytradeApiClient.GetApiQuoteToken();
 
         Assert.IsNotNull(res);
         Assert.AreEqual("demo", res.Level);
@@ -73,9 +73,9 @@ public class TastytradeBrokerageAdditionalTests
     [TestCase("GCZ5", Description = "Gold Dec 25")]
     [TestCase("6BZ5", Description = "British Pound Dec 25")]
     [TestCase("RBM5", Description = "RBOB Gasoline Jun 25")]
-    public async Task GetInstrumentFuture(string brokerageSymbol)
+    public void GetInstrumentFuture(string brokerageSymbol)
     {
-        var res = await _tastytradeApiClient.GetInstrumentFuture(brokerageSymbol);
+        var res = _tastytradeApiClient.GetInstrumentFuture(brokerageSymbol);
 
         Assert.IsNotNull(res);
         Assert.IsNotNull(res.Symbol);
@@ -87,16 +87,16 @@ public class TastytradeBrokerageAdditionalTests
     [TestCase("SPY", false)]
     [TestCase("SPX", true)]
     [TestCase("BRK/B", false)]
-    public async Task IsUnderlyingEquityAnIndexAsync(string symbol, bool expectedIsIndex)
+    public void IsUnderlyingEquityAnIndexAsync(string symbol, bool expectedIsIndex)
     {
-        var actualIsIndex = await _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(symbol);
+        var actualIsIndex = _tastytradeApiClient.IsUnderlyingEquityAnIndexAsync(symbol);
         Assert.AreEqual(expectedIsIndex, actualIsIndex);
     }
 
     [Test]
-    public async Task GetLiveOrders()
+    public void GetLiveOrders()
     {
-        var res = await _tastytradeApiClient.GetLiveOrders();
+        var res = _tastytradeApiClient.GetLiveOrders();
 
         Assert.IsNotNull(res);
     }
@@ -104,14 +104,14 @@ public class TastytradeBrokerageAdditionalTests
     [TestCase("123")]
     public void CancelOrderWithWrongId(string id)
     {
-        Assert.ThrowsAsync<Exception>(async () => await _tastytradeApiClient.CancelOrderById(id));
+        Assert.Throws<Exception>(() => _tastytradeApiClient.CancelOrderById(id));
     }
 
     [TestCase("AAPL")]
     [TestCase("VIX")]
-    public async Task GetOptionChains(string ticker)
+    public void GetOptionChains(string ticker)
     {
-        var res = await _tastytradeApiClient.GetOptionChains(ticker);
+        var res = _tastytradeApiClient.GetOptionChains(ticker);
 
         Assert.IsNotNull(res);
     }

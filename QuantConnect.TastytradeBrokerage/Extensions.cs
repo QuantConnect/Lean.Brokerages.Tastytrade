@@ -14,7 +14,9 @@
 */
 
 using System;
+using System.Net.Http;
 using Newtonsoft.Json;
+using System.Threading;
 using QuantConnect.Orders;
 using System.Globalization;
 using QuantConnect.Securities;
@@ -224,5 +226,21 @@ public static class Extensions
     public static string ToTrimmedStringInvariant(this decimal value)
     {
         return value.ToString("G29", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Synchronously reads and returns the content of an HTTP response as a string, optionally using a cancellation token.
+    /// </summary>
+    /// <param name="response">The <see cref="HttpResponseMessage"/> whose content will be read.</param>
+    /// <param name="cancellationToken">An optional token to monitor for cancellation requests. Defaults to <see cref="CancellationToken.None"/>.</param>
+    /// <returns>The response body content as a <see cref="string"/>.</returns>
+    public static string ReadContentAsString(this HttpResponseMessage response, CancellationToken cancellationToken = default)
+    {
+        if (response?.Content == null)
+        {
+            return string.Empty;
+        }
+
+        return response.Content.ReadAsStringAsync(cancellationToken).SynchronouslyAwaitTaskResult();
     }
 }

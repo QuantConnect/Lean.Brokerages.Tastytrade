@@ -19,7 +19,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
-using System.Threading.Tasks;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
@@ -50,7 +49,7 @@ public sealed class TastytradeApiClient
     /// <summary>
     /// A delegate that retrieves the current session token for authenticating API requests.
     /// </summary>
-    public readonly Func<CancellationToken, Task<string>> GetSessionToken;
+    public readonly Func<CancellationToken, string> GetSessionToken;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class.
@@ -71,28 +70,28 @@ public sealed class TastytradeApiClient
     /// <summary>
     /// Retrieves the account balances for the associated Tastytrade account.
     /// </summary>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the account balances.</returns>
-    public async Task<AccountBalance> GetAccountBalances()
+    /// <returns>The result contains the account balances.</returns>
+    public AccountBalance GetAccountBalances()
     {
-        return (await SendRequestAsync<AccountBalance>(HttpMethod.Get, $"/accounts/{AccountNumber}/balances")).Data;
+        return SendRequest<AccountBalance>(HttpMethod.Get, $"/accounts/{AccountNumber}/balances").Data;
     }
 
     /// <summary>
     /// Retrieves the current open positions for the associated Tastytrade account.
     /// </summary>
-    /// <returns>A task that represents the asynchronous operation. The task result contains a collection of positions.</returns>
-    public async Task<IReadOnlyCollection<Position>> GetAccountPositions()
+    /// <returns>The result contains a collection of positions.</returns>
+    public IReadOnlyCollection<Position> GetAccountPositions()
     {
-        return (await SendRequestAsync<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{AccountNumber}/positions")).Data.Items;
+        return SendRequest<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{AccountNumber}/positions").Data.Items;
     }
 
     /// <summary>
     /// Retrieves the current API quote token from Tastytrade.
     /// </summary>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the API quote token.</returns>
-    public async Task<ApiQuoteTokenResponse> GetApiQuoteToken()
+    /// <returns>The result contains the API quote token.</returns>
+    public ApiQuoteTokenResponse GetApiQuoteToken()
     {
-        return (await SendRequestAsync<ApiQuoteTokenResponse>(HttpMethod.Get, "/api-quote-tokens")).Data;
+        return SendRequest<ApiQuoteTokenResponse>(HttpMethod.Get, "/api-quote-tokens").Data;
     }
 
     /// <summary>
@@ -100,12 +99,11 @@ public sealed class TastytradeApiClient
     /// </summary>
     /// <param name="futureTicker">The symbol of the future (e.g., "/ESM5").</param>
     /// <returns>
-    /// A task that represents the asynchronous operation. The task result contains a <see cref="Future"/> 
-    /// representing basic metadata of the requested future.
+    /// The result contains a <see cref="Future"/> representing basic metadata of the requested future.
     /// </returns>
-    public async Task<Future> GetInstrumentFuture(string futureTicker)
+    public Future GetInstrumentFuture(string futureTicker)
     {
-        return (await SendRequestAsync<Future>(HttpMethod.Get, "/instruments/futures/" + futureTicker)).Data;
+        return SendRequest<Future>(HttpMethod.Get, "/instruments/futures/" + futureTicker).Data;
     }
 
     /// <summary>
@@ -113,11 +111,11 @@ public sealed class TastytradeApiClient
     /// </summary>
     /// <param name="order">The brokerage order to be submitted.</param>
     /// <returns>
-    /// The task result contains the <see cref="OrderResponse"/> returned by the brokerage API.
+    /// The result contains the <see cref="OrderResponse"/> returned by the brokerage API.
     /// </returns>
-    public async Task<OrderResponse> SubmitOrder(OrderBaseRequest order)
+    public OrderResponse SubmitOrder(OrderBaseRequest order)
     {
-        return (await SendRequestAsync<OrderResponse>(HttpMethod.Post, $"/accounts/{AccountNumber}/orders", order.ToJson())).Data;
+        return SendRequest<OrderResponse>(HttpMethod.Post, $"/accounts/{AccountNumber}/orders", order.ToJson()).Data;
     }
 
     /// <summary>
@@ -125,31 +123,28 @@ public sealed class TastytradeApiClient
     /// Received, Routed, InFlight, and Live.
     /// </summary>
     /// <returns>
-    /// A task that represents the asynchronous operation. The task result contains 
-    /// a read-only collection of <see cref="Order"/> objects representing live orders.
+    /// The result contains a read-only collection of <see cref="Order"/> objects representing live orders.
     /// </returns>
     /// <remarks>
     /// The query includes multiple order statuses and limits the result to 100 items per page.
     /// </remarks>
-    public async Task<IReadOnlyCollection<Order>> GetLiveOrders()
+    public IReadOnlyCollection<Order> GetLiveOrders()
     {
         var query = $"status[]={OrderStatus.Received}&status[]={OrderStatus.Routed}&status[]={OrderStatus.InFlight}&status[]={OrderStatus.Live}&per-page=100";
-        return (await SendRequestAsync<ResponseList<Order>>(HttpMethod.Get, $"/accounts/{AccountNumber}/orders?{query}")).Data.Items;
+        return SendRequest<ResponseList<Order>>(HttpMethod.Get, $"/accounts/{AccountNumber}/orders?{query}").Data.Items;
     }
 
     /// <summary>
-    /// Cancels an order by its unique identifier.
+    /// Sends a cancellation request for the order associated with the specified unique identifier.
     /// </summary>
-    /// <param name="id">The unique ID of the order to be canceled.</param>
-    /// <returns>
-    /// A task that represents the asynchronous operation.
-    /// </returns>
+    /// <param name="id">The unique identifier of the order to cancel.</param>
     /// <remarks>
-    /// This method issues a DELETE request to the brokerage API to cancel the order associated with the specified ID.
+    /// This method performs a synchronous DELETE request to the brokerage API to cancel the order.
+    /// Use this when the order no longer needs to be executed or needs to be replaced.
     /// </remarks>
-    public async Task CancelOrderById(string id)
+    public void CancelOrderById(string id)
     {
-        await SendRequestAsync<object>(HttpMethod.Delete, $"/accounts/{AccountNumber}/orders/{id}");
+        SendRequest<object>(HttpMethod.Delete, $"/accounts/{AccountNumber}/orders/{id}");
     }
 
     /// <summary>
@@ -158,14 +153,14 @@ public sealed class TastytradeApiClient
     /// <param name="id">The unique identifier of the existing order to be replaced.</param>
     /// <param name="order">The new order request containing updated parameters.</param>
     /// <returns>
-    /// A task representing the asynchronous operation. The task result contains the ID of the newly replaced order.
+    /// The result contains the ID of the newly replaced order.
     /// </returns>
     /// <exception cref="HttpRequestException">
     /// Thrown if the request to replace the order fails (e.g., due to network issues or an invalid response).
     /// </exception>
-    public async Task<string> ReplaceOrderById(string id, OrderBaseRequest order)
+    public string ReplaceOrderById(string id, OrderBaseRequest order)
     {
-        return (await SendRequestAsync<Order>(HttpMethod.Patch, $"/accounts/{AccountNumber}/orders/{id}", order.ToJson())).Data.Id;
+        return SendRequest<Order>(HttpMethod.Patch, $"/accounts/{AccountNumber}/orders/{id}", order.ToJson()).Data.Id;
     }
 
     /// <summary>
@@ -173,11 +168,11 @@ public sealed class TastytradeApiClient
     /// </summary>
     /// <param name="symbol">The equity option symbol to check.</param>
     /// <returns>
-    /// The task result contains <c>true</c> if the underlying equity is an index; otherwise, <c>false</c>.
+    /// The result contains <c>true</c> if the underlying equity is an index; otherwise, <c>false</c>.
     /// </returns>
-    public async Task<bool> IsUnderlyingEquityAnIndexAsync(string symbol)
+    public bool IsUnderlyingEquityAnIndexAsync(string symbol)
     {
-        return (await SendRequestAsync<Equity>(HttpMethod.Get, $"/instruments/equities/{symbol.UrlEncodeSymbol()}")).Data.IsIndex;
+        return SendRequest<Equity>(HttpMethod.Get, $"/instruments/equities/{symbol.UrlEncodeSymbol()}").Data.IsIndex;
     }
 
     /// <summary>
@@ -187,9 +182,9 @@ public sealed class TastytradeApiClient
     /// <returns>
     /// A read-only collection of <see cref="FutureOption"/> objects representing the available options.
     /// </returns>
-    public async Task<IReadOnlyCollection<FutureOption>> GetFutureOptionChains(string underlyingFutureTicker)
+    public IReadOnlyCollection<FutureOption> GetFutureOptionChains(string underlyingFutureTicker)
     {
-        return (await SendRequestAsync<ResponseList<FutureOption>>(HttpMethod.Get, $"/futures-option-chains/{underlyingFutureTicker}")).Data.Items;
+        return SendRequest<ResponseList<FutureOption>>(HttpMethod.Get, $"/futures-option-chains/{underlyingFutureTicker}").Data.Items;
     }
 
     /// <summary>
@@ -197,12 +192,11 @@ public sealed class TastytradeApiClient
     /// </summary>
     /// <param name="ticker">The symbol of the underlying asset (e.g., <c>AAPL</c>, <c>SPX</c>).</param>
     /// <returns>
-    /// A task representing the asynchronous operation. The result contains a read-only collection of 
-    /// <see cref="Equity"/> instances associated with the specified ticker.
+    ///The result contains a read-only collection of <see cref="Equity"/> instances associated with the specified ticker.
     /// </returns>
-    public async Task<IReadOnlyCollection<Equity>> GetOptionChains(string ticker)
+    public IReadOnlyCollection<Equity> GetOptionChains(string ticker)
     {
-        return (await SendRequestAsync<ResponseList<Equity>>(HttpMethod.Get, $"/option-chains/" + ticker)).Data.Items;
+        return SendRequest<ResponseList<Equity>>(HttpMethod.Get, $"/option-chains/" + ticker).Data.Items;
     }
 
     /// <summary>
@@ -215,12 +209,10 @@ public sealed class TastytradeApiClient
     /// <returns>
     /// A <see cref="FutureOption"/> matching the specified parameters.
     /// </returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown if no matching future option is found.
-    /// </exception>
-    public async Task<FutureOption> FindFutureOptionAsync(string underlyingFutureTicker, DateTime expirationDate, decimal strike, OptionType optionType)
+    /// <exception cref="InvalidOperationException">Thrown if no matching future option is found.</exception>
+    public FutureOption FindFutureOptionAsync(string underlyingFutureTicker, DateTime expirationDate, decimal strike, OptionType optionType)
     {
-        var futureOptions = await GetFutureOptionChains(underlyingFutureTicker);
+        var futureOptions = GetFutureOptionChains(underlyingFutureTicker);
         var matchingOption = futureOptions.FirstOrDefault(fo => fo.IsMatchFor(expirationDate, strike, optionType));
 
         if (matchingOption.Equals(default(FutureOption)))
@@ -239,10 +231,10 @@ public sealed class TastytradeApiClient
     /// <param name="httpMethod">The HTTP method to use (e.g., GET, POST).</param>
     /// <param name="endpoint">The API endpoint relative to the base URL.</param>
     /// <param name="jsonBody">An optional JSON payload to include in the request body, applicable for methods like POST or PUT.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the parsed API response.</returns>
+    /// <returns>The result contains the parsed API response.</returns>
     /// <exception cref="HttpRequestException">Thrown when the API response indicates a failure.</exception>
     /// <exception cref="Exception">Thrown when an unexpected error occurs while sending the request.</exception>
-    private async Task<BaseResponse<T>> SendRequestAsync<T>(HttpMethod httpMethod, string endpoint, string jsonBody = null)
+    private BaseResponse<T> SendRequest<T>(HttpMethod httpMethod, string endpoint, string jsonBody = null)
     {
         using (var requestMessage = new HttpRequestMessage(httpMethod, _baseUrl + endpoint))
         {
@@ -253,9 +245,9 @@ public sealed class TastytradeApiClient
 
             try
             {
-                var responseMessage = await _httpClient.SendAsync(requestMessage);
+                var responseMessage = _httpClient.Send(requestMessage);
 
-                var response = await responseMessage.Content.ReadAsStringAsync();
+                var response = responseMessage.ReadContentAsString();
 
                 if (!responseMessage.IsSuccessStatusCode)
                 {
@@ -274,14 +266,14 @@ public sealed class TastytradeApiClient
 
                 if (Log.DebuggingEnabled)
                 {
-                    Log.Debug($"{nameof(TastytradeApiClient)}:{nameof(SendRequestAsync)}.Response: {response}. RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}");
+                    Log.Debug($"{nameof(TastytradeApiClient)}:{nameof(SendRequest)}.Response: {response}. RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}");
                 }
 
                 return response.DeserializeKebabCase<BaseResponse<T>>();
             }
             catch (Exception ex)
             {
-                throw new Exception($"{nameof(TastytradeApiClient)}.{nameof(SendRequestAsync)}: Unexpected error while sending request - {ex.Message}", ex);
+                throw new Exception($"{nameof(TastytradeApiClient)}.{nameof(SendRequest)}: Unexpected error while sending request - {ex.Message}", ex);
             }
         }
     }

@@ -63,7 +63,7 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
             return;
         }
 
-        var sessionToken = _tastyTradeApiClient.GetSessionToken(default).SynchronouslyAwaitTaskResult();
+        var sessionToken = _tastyTradeApiClient.GetSessionToken(default);
         Send(new Heartbeat(sessionToken, NextRequestId).ToJson());
     }
 
@@ -75,8 +75,8 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="e">The event data.</param>
     private void SubscribeOnNotifications(object sender, EventArgs e)
     {
-        var sessionToken = _tastyTradeApiClient.GetSessionToken(default).SynchronouslyAwaitTaskResult();
-        var accountNumber = _tastyTradeApiClient.AccountNumber;  
+        var sessionToken = _tastyTradeApiClient.GetSessionToken(default);
+        var accountNumber = _tastyTradeApiClient.AccountNumber;
 
         Task.Run(() => HandleWebSocketConnection(sessionToken, accountNumber));
     }
