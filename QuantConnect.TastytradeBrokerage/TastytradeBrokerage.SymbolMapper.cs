@@ -37,7 +37,7 @@ public class TastytradeBrokerageSymbolMapper
     /// <summary>
     /// A cache mapping Lean symbols to their corresponding brokerage and stream symbols.
     /// </summary>
-    private static readonly ConcurrentDictionary<Symbol, BrokerageSymbols> _brokerageSymbolsByLeanSymbol = [];
+    private static readonly ConcurrentDictionary<Symbol, BaseInstrument> _brokerageSymbolsByLeanSymbol = [];
 
     /// <summary>
     /// A cache mapping brokerage symbols to their corresponding Lean symbols.
@@ -127,7 +127,7 @@ public class TastytradeBrokerageSymbolMapper
     {
         if (_brokerageSymbolsByLeanSymbol.TryGetValue(symbol, out var brokerageSymbols))
         {
-            return (brokerageSymbols.BrokerageSymbol, brokerageSymbols.BrokerageStreamMarketDataSymbol);
+            return (brokerageSymbols.Symbol, brokerageSymbols.StreamerSymbol);
         }
 
         var brokerageSymbol = default(string);
@@ -175,7 +175,7 @@ public class TastytradeBrokerageSymbolMapper
             return;
         }
 
-        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BrokerageSymbols(brokerageSymbol, brokerageStreamMarketDataSymbol);
+        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BaseInstrument(brokerageSymbol, brokerageStreamMarketDataSymbol);
         _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
     }
 
