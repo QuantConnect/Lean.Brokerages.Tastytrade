@@ -130,7 +130,7 @@ public sealed class TastytradeApiClient
     /// </remarks>
     public IReadOnlyCollection<Order> GetLiveOrders()
     {
-        var query = $"status[]={OrderStatus.Received}&status[]={OrderStatus.Routed}&status[]={OrderStatus.InFlight}&status[]={OrderStatus.Live}&per-page=100";
+        var query = $"status[]={OrderStatus.Received}&status[]={OrderStatus.Routed}&status[]={OrderStatus.InFlight}&status[]={OrderStatus.Live}&per-page=200";
         return SendRequest<ResponseList<Order>>(HttpMethod.Get, $"/accounts/{AccountNumber}/orders?{query}").Data.Items;
     }
 
