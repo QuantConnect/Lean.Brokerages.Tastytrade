@@ -37,7 +37,11 @@ public class TastytradeBrokerageFactory : BrokerageFactory
     /// </remarks>
     public override Dictionary<string, string> BrokerageData => new()
     {
+        // Production: https://api.tastyworks.com
+        // Sandbox: https://api.cert.tastyworks.com
         {"tastytrade-api-url", Config.Get("tastytrade-api-url") },
+        // Sandbox: wss://streamer.cert.tastyworks.com
+        // Production: wss://streamer.tastyworks.com
         {"tastytrade-websocket-url", Config.Get("tastytrade-websocket-url")},
         {"tastytrade-username", Config.Get("tastytrade-username")},
         {"tastytrade-password",  Config.Get("tastytrade-password")},
@@ -65,10 +69,17 @@ public class TastytradeBrokerageFactory : BrokerageFactory
     /// <returns>A new brokerage instance</returns>
     public override IBrokerage CreateBrokerage(LiveNodePacket job, IAlgorithm algorithm)
     {
-        var errors = new List<string>();
+        if (!job.BrokerageData.TryGetValue("tastytrade-api-url", out var baseUrl) || string.IsNullOrEmpty(baseUrl))
+        {
+            baseUrl = "https://api.tastyworks.com";
+        }
 
-        var baseUrl = Read<string>(job.BrokerageData, "tastytrade-api-url", errors);
-        var baseWSUrl = Read<string>(job.BrokerageData, "tastytrade-websocket-url", errors);
+        if (!job.BrokerageData.TryGetValue("tastytrade-websocket-url", out var baseWSUrl) || string.IsNullOrEmpty(baseWSUrl))
+        {
+            baseWSUrl = "wss://streamer.tastyworks.com";
+        }
+
+        var errors = new List<string>();
         var userName = Read<string>(job.BrokerageData, "tastytrade-username", errors);
         var password = Read<string>(job.BrokerageData, "tastytrade-password", errors);
         var accountNumber = Read<string>(job.BrokerageData, "tastytrade-account-number", errors);

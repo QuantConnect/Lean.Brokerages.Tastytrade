@@ -63,9 +63,19 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="job">Job we're subscribing for</param>
     public void SetJob(LiveNodePacket job)
     {
+        if (!job.BrokerageData.TryGetValue("tastytrade-api-url", out var baseUrl) || string.IsNullOrEmpty(baseUrl))
+        {
+            baseUrl = "https://api.tastyworks.com";
+        }
+
+        if (!job.BrokerageData.TryGetValue("tastytrade-websocket-url", out var baseWSUrl) || string.IsNullOrEmpty(baseWSUrl))
+        {
+            baseWSUrl = "wss://streamer.tastyworks.com";
+        }
+
         Initialize(
-            baseUrl: job.BrokerageData.TryGetValue("tastytrade-api-url", out var baseUrl) ? baseUrl : string.Empty,
-            baseWSUrl: job.BrokerageData.TryGetValue("tastytrade-websocket-url", out var baseWSUrl) ? baseWSUrl : string.Empty,
+            baseUrl: baseUrl,
+            baseWSUrl: baseWSUrl,
             username: job.BrokerageData.TryGetValue("tastytrade-username", out var username) ? username : string.Empty,
             password: job.BrokerageData.TryGetValue("tastytrade-password", out var password) ? password : string.Empty,
             accountNumber: null,
