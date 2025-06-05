@@ -114,6 +114,7 @@ public static class Extensions
         switch (timeInForce)
         {
             case BrokerageTimeInForce.GoodTillCancel:
+                orderProperties.TimeInForce = Orders.TimeInForce.GoodTilCanceled;
                 return true;
             case BrokerageTimeInForce.Day:
                 orderProperties.TimeInForce = Orders.TimeInForce.Day;
