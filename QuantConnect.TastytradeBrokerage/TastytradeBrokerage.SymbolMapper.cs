@@ -74,7 +74,7 @@ public class TastytradeBrokerageSymbolMapper
         switch (securityType)
         {
             case SecurityType.Equity:
-                leanSymbol = Symbol.Create(ToOptionLeanTickerFormat(brokerageSymbol), securityType, Market.USA);
+                leanSymbol = Symbol.Create(NormalizeEquityTicker(brokerageSymbol), securityType, Market.USA);
                 break;
             case SecurityType.Future:
                 leanSymbol = SymbolRepresentation.ParseFutureSymbol(ToFutureLeanTickerFormat(brokerageSymbol));
@@ -94,7 +94,7 @@ public class TastytradeBrokerageSymbolMapper
                         throw new ArgumentException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetLeanSymbol)}: Failed to decompose option ticker '{brokerageSymbol}'. Ensure the symbol follows the correct OSI format.");
                     }
 
-                    var underlyingSymbol = Symbol.Create(ToOptionLeanTickerFormat(underlyingBrokerageSymbol), SecurityType.Equity, Market.USA);
+                    var underlyingSymbol = Symbol.Create(NormalizeEquityTicker(underlyingBrokerageSymbol), SecurityType.Equity, Market.USA);
                     leanSymbol = Symbol.CreateOption(underlyingSymbol, Market.USA, securityType.DefaultOptionStyle(), osiRight, osiStrike, osiExpiry);
                 }
                 break;
@@ -303,14 +303,17 @@ public class TastytradeBrokerageSymbolMapper
     }
 
     /// <summary>
-    /// Converts an option symbol from brokerage format to Lean format by replacing slashes with periods.
+    /// Normalizes a brokerage-formatted equity ticker for use with Lean by replacing slashes ('/') with periods ('.').
     /// </summary>
-    /// <param name="brokerageTicker">The brokerage-formatted ticker symbol.</param>
-    /// <returns>The Lean-compatible ticker format with slashes replaced by periods.</returns>
+    /// <param name="brokerageTicker">The raw equity ticker symbol received from the brokerage (e.g., "BRK/K").</param>
+    /// <returns>
+    /// A Lean-compatible equity ticker with standardized formatting (e.g., "BRK.K").
+    /// </returns>
     /// <remarks>
-    /// This method is useful when receiving option tickers from brokerages that use slashes ('/') instead of periods ('.').
+    /// This method is intended specifically for equity ticker symbols, where brokerages may use slashes to denote class shares or sub-symbols.
+    /// Lean requires periods for these cases.
     /// </remarks>
-    private static string ToOptionLeanTickerFormat(string brokerageTicker)
+    private static string NormalizeEquityTicker(string brokerageTicker)
     {
         return brokerageTicker.Replace('/', '.');
     }
