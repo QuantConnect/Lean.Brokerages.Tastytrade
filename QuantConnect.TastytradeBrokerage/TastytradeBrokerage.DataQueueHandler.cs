@@ -80,7 +80,8 @@ public partial class TastytradeBrokerage : IDataQueueHandler
             password: job.BrokerageData.TryGetValue("tastytrade-password", out var password) ? password : string.Empty,
             accountNumber: null,
             orderProvider: null,
-            securityProvider: null);
+            securityProvider: null,
+            algorithm: null);
 
         if (!IsConnected)
         {

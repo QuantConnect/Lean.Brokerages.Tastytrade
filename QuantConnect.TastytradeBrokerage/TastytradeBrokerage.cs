@@ -62,6 +62,11 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     private protected TastytradeBrokerageSymbolMapper _symbolMapper;
 
     /// <summary>
+    /// Provide data from external Lean algorithm.
+    /// </summary>
+    protected IAlgorithm _algorithm;
+
+    /// <summary>
     /// Returns true if we're currently connected to the broker
     /// </summary>
     public override bool IsConnected =>
@@ -75,17 +80,17 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
     public TastytradeBrokerage() : base(BrokerageName)
     { }
 
-    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider)
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
     : base(BrokerageName)
     {
-        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider);
+        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider, algorithm);
     }
 
     public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
-        : this(baseUrl, baseWSUrl, username, password, accountNumber, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio)
+        : this(baseUrl, baseWSUrl, username, password, accountNumber, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio, algorithm)
     { }
 
-    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider)
+    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
     {
         if (_isInitialized)
         {
@@ -99,6 +104,7 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
             UnsubscribeImpl = (s, t) => Unsubscribe(s)
         };
 
+        _algorithm = algorithm;
         _securityProvider = securityProvider;
         _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
         _symbolMapper = new(_tastytradeApiClient);

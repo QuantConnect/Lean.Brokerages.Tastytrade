@@ -18,6 +18,7 @@ using NUnit.Framework;
 using QuantConnect.Tests;
 using QuantConnect.Securities;
 using System.Collections.Generic;
+using QuantConnect.Tests.Engine.DataFeeds;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -70,15 +71,19 @@ public class TastytradeBrokerageSymbolMapperTests
             var SP500EMini3 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2026, 03, 20));
             var SP500EMini_OptionContract3 = Symbol.CreateOption(SP500EMini3, SP500EMini.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 4100m, new DateTime(2026, 03, 20));
             yield return new("./ESH6 ESH6  260320C4100", InstrumentType.FutureOption, "ES", SP500EMini_OptionContract3);
+
+            yield return new("BTC/USD", InstrumentType.Cryptocurrency, "", default);
         }
     }
 
     [Test, TestCaseSource(nameof(BrokerageSymbolTestCases))]
     public void ReturnsCorrectLeanSymbol(string brokerageSymbol, InstrumentType instrumentType, string optionUnderlyingSymbol, Symbol expectedLeanSymbol)
     {
-        if (!_symbolMapperStub.TryGetLeanSymbol(brokerageSymbol, instrumentType, out var actualLeanSymbol, out var exceptionMessage, optionUnderlyingSymbol))
+        if (!_symbolMapperStub.TryGetLeanSymbol(brokerageSymbol, instrumentType, out var actualLeanSymbol, optionUnderlyingSymbol) && expectedLeanSymbol != default)
         {
-            Assert.Fail(exceptionMessage);
+            Assert.Fail($"Symbol mapping failed for brokerageSymbol='{brokerageSymbol}', instrumentType='{instrumentType}', " +
+                $"optionUnderlyingSymbol='{optionUnderlyingSymbol}', expected Lean symbol='{expectedLeanSymbol}'.");
+            return;
         }
 
         Assert.AreEqual(expectedLeanSymbol, actualLeanSymbol);
@@ -178,6 +183,8 @@ public class TastytradeBrokerageSymbolMapperTests
         public TastyTradeBrokerageSymbolMapperStub(TastytradeBrokerageSymbolMapper symbolMapper)
         {
             _symbolMapper = symbolMapper ?? throw new ArgumentNullException(nameof(symbolMapper));
+            _algorithm = new AlgorithmStub();
+            _algorithm.Settings.IgnoreUnknownAssetHoldings = true;
         }
     }
 }

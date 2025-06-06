@@ -20,6 +20,7 @@ using System.Collections;
 using QuantConnect.Logging;
 using QuantConnect.Securities;
 using QuantConnect.Configuration;
+using QuantConnect.Tests.Engine.DataFeeds;
 using QuantConnect.Brokerages.Tastytrade.Api;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -45,7 +46,9 @@ public class TestSetup
         var password = Config.Get("tastytrade-password");
         var accountNumber = Config.Get("tastytrade-account-number");
 
-        return new TastytradeBrokerage(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider);
+        var algorithm = new AlgorithmStub();
+
+        return new TastytradeBrokerage(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider, algorithm);
     }
 
     [Test, TestCaseSource(nameof(TestParameters))]

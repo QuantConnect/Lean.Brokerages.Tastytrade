@@ -46,6 +46,12 @@ public partial class TastytradeBrokerage
     private ISecurityProvider _securityProvider;
 
     /// <summary>
+    /// Symbols that Tastytrade doesn't support ("No security definition has been found for the request")
+    /// We keep track of them to avoid flooding the logs with the same error/warning
+    /// </summary>
+    private readonly HashSet<string> _unsupportedSymbols = new();
+
+    /// <summary>
     /// A thread-safe cache that tracks pending orders awaiting confirmation via WebSocket.
     /// </summary>
     /// <remarks>
@@ -73,9 +79,8 @@ public partial class TastytradeBrokerage
         var holdings = new List<Holding>();
         foreach (var position in positions)
         {
-            if (!TryGetLeanSymbol(position.Symbol, position.InstrumentType, out var leanSymbol, out var exceptionMessage, position.UnderlyingSymbol))
+            if (!TryGetLeanSymbol(position.Symbol, position.InstrumentType, out var leanSymbol, position.UnderlyingSymbol))
             {
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, 1, $"{exceptionMessage}. Position details: {position}."));
                 continue;
             }
 
@@ -117,10 +122,6 @@ public partial class TastytradeBrokerage
     /// The resulting Lean-compatible <see cref="Symbol"/> if the mapping is successful. 
     /// This is an output parameter.
     /// </param>
-    /// <param name="exceptionMessage">
-    /// An error message describing the failure reason if the mapping is unsuccessful. 
-    /// This is an output parameter.
-    /// </param>
     /// <param name="optionUnderlyingSymbol">
     /// The underlying symbol for options, used to distinguish between regular options 
     /// and index options. This parameter is optional and defaults to <c>null</c>.
@@ -128,10 +129,9 @@ public partial class TastytradeBrokerage
     /// <returns>
     /// <c>true</c> if the mapping is successful; otherwise, <c>false</c>.
     /// </returns>
-    internal bool TryGetLeanSymbol(string symbol, InstrumentType instrumentType, out Symbol leanSymbol, out string exceptionMessage, string optionUnderlyingSymbol = null)
+    internal bool TryGetLeanSymbol(string symbol, InstrumentType instrumentType, out Symbol leanSymbol, string optionUnderlyingSymbol = null)
     {
         leanSymbol = default;
-        exceptionMessage = default;
         try
         {
             leanSymbol = _symbolMapper.GetLeanSymbol(symbol, instrumentType.ConvertInstrumentTypeToSecurityType(), optionUnderlyingSymbol);
@@ -139,7 +139,7 @@ public partial class TastytradeBrokerage
         }
         catch (Exception ex)
         {
-            exceptionMessage = ex.Message;
+            CheckUnsupportedSymbolError(ex, symbol, instrumentType, "ConvertSymbol");
             return false;
         }
     }
@@ -200,32 +200,35 @@ public partial class TastytradeBrokerage
         leanOrder = default;
 
         var leg = order.Legs.FirstOrDefault();
-        if (!TryGetLeanSymbol(leg.Symbol, leg.InstrumentType, out var leanSymbol, out var exceptionMessage, order.UnderlyingSymbol))
+        if (!TryGetLeanSymbol(leg.Symbol, leg.InstrumentType, out var leanSymbol, order.UnderlyingSymbol))
         {
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, 1, $"{exceptionMessage}. Order details: {order}."));
             return false;
         }
 
         var quantity = leg.Action.ToSignedQuantity(leg.Quantity);
-        switch (order.OrderType)
+        try
         {
-            case Models.Enum.OrderType.Market:
-                leanOrder = new MarketOrder(leanSymbol, quantity, order.ReceivedAt, properties: orderProperties);
-                break;
-            case Models.Enum.OrderType.Limit:
-                leanOrder = new LimitOrder(leanSymbol, quantity, order.Price, order.ReceivedAt, properties: orderProperties);
-                break;
-            case Models.Enum.OrderType.StopLimit:
-                leanOrder = new StopLimitOrder(leanSymbol, quantity, order.StopTrigger, order.Price, order.ReceivedAt, properties: orderProperties);
-                break;
-            case Models.Enum.OrderType.Stop:
-                leanOrder = new StopMarketOrder(leanSymbol, quantity, order.StopTrigger, order.ReceivedAt, properties: orderProperties);
-                break;
+            switch (order.OrderType)
+            {
+                case Models.Enum.OrderType.Market:
+                    leanOrder = new MarketOrder(leanSymbol, quantity, order.ReceivedAt, properties: orderProperties);
+                    break;
+                case Models.Enum.OrderType.Limit:
+                    leanOrder = new LimitOrder(leanSymbol, quantity, order.Price, order.ReceivedAt, properties: orderProperties);
+                    break;
+                case Models.Enum.OrderType.StopLimit:
+                    leanOrder = new StopLimitOrder(leanSymbol, quantity, order.StopTrigger, order.Price, order.ReceivedAt, properties: orderProperties);
+                    break;
+                case Models.Enum.OrderType.Stop:
+                    leanOrder = new StopMarketOrder(leanSymbol, quantity, order.StopTrigger, order.ReceivedAt, properties: orderProperties);
+                    break;
+                default:
+                    throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(TryCreateLeanOrder)}: The order type '{order.OrderType}' is not supported for conversion to a Lean order.");
+            }
         }
-
-        if (leanOrder == default)
+        catch (Exception ex)
         {
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Skipping unsupported order type '{order.OrderType}'. Order details: {order}."));
+            CheckUnsupportedSymbolError(ex, leg.Symbol, leg.InstrumentType, "ConvertOrders");
             return false;
         }
 
@@ -693,6 +696,34 @@ public partial class TastytradeBrokerage
                     OrderPosition.BuyToClose or OrderPosition.SellToOpen => OrderAction.Sell,
                     _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order direction '{orderPosition}' is not supported.")
                 };
+        }
+    }
+
+    /// <summary>
+    /// Checks if an exception indicates an unsupported symbol error and optionally raises a warning message. 
+    /// If configured to ignore such errors, it logs a warning message instead of rethrowing the exception.
+    /// </summary>
+    /// <param name="exception">The exception to inspect.</param>
+    /// <param name="symbol">The symbol related to the exception.</param>
+    /// <param name="instrumentType">The type of instrument for the symbol.</param>
+    /// <param name="warningCode">The warning code to include in the brokerage message.</param>
+    /// <param name="rethrow">Indicates whether to rethrow the exception if it's not ignored.</param>
+    private void CheckUnsupportedSymbolError(Exception exception, string symbol, InstrumentType instrumentType, string warningCode, bool rethrow = true)
+    {
+        var notSupportedException = exception as NotSupportedException ?? exception.InnerException as NotSupportedException;
+        if (notSupportedException != null && _algorithm?.Settings?.IgnoreUnknownAssetHoldings == true)
+        {
+            lock (_unsupportedSymbols)
+            {
+                if (_unsupportedSymbols.Add($"{symbol}-{instrumentType}"))
+                {
+                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, warningCode, notSupportedException.Message));
+                }
+            }
+        }
+        else if (rethrow)
+        {
+            throw exception;
         }
     }
 }

@@ -21,7 +21,6 @@ using QuantConnect.Orders;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using System.Collections.Generic;
-using QuantConnect.Configuration;
 using QuantConnect.Tests.Brokerages;
 using QuantConnect.Orders.TimeInForces;
 
