@@ -28,7 +28,7 @@ public sealed class FeedSubscription : BaseFeedSubscription
     /// <summary>
     /// Gets the list of symbol-type pairs to subscribe to.
     /// </summary>
-    [JsonProperty("add", Order = 3)]
+    [JsonProperty("add")]
     public override IReadOnlyList<SymbolType> SymbolTypes { get; }
 
     /// <summary>

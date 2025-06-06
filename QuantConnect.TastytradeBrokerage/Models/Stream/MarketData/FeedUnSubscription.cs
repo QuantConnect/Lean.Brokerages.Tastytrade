@@ -28,7 +28,7 @@ public sealed class FeedUnSubscription : BaseFeedSubscription
     /// <summary>
     /// Gets the list of symbol-type pairs to unsubscribe from.
     /// </summary>
-    [JsonProperty("remove", Order = 3)]
+    [JsonProperty("remove")]
     public override IReadOnlyList<SymbolType> SymbolTypes { get; }
 
     /// <summary>

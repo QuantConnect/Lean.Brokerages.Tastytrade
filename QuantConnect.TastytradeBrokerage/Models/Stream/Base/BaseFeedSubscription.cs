@@ -27,13 +27,11 @@ public abstract class BaseFeedSubscription
     /// <summary>
     /// Gets the event type associated with the subscription.
     /// </summary>
-    [JsonProperty(Order = 1)]
     public EventType Type => EventType.FeedSubscription;
 
     /// <summary>
     /// Gets the channel number used for the subscription.
     /// </summary>
-    [JsonProperty(Order = 2)]
     public int Channel => 1;
 
     public abstract IReadOnlyList<SymbolType> SymbolTypes { get; }

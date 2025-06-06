@@ -238,7 +238,7 @@ public class TastytradeJsonConverterTests
         var feedSubscription = new FeedSubscription(tickers).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedSubscription);
-        Assert.AreEqual("{\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1,\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}]}", feedSubscription);
+        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedSubscription);
     }
 
     [Test]
@@ -249,7 +249,7 @@ public class TastytradeJsonConverterTests
         var feedUnSubscription = new FeedUnSubscription(tickers).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedUnSubscription);
-        Assert.AreEqual("{\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1,\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}]}", feedUnSubscription);
+        Assert.AreEqual("{\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedUnSubscription);
     }
 
     [Test]
