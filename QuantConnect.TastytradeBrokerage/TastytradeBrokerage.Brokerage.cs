@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -402,7 +402,7 @@ public partial class TastytradeBrokerage
     /// Forwards the update for internal handling and synchronization with Lean's order system.
     /// </summary>
     /// <param name="brokerageOrder">The updated <see cref="BrokerageOrder"/> received from the brokerage.</param>
-    protected override void OnOrderUpdateReceived(BrokerageOrder orderUpdate)
+    private void OnOrderUpdateReceived(BrokerageOrder orderUpdate)
     {
         _messageHandler.HandleNewMessage(orderUpdate);
     }

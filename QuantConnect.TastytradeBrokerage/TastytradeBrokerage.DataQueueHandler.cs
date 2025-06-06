@@ -122,7 +122,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// Adds the specified symbols to the subscription
     /// </summary>
     /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
-    protected override bool Subscribe(IEnumerable<Symbol> symbols)
+    private bool Subscribe(IEnumerable<Symbol> symbols)
     {
         var brokerageStreamSymbols = new List<string>();
         foreach (var symbol in symbols)
@@ -174,7 +174,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         return true;
     }
 
-    protected override void OnTradeReceived(TradeContent trade)
+    private void OnTradeReceived(TradeContent trade)
     {
         if (trade.Price <= 0 && trade.Size <= 0)
         {
@@ -201,7 +201,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         }
     }
 
-    protected override void OnQuoteReceived(QuoteContent quote)
+    private void OnQuoteReceived(QuoteContent quote)
     {
         if (_levelOneServices.TryGetValue(quote.Symbol, out var levelOneService))
         {

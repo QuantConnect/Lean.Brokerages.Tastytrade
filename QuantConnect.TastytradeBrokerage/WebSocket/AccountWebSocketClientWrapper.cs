@@ -43,11 +43,12 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </summary>
     /// <param name="tastytradeApiClient">The API client used to obtain session tokens for authenticated communication.</param>
     /// <param name="accountUpdatesWsUrl"></param>
-    public AccountWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, string accountUpdatesWsUrl)
+    public AccountWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, string accountUpdatesWsUrl, EventHandler<WebSocketMessage> accountUpdateMessageHandler)
         : base(tastytradeApiClient)
     {
         Initialize(accountUpdatesWsUrl);
-        Open += SubscribeOnNotifications;
+        Open += SendConnectMessage;
+        Message += accountUpdateMessageHandler;
     }
 
     /// <summary>
@@ -73,68 +74,11 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="e">The event data.</param>
-    private void SubscribeOnNotifications(object sender, EventArgs e)
+    private void SendConnectMessage(object sender, EventArgs e)
     {
         var sessionToken = _tastyTradeApiClient.GetSessionToken(default);
         var accountNumber = _tastyTradeApiClient.AccountNumber;
 
-        Task.Run(() => HandleWebSocketConnection(sessionToken, accountNumber));
-    }
-
-    /// <summary>
-    /// Handles the WebSocket connection process by sending a connect request and awaiting a confirmation message.
-    /// Throws an exception if the server denies the connection or if a timeout occurs.
-    /// </summary>
-    /// <param name="sessionToken">The session token used for authentication.</param>
-    /// <param name="accountNumber">The account number for which the connection is made.</param>
-    /// <exception cref="UnauthorizedAccessException">
-    /// Thrown when the WebSocket connection is denied by the server.
-    /// </exception>
-    /// <exception cref="TimeoutException">
-    /// Thrown when the connection confirmation is not received within the expected timeout period.
-    /// </exception>
-    private void HandleWebSocketConnection(string sessionToken, string accountNumber)
-    {
-        using var autoResetEvent = new AutoResetEvent(false);
-
-        void OnMessageReceived(object _, WebSocketMessage e)
-        {
-            if (e.Data is TextMessage textMessage)
-            {
-                Log.Debug($"{nameof(AccountWebSocketClientWrapper)}.{nameof(OnMessageReceived)}.WebSocketMessage: {textMessage.Message}");
-
-                var connectResponse = textMessage.Message.DeserializeKebabCase<ConnectResponse>();
-
-                if (connectResponse.Status == Status.Ok)
-                {
-                    autoResetEvent.Set();
-                }
-                else
-                {
-                    throw new UnauthorizedAccessException(
-                        $"WebSocket connection was denied. Server responded with: '{connectResponse.Message}' (Status: {connectResponse.Status})."
-                    );
-                }
-            }
-        }
-
-        try
-        {
-            Message += OnMessageReceived;
-
-            Send(new ConnectRequest(sessionToken, NextRequestId, accountNumber).ToJson());
-
-            if (!autoResetEvent.WaitOne(ConnectionTimeout))
-            {
-                Log.Error($"{nameof(AccountWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}: connection timeout.");
-                return;
-            }
-
-            AuthenticatedResetEvent.Set();
-        }
-        finally
-        {
-            Message -= OnMessageReceived;
-        }
+        Send(new ConnectRequest(sessionToken, NextRequestId, accountNumber).ToJson());
     }
 }

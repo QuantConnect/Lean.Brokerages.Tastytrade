@@ -53,10 +53,11 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used to retrieve tokens and URLs.</param>
     /// <param name="reSubscriptionHandler">An event handler for re-subscribing to data streams when needed.</param>
-    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler)
+    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler)
         : base(tastytradeApiClient)
     {
-        Open += SubscribeOnNotifications;
+        Open += SetupMarketDataConfiguration;
+        Message += marketDataMessageHandler;
         Initialize(GetApiQuoteTokenAndDxLinkUrl().DxLinkUrl);
         ReSubscriptionProcess += reSubscriptionHandler;
     }
@@ -113,97 +114,22 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="e">The event data.</param>
-    private void SubscribeOnNotifications(object sender, EventArgs e)
+    private void SetupMarketDataConfiguration(object sender, EventArgs e)
     {
         var token = GetApiQuoteTokenAndDxLinkUrl().Token;
 
-        Task.Run(() => HandleWebSocketConnection(token));
-    }
+        // 1. SETUP
+        Send(new SetupConnectionRequest().ToJson());
 
-    /// <summary>
-    /// Establishes and authenticates a WebSocket connection by sending a series of setup, authorization,
-    /// and configuration messages. Waits for specific events to confirm successful communication steps.
-    /// </summary>
-    /// <param name="token">The authorization token required for the connection.</param>
-    /// <exception cref="TimeoutException">Thrown when a response is not received within the expected timeframe.</exception>
-    /// <exception cref="Exception">Thrown when an error message is received from the WebSocket stream.</exception>
-    /// <exception cref="NotSupportedException">Thrown when an unexpected message type is received.</exception>
-    private void HandleWebSocketConnection(string token)
-    {
-        using var autoResetEvent = new AutoResetEvent(false);
+        // 2. AUTHORIZE
+        Send(new AuthorizationRequest(token).ToJson());
 
-        void OnMessageReceived(object _, WebSocketMessage e)
-        {
-            if (e.Data is TextMessage textMessage)
-            {
-                Log.Debug($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}{nameof(OnMessageReceived)}.WebSocketMessage: {textMessage.Message}");
+        // 3. CHANNEL_REQUEST
+        Send(new ChannelRequest().ToJson());
 
-                var connectResponse = textMessage.Message.DeserializeCamelCase<BaseMarketDataResponse>();
+        // 4. FEED_SETUP
+        Send(new FeedSetupRequest().ToJson());
 
-                switch (connectResponse.Type)
-                {
-                    case EventType.Setup:
-                    case EventType.FeedConfig:
-                    case EventType.ChannelOpened:
-                        autoResetEvent.Set();
-                        break;
-                    case EventType.AuthorizationState:
-                        var authorizationResponse = textMessage.Message.DeserializeCamelCase<AuthorizationResponse>();
-                        if (authorizationResponse.State == AuthorizationState.Authorized)
-                        {
-                            autoResetEvent.Set();
-                        }
-                        break;
-                    case EventType.Error:
-                        var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
-                        throw new Exception($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}.{nameof(OnMessageReceived)}.Error: {errorResponse}");
-                    default:
-                        throw new NotSupportedException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}.{nameof(OnMessageReceived)}.Response.Message: {textMessage.Message}");
-                }
-            }
-        }
-
-        try
-        {
-            Message += OnMessageReceived;
-
-            // 1. SETUP
-            Send(new SetupConnectionRequest().ToJson());
-            WaitOrTimeout(autoResetEvent, "SETUP");
-
-            // 2. AUTHORIZE
-            Send(new AuthorizationRequest(token).ToJson());
-            WaitOrTimeout(autoResetEvent, "AUTHORIZE");
-
-            // 3. CHANNEL_REQUEST
-            Send(new ChannelRequest().ToJson());
-            WaitOrTimeout(autoResetEvent, "CHANNEL_REQUEST");
-
-            // 4. FEED_SETUP
-            Send(new FeedSetupRequest().ToJson());
-            WaitOrTimeout(autoResetEvent, "FEED_SETUP");
-
-            AuthenticatedResetEvent.Set();
-            ReSubscriptionProcess?.Invoke();
-        }
-        finally
-        {
-            Message -= OnMessageReceived;
-        }
-    }
-
-    /// <summary>
-    /// Waits for the AutoResetEvent to be signaled within the given timeout in seconds.
-    /// Throws TimeoutException with detailed step information if the wait times out.
-    /// </summary>
-    /// <param name="autoResetEvent">The AutoResetEvent to wait on.</param>
-    /// <param name="step">The descriptive step name for the timeout exception message.</param>
-    /// <param name="timeoutSeconds">The maximum time to wait in seconds. Default is 5 seconds.</param>
-    private static void WaitOrTimeout(AutoResetEvent autoResetEvent, string step, int timeoutSeconds = 5)
-    {
-        if (!autoResetEvent.WaitOne(TimeSpan.FromSeconds(timeoutSeconds)))
-        {
-            throw new TimeoutException($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)} Timeout waiting for {step} response.");
-        }
+        ReSubscriptionProcess?.Invoke();
     }
 }

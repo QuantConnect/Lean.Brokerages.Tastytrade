@@ -29,7 +29,7 @@ namespace QuantConnect.Brokerages.Tastytrade;
 /// Represents the Tastytrade Brokerage implementation.
 /// </summary>
 [BrokerageFactory(typeof(TastytradeBrokerageFactory))]
-public partial class TastytradeBrokerage : DualWebSocketsBrokerage
+public partial class TastytradeBrokerage : Brokerage
 {
     /// <summary>
     /// Represents the name of the market or broker being used, in this case, "Tastytrade".
@@ -118,34 +118,18 @@ public partial class TastytradeBrokerage : DualWebSocketsBrokerage
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
 
-        if (string.IsNullOrEmpty(accountNumber))
-        {
-            InitializeMarketDataUpdates(_tastytradeApiClient);
-        }
-        else
-        {
-            Initialize(baseWSUrl, _tastytradeApiClient);
-        }
+        AccountUpdatesWebSocket = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
+        MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler);
 
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
     }
 
     /// <summary>
-    /// Connects the client to the broker's remote servers
+    /// Determines whether a given symbol can be subscribed to.
+    /// Symbols that are canonical or contain the keyword "universe" (case-insensitive) are excluded.
     /// </summary>
-    public override void Connect()
-    {
-        base.Connect();
-    }
-
-    /// <summary>
-    /// Disconnects the client from the broker's remote servers
-    /// </summary>
-    public override void Disconnect()
-    {
-        base.Disconnect();
-    }
-
+    /// <param name="symbol">The symbol to check.</param>
+    /// <returns><c>true</c> if the symbol is eligible for subscription; otherwise, <c>false</c>.</returns>
     private bool CanSubscribe(Symbol symbol)
     {
         if (symbol.Value.IndexOfInvariant("universe", true) != -1 || symbol.IsCanonical())
