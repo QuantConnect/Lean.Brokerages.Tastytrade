@@ -23,7 +23,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// Represents a FEED_SETUP message sent to the FEED service after opening a channel.
 /// This message configures which data fields to receive on the specified channel.
 /// </summary>
-public readonly struct FeedSetup
+public readonly struct FeedSetupRequest
 {
     /// <summary>
     /// Gets the constant event type for the setup message.

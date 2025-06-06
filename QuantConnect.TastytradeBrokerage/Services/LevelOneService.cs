@@ -15,7 +15,7 @@
 
 using System;
 
-namespace QuantConnect.Brokerages.Tastytrade.Models;
+namespace QuantConnect.Brokerages.Tastytrade.Services;
 
 /// <summary>
 /// Provides level-one market data tracking for the best bid and ask prices.

@@ -64,7 +64,7 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
         }
 
         var sessionToken = _tastyTradeApiClient.GetSessionToken(default);
-        Send(new Heartbeat(sessionToken, NextRequestId).ToJson());
+        Send(new HeartbeatRequest(sessionToken, NextRequestId).ToJson());
     }
 
     /// <summary>
@@ -122,7 +122,7 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
         {
             Message += OnMessageReceived;
 
-            Send(new Connect(sessionToken, NextRequestId, accountNumber).ToJson());
+            Send(new ConnectRequest(sessionToken, NextRequestId, accountNumber).ToJson());
 
             if (!autoResetEvent.WaitOne(ConnectionTimeout))
             {

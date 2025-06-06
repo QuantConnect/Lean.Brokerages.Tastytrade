@@ -22,7 +22,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// <summary>
 /// Represents an authorization message used to initiate authentication over a WebSocket connection.
 /// </summary>
-public readonly struct Authorization
+public readonly struct AuthorizationRequest
 {
     /// <summary>
     /// Gets the type of the event, which is always <see cref="EventType.Authorization"/>.
@@ -42,16 +42,16 @@ public readonly struct Authorization
     public string Token { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Authorization"/> struct with the specified token.
+    /// Initializes a new instance of the <see cref="AuthorizationRequest"/> struct with the specified token.
     /// </summary>
     /// <param name="token">The authentication token provided by the client.</param>
-    public Authorization(string token)
+    public AuthorizationRequest(string token)
     {
         Token = token;
     }
 
     /// <summary>
-    /// Serializes the current <see cref="Authorization"/> message to a JSON string
+    /// Serializes the current <see cref="AuthorizationRequest"/> message to a JSON string
     /// using camelCase property naming conventions.
     /// </summary>
     /// <returns>A JSON representation of the authorization message.</returns>

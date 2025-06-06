@@ -26,14 +26,5 @@ public class ResponseList<T>
     /// <summary>
     /// Gets the collection of items returned by the API.
     /// </summary>
-    public IReadOnlyCollection<T> Items { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ResponseList{T}"/> class with the specified collection of items.
-    /// </summary>
-    /// <param name="items">The collection of items to include in the response.</param>
-    public ResponseList(IReadOnlyCollection<T> items)
-    {
-        Items = items;
-    }
+    public IReadOnlyCollection<T> Items { get; set; }
 }

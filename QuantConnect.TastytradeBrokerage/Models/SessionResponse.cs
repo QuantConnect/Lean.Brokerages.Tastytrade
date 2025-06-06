@@ -14,7 +14,6 @@
 */
 
 using System;
-using Newtonsoft.Json;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
@@ -26,29 +25,15 @@ public sealed class SessionResponse
     /// <summary>
     /// Gets the session token used for authenticating API requests.
     /// </summary>
-    public string SessionToken { get; }
+    public string SessionToken { get; set; }
 
     /// <summary>
     /// Gets the token used to remember the session across logins.
     /// </summary>
-    public string RememberToken { get; }
+    public string RememberToken { get; set; }
 
     /// <summary>
     /// Gets the date and time when the session expires.
     /// </summary>
-    public DateTime SessionExpiration { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SessionResponse"/> class with the specified session details.
-    /// </summary>
-    /// <param name="sessionToken">The session token used for authentication.</param>
-    /// <param name="rememberToken">The remember token used for persistent sessions.</param>
-    /// <param name="sessionExpiration">The expiration date and time of the session.</param>
-    [JsonConstructor]
-    public SessionResponse(string sessionToken, string rememberToken, DateTime sessionExpiration)
-    {
-        SessionToken = sessionToken;
-        RememberToken = rememberToken;
-        SessionExpiration = sessionExpiration;
-    }
+    public DateTime SessionExpiration { get; set; }
 }

@@ -19,9 +19,9 @@ using QuantConnect.Brokerages.Tastytrade.Serialization;
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
-/// Represents a request to update an existing session using a remember token.
+/// Represents a request to create a new session using login credentials.
 /// </summary>
-public sealed class UpdateSession
+public sealed class CreateSessionRequest
 {
     /// <summary>
     /// Gets the login identifier (e.g., username or email).
@@ -29,9 +29,9 @@ public sealed class UpdateSession
     public string Login { get; }
 
     /// <summary>
-    /// Gets the token used to resume or refresh a session.
+    /// Gets the password associated with the login.
     /// </summary>
-    public string RememberToken { get; }
+    public string Password { get; }
 
     /// <summary>
     /// Gets a value indicating whether the session should be remembered.
@@ -39,20 +39,20 @@ public sealed class UpdateSession
     public bool RememberMe { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="UpdateSession"/> class.
+    /// Initializes a new instance of the <see cref="CreateSessionRequest"/> class.
     /// </summary>
     /// <param name="login">The login identifier.</param>
-    /// <param name="rememberToken">The token used to remember or refresh the session.</param>
+    /// <param name="password">The password for the login.</param>
     /// <param name="rememberMe">Indicates whether to remember the session. Defaults to <c>true</c>.</param>
-    public UpdateSession(string login, string rememberToken, bool rememberMe = true)
+    public CreateSessionRequest(string login, string password, bool rememberMe = true)
     {
         Login = login;
+        Password = password;
         RememberMe = rememberMe;
-        RememberToken = rememberToken;
     }
 
     /// <summary>
-    /// Serializes the <see cref="UpdateSession"/> instance to a JSON string.
+    /// Serializes the <see cref="UpdateSessionRequest"/> instance to a JSON string.
     /// </summary>
     /// <returns>A JSON string representation of the object.</returns>
     public string ToJson()

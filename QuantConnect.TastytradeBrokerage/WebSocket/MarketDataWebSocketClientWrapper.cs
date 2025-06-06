@@ -20,6 +20,7 @@ using QuantConnect.Logging;
 using System.Threading.Tasks;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
@@ -93,7 +94,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="__">The event data containing information about the timer interval.</param>
     /// <remarks>
     /// This method is triggered at regular intervals to prevent the connection from timing out. 
-    /// It sends a serialized <see cref="KeepAlive"/> message using the <see cref="Send"/> method. 
+    /// It sends a serialized <see cref="KeepAliveRequest"/> message using the <see cref="Send"/> method. 
     /// According to DxLink's protocol, a keep-alive message must be sent at least once every 60 seconds.
     /// </remarks>
     protected override void SendMessageByTimerElapsed(object _, ElapsedEventArgs __)
@@ -103,7 +104,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             return;
         }
 
-        Send(new KeepAlive().ToJson());
+        Send(new KeepAliveRequest().ToJson());
     }
 
     /// <summary>
@@ -137,7 +138,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             {
                 Log.Debug($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(HandleWebSocketConnection)}{nameof(OnMessageReceived)}.WebSocketMessage: {textMessage.Message}");
 
-                var connectResponse = textMessage.Message.DeserializeCamelCase<BaseResponse>();
+                var connectResponse = textMessage.Message.DeserializeCamelCase<BaseMarketDataResponse>();
 
                 switch (connectResponse.Type)
                 {
@@ -167,11 +168,11 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             Message += OnMessageReceived;
 
             // 1. SETUP
-            Send(new SetupConnection().ToJson());
+            Send(new SetupConnectionRequest().ToJson());
             WaitOrTimeout(autoResetEvent, "SETUP");
 
             // 2. AUTHORIZE
-            Send(new Authorization(token).ToJson());
+            Send(new AuthorizationRequest(token).ToJson());
             WaitOrTimeout(autoResetEvent, "AUTHORIZE");
 
             // 3. CHANNEL_REQUEST
@@ -179,7 +180,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             WaitOrTimeout(autoResetEvent, "CHANNEL_REQUEST");
 
             // 4. FEED_SETUP
-            Send(new FeedSetup().ToJson());
+            Send(new FeedSetupRequest().ToJson());
             WaitOrTimeout(autoResetEvent, "FEED_SETUP");
 
             AuthenticatedResetEvent.Set();

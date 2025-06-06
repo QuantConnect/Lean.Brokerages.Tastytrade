@@ -27,35 +27,17 @@ public sealed class FutureOption : BaseInstrument
     /// <summary>
     /// Gets the expiration date of the option contract.
     /// </summary>
-    public DateTime ExpirationDate { get; }
+    public DateTime ExpirationDate { get; set; }
 
     /// <summary>
     /// Gets the type of the option (e.g., Call or Put).
     /// </summary>
-    public OptionType OptionType { get; }
+    public OptionType OptionType { get; set; }
 
     /// <summary>
     /// Gets the strike price of the option.
     /// </summary>
-    public decimal StrikePrice { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="FutureOption"/> struct with the specified values.
-    /// </summary>
-    /// <param name="expirationDate">The expiration date of the option.</param>
-    /// <param name="optionType">The type of the option (Call or Put).</param>
-    /// <param name="streamerSymbol">The streamer symbol used for real-time feeds.</param>
-    /// <param name="strikePrice">The strike price of the option.</param>
-    /// <param name="symbol">The unique symbol identifying the option.</param>
-    [JsonConstructor]
-    public FutureOption(DateTime expirationDate, OptionType optionType, string streamerSymbol, decimal strikePrice, string symbol)
-        : base(symbol, streamerSymbol)
-    {
-        ExpirationDate = expirationDate;
-        OptionType = optionType;
-        StrikePrice = strikePrice;
-    }
-
+    public decimal StrikePrice { get; set; }
 
     /// <summary>
     /// Determines whether this option matches the specified expiration date, strike price, and option type.

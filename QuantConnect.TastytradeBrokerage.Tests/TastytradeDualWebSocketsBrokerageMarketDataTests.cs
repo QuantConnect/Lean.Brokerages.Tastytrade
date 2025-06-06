@@ -22,6 +22,7 @@ using QuantConnect.Securities;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 using BrokerageOrder = QuantConnect.Brokerages.Tastytrade.Models.Orders.Order;
 
@@ -157,7 +158,7 @@ public class TastytradeDualWebSocketsBrokerageMarketDataTests
                 case WebSocketClientWrapper.TextMessage textMessage:
                     Log.Debug($"{nameof(TestDualWebSocketsBrokerage)}.OnMarketDataMessage.WebSocketMessage: {textMessage.Message}");
 
-                    var connectResponse = textMessage.Message.DeserializeCamelCase<BaseResponse>();
+                    var connectResponse = textMessage.Message.DeserializeCamelCase<BaseMarketDataResponse>();
                     switch (connectResponse.Type)
                     {
                         case EventType.FeedConfig:

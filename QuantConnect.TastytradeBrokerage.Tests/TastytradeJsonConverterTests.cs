@@ -24,6 +24,7 @@ using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.AccountData;
 
@@ -35,7 +36,7 @@ public class TastytradeJsonConverterTests
     [Test]
     public void ReturnsCorrectJsonRepresentationForValidCreateSession()
     {
-        var createSession = new CreateSession("ramses", "pharaoh");
+        var createSession = new CreateSessionRequest("ramses", "pharaoh");
 
         var createSessionJson = createSession.ToJson();
 
@@ -117,7 +118,7 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeStreamHeartbeatMessage()
     {
-        var heartbeatJson = new Heartbeat("your session token here", 1).ToJson();
+        var heartbeatJson = new HeartbeatRequest("your session token here", 1).ToJson();
 
         Assert.AreEqual("{\"action\":\"heartbeat\",\"auth-token\":\"your session token here\",\"request-id\":1}", heartbeatJson);
     }
@@ -138,7 +139,7 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeStreamConnectMessage()
     {
-        var connectJson = new Connect("your session token here", 1, "12345").ToJson();
+        var connectJson = new ConnectRequest("your session token here", 1, "12345").ToJson();
 
         Assert.AreEqual("{\"action\":\"connect\",\"value\":[\"12345\"],\"auth-token\":\"your session token here\",\"request-id\":1}", connectJson);
     }
@@ -150,7 +151,7 @@ public class TastytradeJsonConverterTests
 
         var connectResponse = connectResponseJson.DeserializeKebabCase<ConnectResponse>();
 
-        Assert.IsInstanceOf<BaseResponseMessage>(connectResponse);
+        Assert.IsInstanceOf<BaseAccountMaintenanceStatus>(connectResponse);
         Assert.AreEqual(Status.Ok, connectResponse.Status);
         Assert.AreEqual(ActionStream.Connect, connectResponse.Action);
         Assert.AreEqual(1, connectResponse.RequestId);
@@ -172,21 +173,21 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeKeepAliveMessage()
     {
-        var keepAliveJson = new KeepAlive().ToJson();
+        var keepAliveJson = new KeepAliveRequest().ToJson();
         Assert.AreEqual("{\"type\":\"KEEPALIVE\",\"channel\":0}", keepAliveJson);
     }
 
     [Test]
     public void SerializeSetupConnectionMessage()
     {
-        var setupConnectionJson = new SetupConnection().ToJson();
+        var setupConnectionJson = new SetupConnectionRequest().ToJson();
         Assert.AreEqual("{\"type\":\"SETUP\",\"channel\":0,\"version\":\"0.1-DXF-JS/0.3.0\",\"keepaliveTimeout\":60,\"acceptKeepaliveTimeout\":60}", setupConnectionJson);
     }
 
     [Test]
     public void SerializeAuthorizationMessage()
     {
-        var authorization = new Authorization("<redacted>").ToJson();
+        var authorization = new AuthorizationRequest("<redacted>").ToJson();
         Assert.AreEqual("{\"type\":\"AUTH\",\"channel\":0,\"token\":\"<redacted>\"}", authorization);
     }
 
@@ -224,7 +225,7 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeFeedSetupRequestMessage()
     {
-        var feedSetupJson = new FeedSetup().ToJson();
+        var feedSetupJson = new FeedSetupRequest().ToJson();
 
         Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventSymbol\",\"price\",\"size\",\"time\"]}}", feedSetupJson);
     }

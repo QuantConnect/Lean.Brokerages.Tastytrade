@@ -14,6 +14,7 @@
 */
 
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models.Stream;
 
@@ -22,7 +23,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream;
 /// for the specified account. This message subscribes the client to receive
 /// real-time updates related to the given account.
 /// </summary>
-public sealed class Connect : SubscribeMessage
+public sealed class ConnectRequest : BaseSubscribeMessage
 {
     /// <summary>
     /// Gets the action type for this message, which is always <c>"connect"</c>.
@@ -30,7 +31,7 @@ public sealed class Connect : SubscribeMessage
     public override ActionStream Action => ActionStream.Connect;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Connect"/> class.
+    /// Initializes a new instance of the <see cref="ConnectRequest"/> class.
     /// </summary>
     /// <param name="authToken">
     /// The session token used to authenticate the request. This should be the
@@ -42,7 +43,7 @@ public sealed class Connect : SubscribeMessage
     /// <param name="accountNumber">
     /// The account number to subscribe to for receiving real-time updates.
     /// </param>
-    public Connect(string authToken, int requestId, string accountNumber)
+    public ConnectRequest(string authToken, int requestId, string accountNumber)
         : base(authToken, requestId, accountNumber)
     {
     }

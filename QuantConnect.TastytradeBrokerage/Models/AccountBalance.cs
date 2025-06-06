@@ -13,8 +13,6 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
-
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
@@ -25,36 +23,20 @@ public class AccountBalance
     /// <summary>
     /// Gets the amount of funds available for trading.
     /// </summary>
-    public decimal AvailableTradingFunds { get; }
+    public decimal AvailableTradingFunds { get; set; }
 
     /// <summary>
     /// Gets the total cash balance in the account.
     /// </summary>
-    public decimal CashBalance { get; }
+    public decimal CashBalance { get; set; }
 
     /// <summary>
     /// Gets the amount of cash available after settlement.
     /// </summary>
-    public decimal CashSettleBalance { get; }
+    public decimal CashSettleBalance { get; set; }
 
     /// <summary>
     /// Gets the currency code of the account (e.g., USD).
     /// </summary>
-    public string Currency { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AccountBalance"/> class with the specified balance values.
-    /// </summary>
-    /// <param name="availableTradingFunds">The amount of funds available for trading.</param>
-    /// <param name="cashBalance">The total cash balance in the account.</param>
-    /// <param name="cashSettleBalance">The amount of cash available after settlement.</param>
-    /// <param name="currency">The currency code of the account (e.g., USD).</param>
-    [JsonConstructor]
-    public AccountBalance(decimal availableTradingFunds, decimal cashBalance, decimal cashSettledBalance, string currency)
-    {
-        AvailableTradingFunds = availableTradingFunds;
-        CashBalance = cashBalance;
-        CashSettleBalance = cashSettledBalance;
-        Currency = currency;
-    }
+    public string Currency { get; set; }
 }

@@ -22,7 +22,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// <summary>
 /// Represents a keep-alive message that must be sent periodically to maintain an open WebSocket connection with DxLink.
 /// </summary>
-public readonly struct KeepAlive
+public readonly struct KeepAliveRequest
 {
     /// <summary>
     /// Gets the type of this message, which is always <see cref="EventType.KeepAlive"/> for keep-alive messages.
@@ -35,7 +35,7 @@ public readonly struct KeepAlive
     public int Channel => 0;
 
     /// <summary>
-    /// Serializes this <see cref="KeepAlive"/> instance to a JSON string
+    /// Serializes this <see cref="KeepAliveRequest"/> instance to a JSON string
     /// using kebab-case naming for properties as defined in <see cref="JsonSettings.KebabCase"/>.
     /// </summary>
     /// <returns>A JSON string with kebab-case property names representing the keep-alive message.</returns>

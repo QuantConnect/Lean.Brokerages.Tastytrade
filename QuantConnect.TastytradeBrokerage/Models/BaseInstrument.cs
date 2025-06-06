@@ -13,8 +13,6 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
-
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
@@ -25,22 +23,10 @@ public class BaseInstrument
     /// <summary>
     /// Gets the unique symbol identifying this option instrument.
     /// </summary>
-    public string Symbol { get; }
+    public string Symbol { get; set; }
 
     /// <summary>
     /// Gets the streamer symbol used for real-time data feeds.
     /// </summary>
-    public string StreamerSymbol { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="BaseInstrument"/> class.
-    /// </summary>
-    /// <param name="symbol">The unique identifier for the instrument.</param>
-    /// <param name="streamerSymbol">The symbol used for real-time market data feeds.</param>
-    [JsonConstructor]
-    public BaseInstrument(string symbol, string streamerSymbol)
-    {
-        Symbol = symbol;
-        StreamerSymbol = streamerSymbol;
-    }
+    public string StreamerSymbol { get; set; }
 }

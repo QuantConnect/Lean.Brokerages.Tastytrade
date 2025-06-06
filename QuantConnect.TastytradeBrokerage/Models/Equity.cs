@@ -13,8 +13,6 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
-
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
@@ -25,17 +23,5 @@ public class Equity : BaseInstrument
     /// <summary>
     /// Gets a value indicating whether the equity is an index (e.g., S&P 500).
     /// </summary>
-    public bool IsIndex { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Equity"/> class, which represents an equity security
-    /// and specifies whether it is an index (e.g., S&P 500).
-    /// </summary>
-    /// <param name="isIndex">Indicates whether the equity is an index (true) or a regular equity (false).</param>
-    /// <param name="symbol">The unique symbol representing the equity.</param>
-    /// <param name="streamerSymbol">The symbol used for real-time market data streaming.</param>
-    [JsonConstructor]
-    public Equity(bool isIndex, string symbol, string streamerSymbol)
-        : base(symbol, streamerSymbol)
-        => IsIndex = isIndex;
+    public bool IsIndex { get; set; }
 }

@@ -23,7 +23,7 @@ using QuantConnect.Interfaces;
 using QuantConnect.Data.Market;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
-using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Services;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade;

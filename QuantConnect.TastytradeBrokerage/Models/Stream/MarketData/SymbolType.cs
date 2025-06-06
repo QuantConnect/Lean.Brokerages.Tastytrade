@@ -15,26 +15,27 @@
 
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
-namespace QuantConnect.Brokerages.Tastytrade.Models.Stream;
+namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 /// <summary>
-/// Represents a heartbeat message sent periodically to the streamer server
-/// to prevent the WebSocket connection from being considered stale.
+/// Represents a symbol and the type of data associated with it (e.g., Trade or Quote).
 /// </summary>
-public sealed class Heartbeat : SubscribeMessage
+public readonly struct SymbolType
 {
     /// <summary>
-    /// Always set to <c>"heartbeat"</c> for heartbeat messages.
+    /// Gets the symbol name.
     /// </summary>
-    public override ActionStream Action => ActionStream.Heartbeat;
+    public string Symbol { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Heartbeat"/> class.
+    /// Gets the type of data for the symbol (e.g., "Trade", "Quote").
     /// </summary>
-    /// <param name="authToken">The session token for authentication.</param>
-    /// <param name="requestId">Optional request identifier for tracking.</param>
-    public Heartbeat(string authToken, int requestId)
-        : base (authToken, requestId)
-    { 
-    }
+    public MarketDataEvent Type { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SymbolType"/> struct.
+    /// </summary>
+    /// <param name="symbol">The symbol name.</param>
+    /// <param name="type">The type of data.</param>
+    public SymbolType(string symbol, MarketDataEvent type) => (Symbol, Type) = (symbol, type);
 }

@@ -14,15 +14,14 @@
 */
 
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
-/// Represents a request to create a new session using login credentials.
+/// Represents a request to update an existing session using a remember token.
 /// </summary>
-public sealed class CreateSession
+public sealed class UpdateSessionRequest
 {
     /// <summary>
     /// Gets the login identifier (e.g., username or email).
@@ -30,9 +29,9 @@ public sealed class CreateSession
     public string Login { get; }
 
     /// <summary>
-    /// Gets the password associated with the login.
+    /// Gets the token used to resume or refresh a session.
     /// </summary>
-    public string Password { get; }
+    public string RememberToken { get; }
 
     /// <summary>
     /// Gets a value indicating whether the session should be remembered.
@@ -40,20 +39,20 @@ public sealed class CreateSession
     public bool RememberMe { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CreateSession"/> class.
+    /// Initializes a new instance of the <see cref="UpdateSessionRequest"/> class.
     /// </summary>
     /// <param name="login">The login identifier.</param>
-    /// <param name="password">The password for the login.</param>
+    /// <param name="rememberToken">The token used to remember or refresh the session.</param>
     /// <param name="rememberMe">Indicates whether to remember the session. Defaults to <c>true</c>.</param>
-    public CreateSession(string login, string password, bool rememberMe = true)
+    public UpdateSessionRequest(string login, string rememberToken, bool rememberMe = true)
     {
         Login = login;
-        Password = password;
         RememberMe = rememberMe;
+        RememberToken = rememberToken;
     }
 
     /// <summary>
-    /// Serializes the <see cref="UpdateSession"/> instance to a JSON string.
+    /// Serializes the <see cref="UpdateSessionRequest"/> instance to a JSON string.
     /// </summary>
     /// <returns>A JSON string representation of the object.</returns>
     public string ToJson()

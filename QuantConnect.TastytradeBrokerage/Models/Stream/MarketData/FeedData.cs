@@ -18,32 +18,20 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Converters;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 /// <summary>
 /// Represents a response containing feed data with a specific event type and channel.
 /// </summary>
-public sealed class FeedData : BaseResponse
+public sealed class FeedData : BaseMarketDataResponse
 {
     /// <summary>
     /// Gets the data content of the feed, deserialized using a custom converter.
     /// </summary>
     [JsonConverter(typeof(FeedDataConverter))]
-    public Data Data { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="FeedData"/> class.
-    /// </summary>
-    /// <param name="type">The type of event.</param>
-    /// <param name="channel">The channel ID associated with the data.</param>
-    /// <param name="data">The deserialized data content.</param>
-    [JsonConstructor]
-    public FeedData(EventType type, int channel, Data data)
-        : base(type, channel)
-    {
-        Data = data;
-    }
+    public Data Data { get; set; }
 }
 
 /// <summary>

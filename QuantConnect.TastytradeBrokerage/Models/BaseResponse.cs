@@ -24,18 +24,10 @@ public class BaseResponse<T>
     /// <summary>
     /// Gets the data returned by the API.
     /// </summary>
-    public T Data { get; }
+    public T Data { get; set; }
 
     /// <summary>
     /// Gets additional context information about the API response.
     /// </summary>
-    public string Context { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="BaseResponse{T}"/> class with the specified data and context.
-    /// </summary>
-    /// <param name="data">The data returned by the API.</param>
-    /// <param name="context">The context or metadata related to the response.</param>
-    public BaseResponse(T data, string context) => (Data, Context) = (data, context);
+    public string Context { get; set; }
 }
-

@@ -24,7 +24,7 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using QuantConnect.Brokerages.CrossZero;
 using LeanOrder = QuantConnect.Orders.Order;
-using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Services;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 using LeanOrderStatus = QuantConnect.Orders.OrderStatus;

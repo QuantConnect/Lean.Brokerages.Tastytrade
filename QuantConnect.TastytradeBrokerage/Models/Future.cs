@@ -13,23 +13,10 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
-
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
 /// Represents a basic view of a future instrument, including its symbol and streamer symbol used for real-time data.
 /// </summary>
 public sealed class Future : BaseInstrument
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Future"/> struct.
-    /// </summary>
-    /// <param name="symbol">The standard symbol for the future.</param>
-    /// <param name="streamerSymbol">The streamer symbol used for real-time updates.</param>
-    [JsonConstructor]
-    public Future(string symbol, string streamerSymbol)
-        : base(symbol, streamerSymbol)
-    {
-    }
-}
+{ }

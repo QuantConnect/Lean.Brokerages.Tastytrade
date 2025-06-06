@@ -13,31 +13,29 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
-using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
-namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.AccountData;
+namespace QuantConnect.Brokerages.Tastytrade.Models.Stream;
 
 /// <summary>
-/// Represents a response that contains account-related order data.
+/// Represents a heartbeat message sent periodically to the streamer server
+/// to prevent the WebSocket connection from being considered stale.
 /// </summary>
-public class AccountData
+public sealed class HeartbeatRequest : BaseSubscribeMessage
 {
     /// <summary>
-    /// Gets the type of the event. This is typically used in a <c>switch</c> statement
-    /// to determine how the response should be handled.
+    /// Always set to <c>"heartbeat"</c> for heartbeat messages.
     /// </summary>
-    public EventType Type { get; set; }
+    public override ActionStream Action => ActionStream.Heartbeat;
 
     /// <summary>
-    /// Gets the Unix timestamp (in milliseconds) indicating when the response was generated.
+    /// Initializes a new instance of the <see cref="HeartbeatRequest"/> class.
     /// </summary>
-    public long Timestamp { get; set; }
-
-    /// <summary>
-    /// Gets the order associated with the account event.
-    /// </summary>
-    [JsonProperty("data")]
-    public Order Order { get; set; }
+    /// <param name="authToken">The session token for authentication.</param>
+    /// <param name="requestId">Optional request identifier for tracking.</param>
+    public HeartbeatRequest(string authToken, int requestId)
+        : base(authToken, requestId)
+    {
+    }
 }

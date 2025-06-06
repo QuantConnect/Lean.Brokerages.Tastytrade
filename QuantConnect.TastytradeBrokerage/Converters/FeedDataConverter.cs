@@ -16,7 +16,6 @@
 using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 using StreamDataResponse = QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData.Data;

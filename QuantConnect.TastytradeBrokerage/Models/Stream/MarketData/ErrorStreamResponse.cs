@@ -13,7 +13,6 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
@@ -21,46 +20,30 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// <summary>
 /// Represents an error message received from a streaming API response.
 /// </summary>
-public readonly struct ErrorStreamResponse
+public struct ErrorStreamResponse
 {
     /// <summary>
     /// Gets the type of the event. For error responses, this is typically "ERROR".
     /// </summary>
-    public EventType Type { get; }
+    public EventType Type { get; set; }
 
     /// <summary>
     /// Gets the numeric identifier for the channel where the error occurred.
     /// A value of 0 may indicate a general or protocol-level error.
     /// </summary>
-    public int Channel { get; }
+    public int Channel { get; set; }
 
     /// <summary>
     /// Gets the error code or identifier that categorizes the type of error.
     /// For example, "BAD_ACTION" indicates an invalid operation or protocol violation.
     /// </summary>
-    public string Error { get; }
+    public string Error { get; set; }
 
     /// <summary>
     /// Gets the human-readable description of the error, providing more context or explanation.
     /// For example, "Protocol violation with an even channel usage."
     /// </summary>
-    public string Message { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ErrorStreamResponse"/> struct with detailed error information.
-    /// </summary>
-    /// <param name="type">The type of the event, typically "ERROR" for error responses.</param>
-    /// <param name="channel">The channel number associated with the error.</param>
-    /// <param name="error">The error code or category.</param>
-    /// <param name="message">The detailed message describing the error.</param>
-    [JsonConstructor]
-    public ErrorStreamResponse(EventType type, int channel, string error, string message)
-    {
-        Type = type;
-        Channel = channel;
-        Error = error;
-        Message = message;
-    }
+    public string Message { get; set; }
 
     /// <summary>
     /// Returns a string that provides a human-readable representation of the error.

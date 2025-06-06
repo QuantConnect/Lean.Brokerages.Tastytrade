@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -109,7 +109,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <returns>The new session token.</returns>
     private string CreateSession(string username, string password, CancellationToken cancellationToken)
     {
-        return SendSession(new CreateSession(username, password.ToString()).ToJson(), cancellationToken);
+        return SendSession(new CreateSessionRequest(username, password.ToString()).ToJson(), cancellationToken);
     }
 
     /// <summary>
@@ -121,7 +121,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// <returns>The refreshed session token.</returns>
     private string UpdateSession(string username, string rememberToken, CancellationToken cancellationToken)
     {
-        return SendSession(new UpdateSession(username, rememberToken).ToJson(), cancellationToken);
+        return SendSession(new UpdateSessionRequest(username, rememberToken).ToJson(), cancellationToken);
     }
 
     /// <summary>

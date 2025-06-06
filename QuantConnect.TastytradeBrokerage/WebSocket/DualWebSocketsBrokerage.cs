@@ -15,14 +15,13 @@
 
 using System;
 using System.Linq;
-using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Logging;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
-using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.AccountData;
 
@@ -95,7 +94,7 @@ public abstract class DualWebSocketsBrokerage : Brokerage
                 }
             }
 
-            var baseResponse = textMessage.Message.DeserializeCamelCase<Models.Stream.MarketData.BaseResponse>();
+            var baseResponse = textMessage.Message.DeserializeCamelCase<BaseMarketDataResponse>();
 
             switch (baseResponse.Type)
             {
@@ -134,7 +133,7 @@ public abstract class DualWebSocketsBrokerage : Brokerage
                     var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
                     throw new Exception($"{nameof(DualWebSocketsBrokerage)}.{nameof(OnMessageHandler)}.Error: {errorResponse}");
                 case EventType.Unknown:
-                    var response = textMessage.Message.DeserializeKebabCase<BaseResponseMessage>();
+                    var response = textMessage.Message.DeserializeKebabCase<BaseAccountMaintenanceStatus>();
                     switch (response.Action)
                     {
                         case ActionStream.Connect:

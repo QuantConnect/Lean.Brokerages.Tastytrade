@@ -13,8 +13,6 @@
  * limitations under the License.
 */
 
-using System.Text.Json.Serialization;
-
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
@@ -26,12 +24,12 @@ public class ApiQuoteTokenResponse
     /// <summary>
     /// Gets the WebSocket URL for the dxLink connection.
     /// </summary>
-    public string DxlinkUrl { get; }
+    public string DxlinkUrl { get; set; }
 
     /// <summary>
     /// Gets the level of access (e.g., demo or live).
     /// </summary>
-    public string Level { get; }
+    public string Level { get; set; }
 
     /// <summary>
     /// Gets the authentication token used for accessing the quote service.
@@ -39,19 +37,5 @@ public class ApiQuoteTokenResponse
     /// <remarks>
     /// <b>Important:</b> API quote tokens expire after 24 hours.
     /// </remarks>
-    public string Token { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ApiQuoteTokenResponse"/> class with the specified dxLink URL, access level, and token.
-    /// </summary>
-    /// <param name="dxlinkUrl">The WebSocket URL for the dxLink connection.</param>
-    /// <param name="level">The access level (e.g., demo or live).</param>
-    /// <param name="token">The authentication token for accessing the quote service.</param>
-    [JsonConstructor]
-    public ApiQuoteTokenResponse(string dxlinkUrl, string level, string token)
-    {
-        DxlinkUrl = dxlinkUrl;
-        Level = level;
-        Token = token;
-    }
+    public string Token { get; set; }
 }

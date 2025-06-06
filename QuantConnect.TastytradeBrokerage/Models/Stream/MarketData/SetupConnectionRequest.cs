@@ -23,7 +23,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// Represents the initial setup message sent by the client to establish a WebSocket connection.
 /// This message negotiates protocol version and keep-alive behavior.
 /// </summary>
-public readonly struct SetupConnection
+public readonly struct SetupConnectionRequest
 {
     /// <summary>
     /// Gets the event type for this message, which is always <see cref="EventType.Setup"/>.
@@ -53,7 +53,7 @@ public readonly struct SetupConnection
     public int AcceptKeepaliveTimeout => 60;
 
     /// <summary>
-    /// Serializes the <see cref="SetupConnection"/> message to a JSON string using camelCase property naming.
+    /// Serializes the <see cref="SetupConnectionRequest"/> message to a JSON string using camelCase property naming.
     /// </summary>
     /// <returns>A JSON-formatted string representing the setup connection message.</returns>
     public string ToJson()

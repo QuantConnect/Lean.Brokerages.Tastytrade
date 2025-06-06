@@ -17,7 +17,7 @@ using System;
 using System.Threading;
 using QuantConnect.Orders;
 
-namespace QuantConnect.Brokerages.Tastytrade.Models;
+namespace QuantConnect.Brokerages.Tastytrade.Services;
 
 /// <summary>
 /// Handles synchronization for Lean orders using an <see cref="AutoResetEvent"/>.

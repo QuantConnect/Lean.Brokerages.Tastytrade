@@ -21,21 +21,21 @@ using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 /// <summary>
-/// Represents a feed subscription for specified symbols and types (e.g., Trade, Quote).
+/// Represents a feed unsubscription for specified symbols and types.
 /// </summary>
-public sealed class FeedSubscription : BaseFeedSubscription
+public sealed class FeedUnSubscription : BaseFeedSubscription
 {
     /// <summary>
-    /// Gets the list of symbol-type pairs to subscribe to.
+    /// Gets the list of symbol-type pairs to unsubscribe from.
     /// </summary>
-    [JsonProperty("add", Order = 3)]
+    [JsonProperty("remove", Order = 3)]
     public override IReadOnlyList<SymbolType> SymbolTypes { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FeedSubscription"/> class.
+    /// Initializes a new instance of the <see cref="FeedUnSubscription"/> class.
     /// </summary>
-    /// <param name="tickers">The ticker symbols to subscribe to.</param>
-    public FeedSubscription(IEnumerable<string> tickers)
+    /// <param name="tickers">The ticker symbols to unsubscribe from.</param>
+    public FeedUnSubscription(IEnumerable<string> tickers)
     {
         SymbolTypes = CreateSymbolTypes(tickers);
     }
@@ -43,7 +43,7 @@ public sealed class FeedSubscription : BaseFeedSubscription
     /// <summary>
     /// Converts the current object to its JSON representation.
     /// </summary>
-    /// <returns>A JSON string representation of the subscription.</returns>
+    /// <returns>A JSON string representation of the unsubscription.</returns>
     public string ToJson()
     {
         return JsonConvert.SerializeObject(this, JsonSettings.CamelCase);

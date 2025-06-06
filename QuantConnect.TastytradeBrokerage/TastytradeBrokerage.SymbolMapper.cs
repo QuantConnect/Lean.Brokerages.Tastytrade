@@ -175,7 +175,11 @@ public class TastytradeBrokerageSymbolMapper
             return;
         }
 
-        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BaseInstrument(brokerageSymbol, brokerageStreamMarketDataSymbol);
+        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BaseInstrument()
+        {
+            Symbol = brokerageSymbol,
+            StreamerSymbol = brokerageStreamMarketDataSymbol
+        };
         _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
     }
 

@@ -17,12 +17,12 @@ using Newtonsoft.Json;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
 
-namespace QuantConnect.Brokerages.Tastytrade.Models.Stream;
+namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
 /// <summary>
 /// Represents the base class for subscription messages sent to a streaming server.
 /// </summary>
-public abstract class SubscribeMessage
+public abstract class BaseSubscribeMessage
 {
     /// <summary>
     /// The type of action being performed (e.g., "heartbeat", "connect", etc.).
@@ -48,7 +48,7 @@ public abstract class SubscribeMessage
     public int RequestId { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SubscribeMessage"/> class.
+    /// Initializes a new instance of the <see cref="BaseSubscribeMessage"/> class.
     /// </summary>
     /// <param name="authToken">
     /// The session token used to authenticate the request. This should be the
@@ -60,7 +60,7 @@ public abstract class SubscribeMessage
     /// <param name="accountNumber">
     /// An optional account number to subscribe to. If not specified, no account-specific data will be subscribed.
     /// </param>
-    protected SubscribeMessage(string authToken, int requestId, string accountNumber = default)
+    protected BaseSubscribeMessage(string authToken, int requestId, string accountNumber = default)
     {
         AccountNumbers = string.IsNullOrEmpty(accountNumber) ? null : [accountNumber];
         AuthToken = authToken;
@@ -68,7 +68,7 @@ public abstract class SubscribeMessage
     }
 
     /// <summary>
-    /// Serializes this <see cref="SubscribeMessage"/> instance to a JSON string
+    /// Serializes this <see cref="BaseSubscribeMessage"/> instance to a JSON string
     /// using kebab-case naming for properties as defined in <see cref="JsonSettings.KebabCase"/>.
     /// </summary>
     /// <returns>A kebab-case JSON string representing the current message.</returns>
