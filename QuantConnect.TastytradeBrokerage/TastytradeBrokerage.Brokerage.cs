@@ -379,12 +379,6 @@ public partial class TastytradeBrokerage
     /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
     public override bool CancelOrder(LeanOrder order)
     {
-        if (order.Status == LeanOrderStatus.Filled || order.Status == LeanOrderStatus.Canceled)
-        {
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, "Cancel Order: Order already " + order.Status));
-            return false;
-        }
-
         var canceled = default(bool);
         var brokerageId = order.BrokerId.LastOrDefault();
         _messageHandler.WithLockedStream(() =>
