@@ -48,7 +48,12 @@ public class Order
     /// <summary>
     /// Gets the date and time when the order was cancelled.
     /// </summary>
-    public DateTime CancelledAt { get; set; }
+    public DateTimeOffset CancelledAt { get; set; }
+
+    /// <summary>
+    /// Gets the UTC representation of the <see cref="CancelledAt"/>.
+    /// </summary>
+    public DateTime CancelledAtUtc => CancelledAt.UtcDateTime;
 
     /// <summary>
     /// Gets the current type of the order.
@@ -63,7 +68,12 @@ public class Order
     /// <summary>
     /// Gets the date and time when the order was received.
     /// </summary>
-    public DateTime ReceivedAt { get; }
+    public DateTimeOffset ReceivedAt { get; set; }
+
+    /// <summary>
+    /// Gets the UTC representation of the <see cref="ReceivedAtUtc"/>.
+    /// </summary>
+    public DateTime ReceivedAtUtc => ReceivedAt.UtcDateTime;
 
     /// <summary>
     /// Gets the current status of the order.

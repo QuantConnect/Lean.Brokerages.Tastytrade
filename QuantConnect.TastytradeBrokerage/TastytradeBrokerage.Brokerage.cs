@@ -211,16 +211,16 @@ public partial class TastytradeBrokerage
             switch (order.OrderType)
             {
                 case Models.Enum.OrderType.Market:
-                    leanOrder = new MarketOrder(leanSymbol, quantity, order.ReceivedAt, properties: orderProperties);
+                    leanOrder = new MarketOrder(leanSymbol, quantity, order.ReceivedAtUtc, properties: orderProperties);
                     break;
                 case Models.Enum.OrderType.Limit:
-                    leanOrder = new LimitOrder(leanSymbol, quantity, order.Price, order.ReceivedAt, properties: orderProperties);
+                    leanOrder = new LimitOrder(leanSymbol, quantity, order.Price, order.ReceivedAtUtc, properties: orderProperties);
                     break;
                 case Models.Enum.OrderType.StopLimit:
-                    leanOrder = new StopLimitOrder(leanSymbol, quantity, order.StopTrigger, order.Price, order.ReceivedAt, properties: orderProperties);
+                    leanOrder = new StopLimitOrder(leanSymbol, quantity, order.StopTrigger, order.Price, order.ReceivedAtUtc, properties: orderProperties);
                     break;
                 case Models.Enum.OrderType.Stop:
-                    leanOrder = new StopMarketOrder(leanSymbol, quantity, order.StopTrigger, order.ReceivedAt, properties: orderProperties);
+                    leanOrder = new StopMarketOrder(leanSymbol, quantity, order.StopTrigger, order.ReceivedAtUtc, properties: orderProperties);
                     break;
                 default:
                     throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(TryCreateLeanOrder)}: The order type '{order.OrderType}' is not supported for conversion to a Lean order.");
@@ -472,11 +472,11 @@ public partial class TastytradeBrokerage
                 // TODO: Proper extended market hours support should be implemented
                 if (!leanOrder.Symbol.IsMarketOpen(DateTime.UtcNow, false))
                 {
-                    ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAt);
+                    ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
                 }
                 break;
             case BrokerageOrderStatus.Live:
-                ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAt);
+                ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
                 break;
             case BrokerageOrderStatus.Filled:
                 var leanOrderStatus = LeanOrderStatus.Filled;
@@ -511,7 +511,7 @@ public partial class TastytradeBrokerage
                     break;
                 }
 
-                orderEvent = new OrderEvent(leanOrder, orderUpdate.CancelledAt, OrderFee.Zero)
+                orderEvent = new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
                 {
                     Status = leanOrderStatus
                 };

@@ -612,6 +612,8 @@ public class TastytradeJsonConverterTests
         var order = accountData.Order;
         Assert.AreEqual(OrderStatus.Filled, order.Status);
         AssertIsNotNullAndIsNotEmpty(order.Id);
+        Assert.AreNotEqual(default, order.ReceivedAtUtc);
+        Assert.AreEqual(DateTimeKind.Utc, order.ReceivedAtUtc.Kind);
 
         Assert.AreEqual(1, order.Legs.Count);
         var leg = accountData.Order.Legs.First();
