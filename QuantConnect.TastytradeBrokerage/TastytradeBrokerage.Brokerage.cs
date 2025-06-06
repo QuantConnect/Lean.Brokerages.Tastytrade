@@ -70,11 +70,6 @@ public partial class TastytradeBrokerage
     {
         var positions = _tastytradeApiClient.GetAccountPositions();
 
-        if (positions.Count == 0)
-        {
-            return [];
-        }
-
         var holdings = new List<Holding>();
         foreach (var position in positions)
         {
@@ -167,11 +162,6 @@ public partial class TastytradeBrokerage
     public override List<LeanOrder> GetOpenOrders()
     {
         var brokerageOrders = _tastytradeApiClient.GetLiveOrders();
-
-        if (brokerageOrders.Count == 0)
-        {
-            return [];
-        }
 
         var leanOrders = new List<LeanOrder>();
         foreach (var brokerageOrder in brokerageOrders)
