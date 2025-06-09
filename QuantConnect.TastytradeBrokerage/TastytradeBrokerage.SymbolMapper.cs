@@ -106,7 +106,12 @@ public class TastytradeBrokerageSymbolMapper
                     $"The security type '{securityType}' with brokerage symbol '{brokerageSymbol}' is not supported.");
         }
 
-        SynchronizeCachedSymbolCollection(leanSymbol, brokerageSymbol, brokerageStreamMarketDataSymbol);
+        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BaseInstrument()
+        {
+            Symbol = brokerageSymbol,
+            StreamerSymbol = brokerageStreamMarketDataSymbol ?? GetBrokerageSymbols(leanSymbol).brokerageStreamMarketDataSymbol
+        };
+        _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
 
         return leanSymbol;
     }
@@ -153,34 +158,14 @@ public class TastytradeBrokerageSymbolMapper
                 throw new NotSupportedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetBrokerageSymbols)}.");
         }
 
-        SynchronizeCachedSymbolCollection(symbol, brokerageSymbol, brokerageStreamMarketDataSymbol);
-
-        return (brokerageSymbol, brokerageStreamMarketDataSymbol);
-    }
-
-    /// <summary>
-    /// Ensures the internal symbol caches are synchronized with the provided Lean symbol,
-    /// brokerage symbol, and brokerage stream symbol. If the stream symbol is not provided,
-    /// it delegates synchronization to <see cref="GetBrokerageSymbols(Symbol)"/>.
-    /// </summary>
-    /// <param name="leanSymbol">The Lean symbol to associate with brokerage symbols.</param>
-    /// <param name="brokerageSymbol">The brokerage-specific symbol.</param>
-    /// <param name="brokerageStreamMarketDataSymbol">The brokerage stream symbol used for market data.</param>
-    private void SynchronizeCachedSymbolCollection(Symbol leanSymbol, string brokerageSymbol, string brokerageStreamMarketDataSymbol)
-    {
-        if (string.IsNullOrEmpty(brokerageStreamMarketDataSymbol))
-        {
-            GetBrokerageSymbols(leanSymbol);
-            // Synchronization happens within GetBrokerageSymbols if stream symbol is missing
-            return;
-        }
-
-        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BaseInstrument()
+        _brokerageSymbolsByLeanSymbol[symbol] = new BaseInstrument()
         {
             Symbol = brokerageSymbol,
             StreamerSymbol = brokerageStreamMarketDataSymbol
         };
-        _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
+        _leanSymbolByBrokerageSymbol[brokerageSymbol] = symbol;
+
+        return (brokerageSymbol, brokerageStreamMarketDataSymbol);
     }
 
     /// <summary>
