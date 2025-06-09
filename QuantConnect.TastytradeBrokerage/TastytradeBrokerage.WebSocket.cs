@@ -234,7 +234,11 @@ public partial class TastytradeBrokerage
             return;
         }
 
-        Subscribe(subscribedSymbols);
+        // Split into chunks to avoid exceeding WebSocket message size or item count limits.
+        foreach (var subscribedSymbolChunk in subscribedSymbols.Chunk(250))
+        {
+            Subscribe(subscribedSymbolChunk);
+        }
 
         Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(OnReSubscriptionProcess)}: Re-subscription process completed successfully.");
     }
