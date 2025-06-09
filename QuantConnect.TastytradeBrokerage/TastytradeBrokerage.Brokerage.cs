@@ -454,27 +454,12 @@ public partial class TastytradeBrokerage
         switch (orderUpdate.Status)
         {
             case BrokerageOrderStatus.Routed:
-            case BrokerageOrderStatus.Received:
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, LeanOrderStatus.Submitted, out var leanOrder))
-                {
-                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
-                    break;
-                }
-
-                // Check if the market is currently closed for this symbol
-                // Note: This is a workaround for placing orders outside of regular market hours
-                // TODO: Proper extended market hours support should be implemented
-                if (!leanOrder.Symbol.IsMarketOpen(DateTime.UtcNow, false))
-                {
-                    ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
-                }
-                break;
             case BrokerageOrderStatus.Live:
                 ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
                 break;
             case BrokerageOrderStatus.Filled:
                 var leanOrderStatus = LeanOrderStatus.Filled;
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out leanOrder))
+                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrder))
                 {
                     OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
                     break;
