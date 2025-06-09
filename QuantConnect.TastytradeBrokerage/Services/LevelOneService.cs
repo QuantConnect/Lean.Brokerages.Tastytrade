@@ -14,23 +14,30 @@
 */
 
 using System;
+using NodaTime;
+using QuantConnect.Brokerages.Tastytrade.Models;
 
 namespace QuantConnect.Brokerages.Tastytrade.Services;
 
 /// <summary>
 /// Provides level-one market data tracking for the best bid and ask prices.
 /// </summary>
-public sealed class LevelOneService : IOrderBookUpdater<decimal, decimal>
+public sealed class LevelOneService
 {
     /// <summary>
     /// Raised when the best bid or ask price changes.
     /// </summary>
-    public event EventHandler<BestBidAskUpdatedEventArgs> BestBidAskUpdated;
+    public event EventHandler<BestBidAskWithTimeZoneUpdatedEventArgs> BestBidAskUpdated;
 
     /// <summary>
     /// The trading symbol associated with this service.
     /// </summary>
     public Symbol Symbol { get; }
+
+    /// <summary>
+    /// Gets the time zone associated with the trading symbol, used for accurate timestamp conversions.
+    /// </summary>
+    public DateTimeZone SymbolDateTimeZone { get; }
 
     /// <summary>
     /// Gets the best available bid price.
@@ -59,6 +66,7 @@ public sealed class LevelOneService : IOrderBookUpdater<decimal, decimal>
     public LevelOneService(Symbol symbol)
     {
         Symbol = symbol;
+        SymbolDateTimeZone = symbol.GetSymbolExchangeTimeZone();
     }
 
     /// <summary>
@@ -94,7 +102,7 @@ public sealed class LevelOneService : IOrderBookUpdater<decimal, decimal>
             throw new ArgumentException($"{nameof(LevelOneService)}.{nameof(UpdateAskRow)}: Best ask price must be greater than zero.");
         }
 
-        BestBidAskUpdated?.Invoke(this, new BestBidAskUpdatedEventArgs(Symbol, BestBidPrice, BestBidSize, BestAskPrice, BestAskSize));
+        BestBidAskUpdated?.Invoke(this, new BestBidAskWithTimeZoneUpdatedEventArgs(Symbol, BestBidPrice, BestBidSize, BestAskPrice, BestAskSize, SymbolDateTimeZone));
     }
 
     /// <summary>
@@ -112,6 +120,6 @@ public sealed class LevelOneService : IOrderBookUpdater<decimal, decimal>
             throw new ArgumentException($"{nameof(LevelOneService)}.{nameof(UpdateBidRow)}: Best bid price must be greater than zero.");
         }
 
-        BestBidAskUpdated?.Invoke(this, new BestBidAskUpdatedEventArgs(Symbol, BestBidPrice, BestBidSize, BestAskPrice, BestAskSize));
+        BestBidAskUpdated?.Invoke(this, new BestBidAskWithTimeZoneUpdatedEventArgs(Symbol, BestBidPrice, BestBidSize, BestAskPrice, BestAskSize, SymbolDateTimeZone));
     }
 }

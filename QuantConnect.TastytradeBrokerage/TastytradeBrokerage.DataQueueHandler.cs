@@ -23,6 +23,7 @@ using QuantConnect.Interfaces;
 using QuantConnect.Data.Market;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Services;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
@@ -42,15 +43,6 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// Use like synchronization context for threads
     /// </summary>
     private readonly Lock _synchronizationContext = new();
-
-    /// <summary>
-    /// A thread-safe dictionary that maps a <see cref="Symbol"/> to a <see cref="DateTimeZone"/>.
-    /// </summary>
-    /// <remarks>
-    /// This dictionary is used to store the time zone information for each symbol in a concurrent environment,
-    /// ensuring thread safety when accessing or modifying the time zone data.
-    /// </remarks>
-    private readonly ConcurrentDictionary<Symbol, DateTimeZone> _exchangeTimeZoneByLeanSymbol = new();
 
     /// <summary>
     /// A thread-safe dictionary that stores the order books by brokerage symbols.
@@ -127,11 +119,6 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         var brokerageStreamSymbols = new List<string>();
         foreach (var symbol in symbols)
         {
-            if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(symbol, out _))
-            {
-                _exchangeTimeZoneByLeanSymbol[symbol] = symbol.GetSymbolExchangeTimeZone();
-            }
-
             var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
 
             if (!_levelOneServices.TryGetValue(brokerageStreamSymbol, out _))
@@ -157,8 +144,6 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         var brokerageStreamSymbols = new List<string>();
         foreach (var symbol in symbols)
         {
-            _exchangeTimeZoneByLeanSymbol.Remove(symbol, out _);
-
             var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
 
             if (_levelOneServices.TryRemove(brokerageStreamSymbol, out var orderBook))
@@ -181,14 +166,9 @@ public partial class TastytradeBrokerage : IDataQueueHandler
             return;
         }
 
-        if (_levelOneServices.TryGetValue(trade.Symbol, out var orderBook))
+        if (_levelOneServices.TryGetValue(trade.Symbol, out var levelOneService))
         {
-            if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(orderBook.Symbol, out var exchangeTimeZone))
-            {
-                return;
-            }
-
-            var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone), orderBook.Symbol, string.Empty, string.Empty, trade.Size, trade.Price);
+            var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(levelOneService.SymbolDateTimeZone), levelOneService.Symbol, string.Empty, string.Empty, trade.Size, trade.Price);
 
             lock (_synchronizationContext)
             {
@@ -218,12 +198,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     {
         if (_levelOneServices.TryGetValue(summary.Symbol, out var levelOneService))
         {
-            if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(levelOneService.Symbol, out var exchangeTimeZone))
-            {
-                return;
-            }
-
-            var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone), levelOneService.Symbol, summary.OpenInterest);
+            var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(levelOneService.SymbolDateTimeZone), levelOneService.Symbol, summary.OpenInterest);
 
             lock (_synchronizationContext)
             {
@@ -268,18 +243,13 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="bestBidAskUpdatedEvent">The event arguments containing best bid and ask details.</param>
-    private void OnBestBidAskUpdated(object sender, BestBidAskUpdatedEventArgs bestBidAskUpdatedEvent)
+    private void OnBestBidAskUpdated(object sender, BestBidAskWithTimeZoneUpdatedEventArgs bestBidAskUpdatedEvent)
     {
-        if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(bestBidAskUpdatedEvent.Symbol, out var exchangeTimeZone))
-        {
-            return;
-        }
-
         var tick = new Tick
         {
             AskPrice = bestBidAskUpdatedEvent.BestAskPrice,
             BidPrice = bestBidAskUpdatedEvent.BestBidPrice,
-            Time = DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone),
+            Time = DateTime.UtcNow.ConvertFromUtc(bestBidAskUpdatedEvent.SymbolDateTimeZone),
             Symbol = bestBidAskUpdatedEvent.Symbol,
             TickType = TickType.Quote,
             AskSize = bestBidAskUpdatedEvent.BestAskSize,
