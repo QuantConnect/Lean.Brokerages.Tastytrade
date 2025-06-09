@@ -1,41 +1,47 @@
 {
-    "description": "description of brokerage",
-    "platforms-features": [
-        {
-            "Platforms": ["Cloud Platform", "Local Platform", "LEAN CLI"],
-			"Download Data": [0,0,0],
-			"Backtesting": [0,0,0],
-			"Optimization": [0,0,0],
-			"Live Trading":	[0,0,0]
-        }
-    ],
-    "order-types": ["Market", "Limit", "..."],
-	"assets": ["Equity", "Future Options", "..."], 
-	"brokerage-url": "",
-  	"documentation": "link on QuantConnect dock",
-	"module-specification": {
-		"download": {
-			"data-types": [
-				"Trade",
-				"Quote",
-                "OpenInterest"
+	"description": "Tastytrade is a modern brokerage platform offering intuitive trading tools, real-time data, and support for equities, options, and futures.",
+	"platforms-features": [
+		{
+			"Platforms": [
+				"Cloud Platform",
+				"Local Platform",
+				"LEAN CLI"
 			],
-			"resolutions": [
-                "Tick",
-				"Second",
-				"Minute",
-				"Hour",
-				"Daily"
+			"Download Data": [
+				0,
+				0,
+				0
 			],
-			"security-types": [
-				"Equity",
-				"FutureOption",
-                "..."
+			"Backtesting": [
+				0,
+				0,
+				0
 			],
-			"markets": [
-				"USA",
-                "..."
+			"Optimization": [
+				0,
+				0,
+				0
+			],
+			"Live Trading": [
+				1,
+				1,
+				1
 			]
 		}
-	}
+	],
+	"order-types": [
+		"Market",
+		"Limit",
+		"Stop Market",
+		"Stop Limit"
+	],
+	"assets": [
+		"Equity",
+		"Equity Options",
+		"Index Options",
+		"Future",
+		"Future Options"
+	],
+	"brokerage-url": "https://tastytrade.com/",
+	"documentation": "/docs/v2/cloud-platform/live-trading/brokerages/tastytrade"
 }
