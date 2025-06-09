@@ -227,7 +227,7 @@ public class TastytradeJsonConverterTests
     {
         var feedSetupJson = new FeedSetupRequest().ToJson();
 
-        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventSymbol\",\"price\",\"size\",\"time\"]}}", feedSetupJson);
+        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventSymbol\",\"price\",\"size\",\"time\"],\"Summary\":[\"eventSymbol\",\"openInterest\"]}}", feedSetupJson);
     }
 
     [Test]
@@ -238,7 +238,7 @@ public class TastytradeJsonConverterTests
         var feedSubscription = new FeedSubscription(tickers).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedSubscription);
-        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedSubscription);
+        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"},{\"symbol\":\"AAPL\",\"type\":\"Summary\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedSubscription);
     }
 
     [Test]
@@ -249,7 +249,7 @@ public class TastytradeJsonConverterTests
         var feedUnSubscription = new FeedUnSubscription(tickers).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedUnSubscription);
-        Assert.AreEqual("{\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedUnSubscription);
+        Assert.AreEqual("{\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"},{\"symbol\":\"AAPL\",\"type\":\"Summary\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedUnSubscription);
     }
 
     [Test]
