@@ -69,9 +69,7 @@ public partial class TastytradeBrokerage : Brokerage
     /// <summary>
     /// Returns true if we're currently connected to the broker
     /// </summary>
-    public override bool IsConnected =>
-        (AccountUpdatesWebSocket?.IsOpen == true && MarketDataUpdatesWebSocket?.IsOpen == true) // 1. Brokerage + DQH
-        || (AccountUpdatesWebSocket == null && MarketDataUpdatesWebSocket?.IsOpen == true); // 2. DQH
+    public override bool IsConnected => AccountUpdatesWebSocket?.IsOpen == true || MarketDataUpdatesWebSocket?.IsOpen == true;
 
     /// <summary>
     /// Parameterless constructor for brokerage
