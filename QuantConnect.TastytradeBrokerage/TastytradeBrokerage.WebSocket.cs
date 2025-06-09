@@ -17,6 +17,7 @@ using System;
 using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Logging;
+using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
@@ -28,8 +29,15 @@ namespace QuantConnect.Brokerages.Tastytrade;
 
 public partial class TastytradeBrokerage
 {
-    protected BaseWebSocketClientWrapper AccountUpdatesWebSocket { get; private set; }
-    protected BaseWebSocketClientWrapper MarketDataUpdatesWebSocket { get; private set; }
+    /// <summary>
+    /// Stores WebSocket client wrappers indexed by <see cref="WebSocketType"/>.
+    /// Used to manage separate WebSocket connections for account and market data updates.
+    /// </summary>
+    private readonly Dictionary<WebSocketType, BaseWebSocketClientWrapper> _clientWrapperByWebSocketType = new(2)
+    {
+        { WebSocketType.Account, default },
+        { WebSocketType.MarketData, default },
+    };
 
     /// <summary>
     /// Count subscribers for each (symbol, tickType) combination
@@ -48,27 +56,11 @@ public partial class TastytradeBrokerage
 
         Log.Trace($"{nameof(TastytradeBrokerage)}.Connect(): Connecting...");
 
-        ConnectSync();
-    }
-
-    /// <summary>
-    /// Connects all initialized WebSockets synchronously and waits for confirmation.
-    /// Throws a <see cref="TimeoutException"/> if a connection is not established within the timeout period.
-    /// </summary>
-    /// <exception cref="TimeoutException">Thrown when a WebSocket does not connect within the allotted timeout.</exception>
-    private void ConnectSync()
-    {
-        var webSockets = new (string Name, BaseWebSocketClientWrapper Socket)[]
-        {
-            ("AccountUpdatesWebSocket", AccountUpdatesWebSocket),
-            ("MarketDataWebSocket", MarketDataUpdatesWebSocket)
-        };
-
-        foreach (var (webSocketName, webSocket) in webSockets)
+        foreach (var (webSocketName, webSocket) in _clientWrapperByWebSocketType)
         {
             if (webSocket == null)
             {
-                Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(ConnectSync)}.{webSocketName}: Skipping null WebSocket instance.");
+                Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(Connect)}.{webSocketName}: Skipping null WebSocket instance.");
                 continue;
             }
 
@@ -76,7 +68,7 @@ public partial class TastytradeBrokerage
 
             if (!webSocket.AuthenticatedResetEvent.WaitOne(ConnectionTimeout))
             {
-                throw new TimeoutException($"{nameof(TastytradeBrokerage)}.{nameof(ConnectSync)}.{webSocketName}: failed to connect within {ConnectionTimeout}ms.");
+                throw new TimeoutException($"{nameof(TastytradeBrokerage)}.{nameof(Connect)}.{webSocketName}: failed to connect within {ConnectionTimeout}ms.");
             }
         }
     }
@@ -88,14 +80,12 @@ public partial class TastytradeBrokerage
     {
         Log.Trace($"{nameof(TastytradeBrokerage)}.Disconnect(): Disconnecting...");
 
-        if (AccountUpdatesWebSocket?.IsOpen == true)
+        foreach (var (_, webSocket) in _clientWrapperByWebSocketType)
         {
-            AccountUpdatesWebSocket.Close();
-        }
-
-        if (MarketDataUpdatesWebSocket?.IsOpen == true)
-        {
-            MarketDataUpdatesWebSocket.Close();
+            if (webSocket?.IsOpen == true)
+            {
+                webSocket.Close();
+            }
         }
     }
 
@@ -140,7 +130,7 @@ public partial class TastytradeBrokerage
                     var authorizationResponse = textMessage.Message.DeserializeCamelCase<AuthorizationResponse>();
                     if (authorizationResponse.State == AuthorizationState.Authorized)
                     {
-                        MarketDataUpdatesWebSocket.AuthenticatedResetEvent.Set();
+                        _clientWrapperByWebSocketType[WebSocketType.MarketData].AuthenticatedResetEvent.Set();
                     }
                     break;
                 case EventType.Setup:
@@ -190,7 +180,7 @@ public partial class TastytradeBrokerage
 
                             if (connectResponse.Status == Status.Ok)
                             {
-                                AccountUpdatesWebSocket.AuthenticatedResetEvent.Set();
+                                _clientWrapperByWebSocketType[WebSocketType.Account].AuthenticatedResetEvent.Set();
                             }
                             else
                             {

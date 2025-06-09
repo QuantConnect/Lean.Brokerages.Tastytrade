@@ -33,6 +33,7 @@ using System.Security.Cryptography;
 using System.Net.NetworkInformation;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 
 namespace QuantConnect.Brokerages.Tastytrade;
@@ -81,7 +82,9 @@ public partial class TastytradeBrokerage : Brokerage
     /// <summary>
     /// Returns true if we're currently connected to the broker
     /// </summary>
-    public override bool IsConnected => AccountUpdatesWebSocket?.IsOpen == true || MarketDataUpdatesWebSocket?.IsOpen == true;
+    public override bool IsConnected =>
+        _clientWrapperByWebSocketType[WebSocketType.Account]?.IsOpen == true
+        || _clientWrapperByWebSocketType[WebSocketType.MarketData]?.IsOpen == true;
 
     /// <summary>
     /// Parameterless constructor for brokerage
@@ -129,8 +132,8 @@ public partial class TastytradeBrokerage : Brokerage
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
 
-        AccountUpdatesWebSocket = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
-        MarketDataUpdatesWebSocket = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler);
+        _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
+        _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler);
 
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
     }

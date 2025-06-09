@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Services;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade;
@@ -130,7 +131,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
             brokerageStreamSymbols.Add(brokerageStreamSymbol);
         }
 
-        MarketDataUpdatesWebSocket.Send(new FeedSubscription(brokerageStreamSymbols).ToJson());
+        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedSubscription(brokerageStreamSymbols).ToJson());
 
         return true;
     }
@@ -154,7 +155,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
             brokerageStreamSymbols.Add(brokerageStreamSymbol);
         }
 
-        MarketDataUpdatesWebSocket.Send(new FeedUnSubscription(brokerageStreamSymbols).ToJson());
+        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedUnSubscription(brokerageStreamSymbols).ToJson());
 
         return true;
     }
