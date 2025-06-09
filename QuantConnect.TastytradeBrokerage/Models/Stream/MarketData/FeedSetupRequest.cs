@@ -75,4 +75,10 @@ public readonly struct AcceptEventFields
     /// </summary>
     [JsonProperty(nameof(Trade))]
     public string[] Trade => ["eventSymbol", "price", "size", "time"];
+
+    /// <summary>
+    /// Gets the list of fields to receive for Summary events.
+    /// </summary>
+    [JsonProperty(nameof(Summary))]
+    public string[] Summary => ["eventSymbol", "openInterest"];
 }

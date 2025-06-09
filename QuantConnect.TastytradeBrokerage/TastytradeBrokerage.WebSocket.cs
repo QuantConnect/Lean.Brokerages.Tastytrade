@@ -128,6 +128,12 @@ public partial class TastytradeBrokerage
                                 OnQuoteReceived(quote);
                             }
                             break;
+                        case MarketDataEvent.Summary:
+                            foreach (var summary in feedData.Data.Content.Cast<SummaryContent>())
+                            {
+                                OnSummaryReceived(summary);
+                            }
+                            break;
                     }
                     break;
                 case EventType.AuthorizationState:

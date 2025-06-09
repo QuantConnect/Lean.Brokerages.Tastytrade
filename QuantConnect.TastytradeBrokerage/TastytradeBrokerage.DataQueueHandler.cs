@@ -214,6 +214,28 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         }
     }
 
+    private void OnSummaryReceived(SummaryContent summary)
+    {
+        if (_levelOneServices.TryGetValue(summary.Symbol, out var levelOneService))
+        {
+            if (!_exchangeTimeZoneByLeanSymbol.TryGetValue(levelOneService.Symbol, out var exchangeTimeZone))
+            {
+                return;
+            }
+
+            var tick = new Tick(DateTime.UtcNow.ConvertFromUtc(exchangeTimeZone), levelOneService.Symbol, summary.OpenInterest);
+
+            lock (_synchronizationContext)
+            {
+                _aggregator.Update(tick);
+            }
+        }
+        else
+        {
+            Log.Error($"{nameof(TastytradeBrokerage)}.{nameof(OnSummaryReceived)}: Symbol {summary.Symbol} not found in order books. This could indicate an unexpected symbol or a missing initialization step.");
+        }
+    }
+
     /// <summary>
     /// Updates a level one row with the given price and size, considering best available values if needed.
     /// </summary>

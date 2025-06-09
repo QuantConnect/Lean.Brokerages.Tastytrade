@@ -13,7 +13,6 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
@@ -22,7 +21,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
 public abstract class BaseFeedSubscription
 {
-    private static readonly MarketDataEvent[] _defaultSubscriptionTypes = [MarketDataEvent.Trade, MarketDataEvent.Quote];
+    private static readonly MarketDataEvent[] _defaultSubscriptionTypes = [MarketDataEvent.Trade, MarketDataEvent.Quote, MarketDataEvent.Summary];
 
     /// <summary>
     /// Gets the event type associated with the subscription.

@@ -162,3 +162,25 @@ public sealed class QuoteContent : BaseContent
         AskSize = askSize;
     }
 }
+
+/// <summary>
+/// Represents summary market data content, including open interest for a specific symbol.
+/// </summary>
+public sealed class SummaryContent : BaseContent
+{
+    /// <summary>
+    /// Gets the open interest value for the symbol.
+    /// </summary>
+    public decimal OpenInterest { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SummaryContent"/> class.
+    /// </summary>
+    /// <param name="symbol">The symbol associated with the summary data.</param>
+    /// <param name="openInterest">The open interest value.</param>
+    public SummaryContent(string symbol, decimal openInterest)
+        : base(symbol)
+    {
+        OpenInterest = openInterest;
+    }
+}

@@ -32,5 +32,10 @@ public enum MarketDataEvent
     /// <summary>
     /// A trade event, representing an executed trade with price, size, and timestamp.
     /// </summary>
-    Trade = 2
+    Trade = 2,
+
+    /// <summary>
+    /// A summary event, containing open interest data.
+    /// </summary>
+    Summary = 3
 }

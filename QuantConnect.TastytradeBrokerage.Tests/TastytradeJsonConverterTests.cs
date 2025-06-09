@@ -351,6 +351,25 @@ public class TastytradeJsonConverterTests
         }
     }
 
+    [TestCase("[\".AAPL250620C200\",34905]")]
+    [TestCase("[\"SPY\",0]")]
+    [TestCase("[\"/ESM25:XCME\",2017117]")]
+    [TestCase("[\"AAPL\",0]")]
+    public void DeserializeFeedDataSummaryStreamResponse(string summaryArrayData)
+    {
+        var feedDataResponseJson = $@"{{""type"":""FEED_DATA"",""channel"":1,""data"":[""Summary"",{summaryArrayData}]}}";
+
+        var feedData = feedDataResponseJson.DeserializeCamelCase<FeedData>();
+
+        Assert.IsNotNull(feedData);
+        Assert.AreEqual(1, feedData.Data.Content.Count);
+        foreach (var summary in feedData.Data.Content.Cast<SummaryContent>())
+        {
+            AssertIsNotNullAndIsNotEmpty(summary.Symbol);
+            Assert.GreaterOrEqual(summary.OpenInterest, 0);
+        }
+    }
+
     [Test]
     public void DeserializeFutureResponse()
     {

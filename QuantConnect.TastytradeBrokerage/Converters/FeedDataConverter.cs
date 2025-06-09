@@ -37,6 +37,12 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
     private const int QuoteFieldCount = 5;
 
     /// <summary>
+    /// Number of fields expected for each summary entry in the market data array.
+    /// Format: [symbol, openInterest]
+    /// </summary>
+    private const int SummaryFieldCount = 2;
+
+    /// <summary>
     /// Gets a value indicating whether this <see cref="JsonConverter"/> can write JSON.
     /// </summary>
     /// <value><c>true</c> if this <see cref="JsonConverter"/> can write JSON; otherwise, <c>false</c>.</value>
@@ -64,6 +70,7 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
         {
             "Trade" => MarketDataEvent.Trade,
             "Quote" => MarketDataEvent.Quote,
+            "Summary" => MarketDataEvent.Summary,
             _ => throw new NotSupportedException($"{nameof(FeedDataConverter)}.{nameof(ReadJson)}.")
         };
 
@@ -73,9 +80,33 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
                 return new StreamDataResponse(eventType, ConvertArrayToTradeContent(jToken[1] as JArray));
             case MarketDataEvent.Quote:
                 return new StreamDataResponse(eventType, ConvertArrayToQuoteContent(jToken[1] as JArray));
+            case MarketDataEvent.Summary:
+                return new StreamDataResponse(eventType, ConvertArrayToSummaryContent(jToken[1] as JArray));
             default:
                 throw new NotImplementedException($"{nameof(FeedDataConverter)}.{nameof(ReadJson)}.");
         }
+    }
+
+    /// <summary>
+    /// Parses a JSON array representing market summaries and converts it into an array of <see cref="SummaryContent"/> instances.
+    /// </summary>
+    /// <param name="jArray">
+    /// A <see cref="JArray"/> where each summary entry consists of a fixed set of fields:
+    /// [symbol, openInterest].
+    /// </param>
+    /// <returns>
+    /// An array of <see cref="SummaryContent"/> objects populated from the provided JSON array.
+    /// </returns>
+    private static SummaryContent[] ConvertArrayToSummaryContent(JArray jArray)
+    {
+        var summaries = new SummaryContent[jArray.Count / SummaryFieldCount];
+        for (int i = 0, j = 0; i < summaries.Length; i++, j += SummaryFieldCount)
+        {
+            summaries[i] = new SummaryContent(
+                symbol: jArray[j].ToString(),
+                openInterest: decimal.TryParse(jArray[j + 1].ToString(), out var price) ? price : 0m);
+        }
+        return summaries;
     }
 
     /// <summary>
