@@ -186,8 +186,17 @@ public sealed class HttpTokenHandler : DelegatingHandler
         if (!responseMessage.IsSuccessStatusCode)
         {
             var jsonContent = responseMessage.ReadContentAsString(cancellationToken);
-            var error = jsonContent.DeserializeKebabCase<ErrorResponse>().Error;
-            throw new HttpRequestException(error.ToString(), null, responseMessage.StatusCode);
+            var error = default(string);
+            try
+            {
+                error = jsonContent.DeserializeKebabCase<ErrorResponse>().Error.ToString();
+            }
+            catch
+            {
+                error = jsonContent;
+            }
+
+            throw new HttpRequestException(error, null, responseMessage.StatusCode);
         }
 
         return responseMessage;
