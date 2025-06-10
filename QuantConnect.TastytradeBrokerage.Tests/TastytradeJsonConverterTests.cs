@@ -233,31 +233,40 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeFeedSubscriptionMessage()
     {
-        var tickers = new List<string>() { "AAPL" };
+        var symbolMapper = new TastytradeBrokerageSymbolMapper(default);
 
-        var feedSubscription = new FeedSubscription(tickers).ToJson();
+        var symbol = Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
+
+        var feedSubscription = new FeedSubscription([symbol], symbolMapper).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedSubscription);
-        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"},{\"symbol\":\"AAPL\",\"type\":\"Summary\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedSubscription);
+        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedSubscription);
     }
 
     [Test]
     public void SerializeFeedUnSubscriptionMessage()
     {
-        var tickers = new List<string>() { "AAPL" };
+        var symbolMapper = new TastytradeBrokerageSymbolMapper(default);
 
-        var feedUnSubscription = new FeedUnSubscription(tickers).ToJson();
+        var symbol = Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
+
+        var feedUnSubscription = new FeedUnSubscription([symbol], symbolMapper).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedUnSubscription);
-        Assert.AreEqual("{\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"},{\"symbol\":\"AAPL\",\"type\":\"Summary\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedUnSubscription);
+        Assert.AreEqual("{\"remove\":[{\"symbol\":\"AAPL\",\"type\":\"Trade\"},{\"symbol\":\"AAPL\",\"type\":\"Quote\"}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", feedUnSubscription);
     }
 
     [Test]
     public void SerializeFeedSubscriptionMessageWithFiveTickers()
     {
-        var tickers = new List<string>() { "AAPL", "INTL", "META", "TSLA", "GOOGL" };
+        var symbolMapper = new TastytradeBrokerageSymbolMapper(default);
+        var symbols = new List<Symbol>();
+        foreach (var ticker in new string[] { "AAPL", "INTL", "META", "TSLA", "GOOGL" })
+        {
+            symbols.Add(Symbol.Create(ticker, SecurityType.Equity, Market.USA));
+        }
 
-        var feedSubscription = new FeedSubscription(tickers).ToJson();
+        var feedSubscription = new FeedSubscription(symbols, symbolMapper).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(feedSubscription);
     }

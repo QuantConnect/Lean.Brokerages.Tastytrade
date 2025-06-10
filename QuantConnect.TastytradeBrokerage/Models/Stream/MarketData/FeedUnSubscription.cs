@@ -32,12 +32,13 @@ public sealed class FeedUnSubscription : BaseFeedSubscription
     public override IReadOnlyList<SymbolType> SymbolTypes { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FeedUnSubscription"/> class.
+    /// Initializes a new instance of the <see cref="FeedUnSubscription"/> class with the specified symbols.
     /// </summary>
-    /// <param name="tickers">The ticker symbols to unsubscribe from.</param>
-    public FeedUnSubscription(IEnumerable<string> tickers)
+    /// <param name="symbols">The symbols to unsubscribe from.</param>
+    /// <param name="symbolMapper">The brokerage symbol mapper used to resolve brokerage-specific symbol representations.</param>
+    public FeedUnSubscription(IEnumerable<Symbol> symbols, TastytradeBrokerageSymbolMapper symbolMapper)
     {
-        SymbolTypes = CreateSymbolTypes(tickers);
+        SymbolTypes = CreateSymbolTypes(symbols, symbolMapper);
     }
 
     /// <summary>

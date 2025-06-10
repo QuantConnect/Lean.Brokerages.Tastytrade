@@ -117,7 +117,6 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
     private bool Subscribe(IEnumerable<Symbol> symbols)
     {
-        var brokerageStreamSymbols = new List<string>();
         foreach (var symbol in symbols)
         {
             var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
@@ -127,11 +126,9 @@ public partial class TastytradeBrokerage : IDataQueueHandler
                 _levelOneServices[brokerageStreamSymbol] = new(symbol);
                 _levelOneServices[brokerageStreamSymbol].BestBidAskUpdated += OnBestBidAskUpdated;
             }
-
-            brokerageStreamSymbols.Add(brokerageStreamSymbol);
         }
 
-        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedSubscription(brokerageStreamSymbols).ToJson());
+        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedSubscription(symbols, _symbolMapper).ToJson());
 
         return true;
     }
@@ -142,7 +139,6 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
     private bool Unsubscribe(IEnumerable<Symbol> symbols)
     {
-        var brokerageStreamSymbols = new List<string>();
         foreach (var symbol in symbols)
         {
             var brokerageStreamSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
@@ -151,11 +147,9 @@ public partial class TastytradeBrokerage : IDataQueueHandler
             {
                 orderBook.BestBidAskUpdated -= OnBestBidAskUpdated;
             }
-
-            brokerageStreamSymbols.Add(brokerageStreamSymbol);
         }
 
-        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedUnSubscription(brokerageStreamSymbols).ToJson());
+        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedUnSubscription(symbols, _symbolMapper).ToJson());
 
         return true;
     }
