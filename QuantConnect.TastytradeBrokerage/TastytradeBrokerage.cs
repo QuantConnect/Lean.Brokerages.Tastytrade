@@ -84,7 +84,7 @@ public partial class TastytradeBrokerage : Brokerage
     /// </summary>
     public override bool IsConnected =>
         _clientWrapperByWebSocketType[WebSocketType.Account]?.IsOpen == true
-        || _clientWrapperByWebSocketType[WebSocketType.MarketData]?.IsOpen == true;
+        && _clientWrapperByWebSocketType[WebSocketType.MarketData]?.IsOpen == true;
 
     /// <summary>
     /// Parameterless constructor for brokerage
