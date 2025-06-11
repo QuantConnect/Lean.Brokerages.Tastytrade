@@ -14,7 +14,6 @@
 */
 
 using System;
-using System.Text;
 using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
@@ -63,36 +62,22 @@ public partial class TastytradeBrokerage : IDataQueueUniverseProvider
     /// <returns>An enumerable of Lean <see cref="Symbol"/> instances representing the option contracts.</returns>
     private IEnumerable<Symbol> GetOptionChains(string underlyingTicker, SecurityType securityType, bool isOptionIndex)
     {
-        var optionChains = _tastytradeApiClient.GetOptionChains(underlyingTicker);
-        foreach (var optionChain in optionChains)
+        foreach (var optionChain in _tastytradeApiClient.GetOptionChains(underlyingTicker))
         {
-            yield return _symbolMapper.GetLeanSymbol(optionChain.Symbol, securityType, underlyingTicker, optionChain.StreamerSymbol, isOptionIndex);
+            yield return _symbolMapper.GetLeanSymbol(optionChain.Symbol, securityType, underlyingTicker, isOptionIndex);
         }
     }
 
     /// <summary>
     /// Retrieves the mapped Lean symbols for future option contracts associated with a given underlying symbol.
-    /// Skips contracts that are missing a streamer symbol, as they cannot be used for real-time updates.
     /// </summary>
     /// <param name="underlyingSymbol">The underlying future symbol (e.g., "ES").</param>
     /// <returns>An enumerable of Lean <see cref="Symbol"/> instances for valid future option contracts.</returns>
     private IEnumerable<Symbol> GetFutureOptionChains(string underlyingSymbol)
     {
-        var futureOptionChains = _tastytradeApiClient.GetFutureOptionChains(underlyingSymbol);
-        var skippedSymbols = new StringBuilder();
-        foreach (var optionContract in futureOptionChains)
+        foreach (var optionContract in _tastytradeApiClient.GetFutureOptionChains(underlyingSymbol))
         {
-            if (string.IsNullOrEmpty(optionContract.StreamerSymbol))
-            {
-                skippedSymbols.Append($"{optionContract.Symbol}, ");
-                continue;
-            }
-            yield return _symbolMapper.GetLeanSymbol(optionContract.Symbol, SecurityType.FutureOption, underlyingSymbol, optionContract.StreamerSymbol);
-        }
-
-        if (skippedSymbols.Length > 0)
-        {
-            Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(GetFutureOptionChains)}: Skipped the following option contracts for '{underlyingSymbol}' due to missing StreamerSymbol (real-time data not available):\n{skippedSymbols}");
+            yield return _symbolMapper.GetLeanSymbol(optionContract.Symbol, SecurityType.FutureOption, underlyingSymbol);
         }
     }
 

@@ -59,12 +59,11 @@ public class TastytradeBrokerageSymbolMapper
     /// <param name="brokerageSymbol">The full brokerage symbol representing the security.</param>
     /// <param name="securityType">The <see cref="SecurityType"/> of the instrument (e.g., Equity, Option, Future, FutureOption).</param>
     /// <param name="underlyingBrokerageSymbol">The brokerage symbol of the underlying instrument, used for options and future options.</param>
-    /// <param name="brokerageStreamMarketDataSymbol">An optional symbol used for real-time market data streaming.</param>
     /// <param name="isOptionIndex">Optional flag indicating if the option is on an index (true) or equity (false). If null, this is resolved dynamically.</param>
     /// <returns>A new <see cref="Symbol"/> instance representing the Lean symbol.</returns>
     /// <exception cref="ArgumentException">Thrown when option symbol decomposition fails.</exception>
     /// <exception cref="NotImplementedException">Thrown when the given security type is not supported.</exception>
-    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol, string brokerageStreamMarketDataSymbol = default, bool? isOptionIndex = null)
+    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol, bool? isOptionIndex = null)
     {
         if (_leanSymbolByBrokerageSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
         {
@@ -106,11 +105,6 @@ public class TastytradeBrokerageSymbolMapper
                     $"The security type '{securityType}' with brokerage symbol '{brokerageSymbol}' is not supported.");
         }
 
-        _brokerageSymbolsByLeanSymbol[leanSymbol] = new BaseInstrument()
-        {
-            Symbol = brokerageSymbol,
-            StreamerSymbol = brokerageStreamMarketDataSymbol ?? GetBrokerageSymbols(leanSymbol).brokerageStreamMarketDataSymbol
-        };
         _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
 
         return leanSymbol;
