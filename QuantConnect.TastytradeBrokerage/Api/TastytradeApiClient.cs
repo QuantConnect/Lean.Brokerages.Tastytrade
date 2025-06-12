@@ -221,22 +221,9 @@ public sealed class TastytradeApiClient
             {
                 var responseMessage = _httpClient.Send(requestMessage);
 
+                responseMessage.EnsureSuccessStatusCode(requestMessage, jsonBody);
+
                 var response = responseMessage.ReadContentAsString();
-
-                if (!responseMessage.IsSuccessStatusCode)
-                {
-                    var error = default(string);
-                    try
-                    {
-                        error = response.DeserializeKebabCase<ErrorResponse>().Error.ToString();
-                    }
-                    catch
-                    {
-                        error = response;
-                    }
-
-                    throw new HttpRequestException(error + $",RequestUri: [{requestMessage.Method.Method}] {requestMessage.RequestUri}, Body: {jsonBody}", null, responseMessage.StatusCode);
-                }
 
                 if (Log.DebuggingEnabled)
                 {

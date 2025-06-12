@@ -21,6 +21,7 @@ using QuantConnect.Orders;
 using System.Globalization;
 using QuantConnect.Securities;
 using QuantConnect.Orders.TimeInForces;
+using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
 using BrokerageTimeInForce = QuantConnect.Brokerages.Tastytrade.Models.Enum.TimeInForce;
@@ -243,5 +244,37 @@ public static class Extensions
         }
 
         return response.Content.ReadAsStringAsync(cancellationToken).SynchronouslyAwaitTaskResult();
+    }
+
+    /// <summary>
+    /// Ensures that the HTTP response has a successful status code. 
+    /// If not, it attempts to extract and parse the error message from the response content.
+    /// </summary>
+    /// <param name="responseMessage">The <see cref="HttpResponseMessage"/> received from the HTTP request.</param>
+    /// <param name="requestMessage">The original <see cref="HttpRequestMessage"/> that was sent.</param>
+    /// <param name="jsonBody">The serialized JSON body sent with the request.</param>
+    /// <exception cref="HttpRequestException">
+    /// Thrown when the response does not indicate success. 
+    /// The exception message includes parsed error details (if available), request URI, HTTP method, and body.
+    /// </exception>
+    public static void EnsureSuccessStatusCode(this HttpResponseMessage responseMessage, HttpRequestMessage requestMessage, string jsonBody)
+    {
+        if (!responseMessage.IsSuccessStatusCode)
+        {
+            var response = responseMessage.ReadContentAsString();
+            var error = default(string);
+            try
+            {
+                error = response.DeserializeKebabCase<ErrorResponse>().Error.ToString();
+            }
+            catch
+            {
+                error = response;
+            }
+
+            var message = $"{error}, RequestUri: [{requestMessage.Method.Method}] {requestMessage.RequestUri}, Body: {jsonBody}";
+
+            throw new HttpRequestException(message, null, responseMessage.StatusCode);
+        }
     }
 }
