@@ -16,7 +16,6 @@
 using System;
 using NUnit.Framework;
 using QuantConnect.Util;
-using System.Threading.Tasks;
 using QuantConnect.Interfaces;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -112,6 +111,16 @@ public class TastytradeBrokerageAdditionalTests
     public void GetOptionChains(string ticker)
     {
         var res = _tastytradeApiClient.GetOptionChains(ticker);
+
+        Assert.IsNotNull(res);
+    }
+
+    [TestCase(Securities.Futures.Indices.SP500EMini)]
+    [TestCase(Securities.Futures.Metals.Gold)]
+    [TestCase(Securities.Futures.Financials.Y30TreasuryBond)]
+    public void GetFutureOptionChains(string ticker)
+    {
+        var res = _tastytradeApiClient.GetFutureOptionChains(ticker);
 
         Assert.IsNotNull(res);
     }

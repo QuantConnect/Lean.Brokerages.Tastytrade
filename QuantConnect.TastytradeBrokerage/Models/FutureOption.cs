@@ -14,7 +14,6 @@
 */
 
 using System;
-using Newtonsoft.Json;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models;
@@ -40,6 +39,11 @@ public sealed class FutureOption : BaseInstrument
     public decimal StrikePrice { get; set; }
 
     /// <summary>
+    /// Gets the root symbol identifying the option contract family.
+    /// </summary>
+    public string OptionRootSymbol { get; set; }
+
+    /// <summary>
     /// Determines whether this option matches the specified expiration date, strike price, and option type.
     /// </summary>
     /// <param name="expirationDate">The expiration date to match.</param>
@@ -62,6 +66,6 @@ public sealed class FutureOption : BaseInstrument
     /// </returns>
     public override string ToString()
     {
-        return $"{Symbol} | {OptionType} | Exp: {ExpirationDate:yyyy-MM-dd} | Strike: {StrikePrice} | Streamer: {StreamerSymbol}";
+        return $"{Symbol} | OptionRoot: {OptionRootSymbol} | {OptionType} | Exp: {ExpirationDate:yyyy-MM-dd} | Strike: {StrikePrice} | Streamer: {StreamerSymbol}";
     }
 }

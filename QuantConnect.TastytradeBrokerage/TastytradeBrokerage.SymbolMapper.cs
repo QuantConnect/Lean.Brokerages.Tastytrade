@@ -16,11 +16,12 @@
 using System;
 using System.Linq;
 using System.Globalization;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using QuantConnect.Securities.FutureOption;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models;
-using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -45,6 +46,106 @@ public class TastytradeBrokerageSymbolMapper
     private static readonly ConcurrentDictionary<string, Symbol> _leanSymbolByBrokerageSymbol = [];
 
     /// <summary>
+    /// Maps the underlying future product code (e.g., "6B") to its corresponding
+    /// streamer exchange code (e.g., "XCME") used for routing market data subscriptions.
+    /// </summary>
+    /// <remarks>
+    /// This dictionary is populated using data retrieved from the <c>/instruments/future-products</c> endpoint.
+    /// It is used to generate streaming future symbols from Lean <see cref="Symbol"/> objects.
+    /// 
+    /// For example, given a future symbol like:
+    /// <code>
+    /// var gbp = Symbol.CreateFuture(Futures.Currencies.GBP, Market.CME, new DateTime(2025, 12, 15));
+    /// </code>
+    /// You can extract the underlying code ("6B") and map it to the streamer exchange code ("XCME").
+    /// </remarks>
+    private readonly Dictionary<string, string> _futuresSymbolToStreamExchange = new()
+    {
+        { "GE", "XCME" },
+        { "MNG", "XNYM" },
+        { "MHG", "XCEC" },
+        { "FBT", "CXERX" },
+        { "FET", "CXERX" },
+        { "6A", "XCME" },
+        { "6E", "XCME" },
+        { "M6E", "XCME" },
+        { "6J", "XCME" },
+        { "BTC", "XCME" },
+        { "MBT", "XCME" },
+        { "ETH", "XCME" },
+        { "MET", "XCME" },
+        { "CL", "XNYM" },
+        { "QM", "XNYM" },
+        { "MCL", "XNYM" },
+        { "GC", "XCEC" },
+        { "MGC", "XCEC" },
+        { "NG", "XNYM" },
+        { "XW", "XCBT" },
+        { "MNQ", "XCME" },
+        { "RTY", "XCME" },
+        { "M2K", "XCME" },
+        { "YM", "XCBT" },
+        { "MYM", "XCBT" },
+        { "UB", "XCBT" },
+        { "ZB", "XCBT" },
+        { "ZF", "XCBT" },
+        { "ZN", "XCBT" },
+        { "ZT", "XCBT" },
+        { "QG", "XNYM" },
+        { "SI", "XCEC" },
+        { "SIL", "XCEC" },
+        { "HG", "XCEC" },
+        { "30Y", "XCBT" },
+        { "ZC", "XCBT" },
+        { "XC", "XCBT" },
+        { "5YY", "XCBT" },
+        { "10Y", "XCBT" },
+        { "ZS", "XCBT" },
+        { "XK", "XCBT" },
+        { "2YY", "XCBT" },
+        { "ZW", "XCBT" },
+        { "VX", "XCBF" },
+        { "VXM", "XCBF" },
+        { "ECNG", "XNYM" },
+        { "ECSI", "XCEC" },
+        { "ECHG", "XCEC" },
+        { "ECYM", "XCBT" },
+        { "ECCL", "XNYM" },
+        { "6M", "XCME" },
+        { "SPRE", "SMFE" },
+        { "S2Y", "SMFE" },
+        { "S10Y", "SMFE" },
+        { "S30Y", "SMFE" },
+        { "SFX", "SMFE" },
+        { "SMES", "SMFE" },
+        { "STIX", "SMFE" },
+        { "S420", "SMFE" },
+        { "SCCX", "SMFE" },
+        { "SETH", "SMFE" },
+        { "SR3", "XCME" },
+        { "ES", "XCME" },
+        { "NQ", "XCME" },
+        { "ECGC", "XCEC" },
+        { "ECRTY", "XCME" },
+        { "ECES", "XCME" },
+        { "HE", "XCME" },
+        { "LE", "XCME" },
+        { "TN", "XCBT" },
+        { "RB", "XNYM" },
+        { "HO", "XNYM" },
+        { "M6A", "XCME" },
+        { "6B", "XCME" },
+        { "M6B", "XCME" },
+        { "6C", "XCME" },
+        { "MCD", "XCME" },
+        { "EC6E", "XCME" },
+        { "ECNQ", "XCME" },
+        { "SM75", "SMFE" },
+        { "SMO", "SMFE" },
+        { "S5C", "SMFE" }
+    };
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeBrokerageSymbolMapper"/> class.
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used to query future instruments.</param>
@@ -63,7 +164,7 @@ public class TastytradeBrokerageSymbolMapper
     /// <returns>A new <see cref="Symbol"/> instance representing the Lean symbol.</returns>
     /// <exception cref="ArgumentException">Thrown when option symbol decomposition fails.</exception>
     /// <exception cref="NotImplementedException">Thrown when the given security type is not supported.</exception>
-    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol, bool? isOptionIndex = null)
+    public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol = default, bool? isOptionIndex = null)
     {
         if (_leanSymbolByBrokerageSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
         {
@@ -182,42 +283,70 @@ public class TastytradeBrokerageSymbolMapper
     }
 
     /// <summary>
-    /// Asynchronously generates the brokerage and streaming symbols for a future.
+    /// Generates the brokerage symbol and the streaming market data symbol for a given Lean future <see cref="Symbol"/>.
     /// </summary>
-    /// <param name="symbol">The Lean future symbol.</param>
-    /// <returns>A tuple with the brokerage symbol and the streaming market data symbol.</returns>
+    /// <param name="symbol">The Lean future symbol (e.g., created via <c>Symbol.CreateFuture</c>).</param>
+    /// <returns>
+    /// A tuple containing:
+    /// <list type="bullet">
+    ///   <item><description>The brokerage symbol (e.g., <c>/6BU4</c>).</description></item>
+    ///   <item><description>The streaming market data symbol (e.g., <c>/6BU24:XCME</c>).</description></item>
+    /// </list>
+    /// </returns>
+    /// <remarks>
+    /// This method constructs symbols by using the underlying code (e.g., "6B") and appending the appropriate
+    /// futures month code and year suffix. The exchange code is looked up from <c>futuresSymbolToStreamExchange</c>.
+    /// </remarks>
     private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureBrokerageSymbols(Symbol symbol)
     {
-        var futureTicker = $"{symbol.ID.Symbol}{SymbolRepresentation.FuturesMonthLookup[symbol.ID.Date.Month]}{symbol.ID.Date.ToString("yy").Last()}";
+        var underlyingCode = symbol.ID.Symbol;
+        var expiry = symbol.ID.Date;
+        var yearSuffix = expiry.ToString("yy");
+        var baseSymbol = $"/{underlyingCode}{SymbolRepresentation.FuturesMonthLookup[expiry.Month]}";
 
-        var future = _tastytradeApiClient.GetInstrumentFuture(futureTicker);
-
-        return (future.Symbol, future.StreamerSymbol);
+        return (baseSymbol + yearSuffix.Last(), $"{baseSymbol}{yearSuffix}:{_futuresSymbolToStreamExchange[underlyingCode]}");
     }
 
     /// <summary>
-    /// Generates the brokerage symbols for a given QuantConnect <see cref="Symbol"/> representing a future option.
+    /// Generates the brokerage symbols for a given <see cref="Symbol"/> representing a future option in QuantConnect.
     /// </summary>
     /// <param name="symbol">
-    /// The QuantConnect <see cref="Symbol"/> representing the future option for which to generate brokerage symbols.
+    /// The <see cref="Symbol"/> representing the future option for which to generate the brokerage symbols.
     /// </param>
     /// <returns>
     /// A tuple containing:
     /// <list type="bullet">
-    /// <item><description><c>brokerageSymbol</c>: The brokerage's standard symbol representation.</description></item>
-    /// <item><description><c>brokerageStreamMarketDataSymbol</c>: The symbol used by the brokerage for market data streaming.</description></item>
+    ///   <item>
+    ///     <description>
+    ///     <c>brokerageSymbol</c>: The symbol used by the brokerage for order placement (e.g., "./GCG6 OGF6  251223P2075").
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///     <c>brokerageStreamMarketDataSymbol</c>: The symbol used to subscribe to streaming market data 
+    ///     from the brokerage (e.g., "./OGF26P2075:XCEC").
+    ///     </description>
+    ///   </item>
     /// </list>
     /// </returns>
     /// <exception cref="InvalidOperationException">
-    /// Thrown if no matching future option is found for the given symbol parameters.
+    /// Thrown if a required mapping (e.g., futures exchange symbol) cannot be found for the given symbol.
     /// </exception>
     private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureOptionBrokerageSymbols(Symbol symbol)
     {
-        var optionType = symbol.ID.OptionRight == OptionRight.Put ? OptionType.Put : OptionType.Call;
+        var futureOptionExpiryDate = symbol.ID.Date;
 
-        var futureOption = _tastytradeApiClient.FindFutureOptionAsync(symbol.ID.Underlying.Symbol, symbol.ID.Date, symbol.ID.StrikePrice, optionType);
+        var monthCode = SymbolRepresentation.FuturesMonthLookup[FuturesOptionsUnderlyingMapper.GetFutureContractMonthNoRulesApplied(symbol.Underlying.Canonical, futureOptionExpiryDate).Date.Month];
 
-        return (futureOption.Symbol, futureOption.StreamerSymbol);
+        var optionRoot = $"{symbol.ID.Symbol}{monthCode}";
+
+        var optionRight = symbol.ID.OptionRight.ToString()[0];
+        var yearSuffix = futureOptionExpiryDate.ToString("yy");
+
+        var (underlyingFuture, _) = GenerateFutureBrokerageSymbols(symbol.Underlying);
+
+        return ($".{underlyingFuture} {optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
+            $"./{optionRoot + yearSuffix}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}:{_futuresSymbolToStreamExchange[symbol.Underlying.ID.Symbol]}");
     }
 
     /// <summary>
@@ -236,7 +365,7 @@ public class TastytradeBrokerageSymbolMapper
     /// </exception>
     private Symbol ParseBrokerageFutureOptionSymbol(string brokerageSymbol)
     {
-        var match = Regex.Match(brokerageSymbol, @"^\s*(\S+)\s+(\S+)\s+(\d{6})([PC])(\d+)$");
+        var match = Regex.Match(brokerageSymbol, @"^\s*(\S+)\s+(\S+)\s+(\d{6})([PC])(\d+(?:\.\d+)?)$");
 
         if (!match.Success)
             throw new FormatException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(ParseBrokerageFutureOptionSymbol)}: Input '{brokerageSymbol}' is not in a valid option format (expected 'yyMMddP/CStrike').");

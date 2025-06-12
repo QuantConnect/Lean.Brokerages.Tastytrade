@@ -73,6 +73,10 @@ public class TastytradeBrokerageSymbolMapperTests
             yield return new("./ESH6 ESH6  260320C4100", InstrumentType.FutureOption, "ES", SP500EMini_OptionContract3);
 
             yield return new("BTC/USD", InstrumentType.Cryptocurrency, "", default);
+
+            var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 9, 19));
+            var treasuryBondFutures_OptionContract = Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 142.5m, new DateTime(2025, 06, 20));
+            yield return new("./ZBU5 OZBN5 250620C142.5", InstrumentType.FutureOption, default, treasuryBondFutures_OptionContract);
         }
     }
 
@@ -142,7 +146,7 @@ public class TastytradeBrokerageSymbolMapperTests
             // GC - Future
             var Gold = Symbol.CreateFuture(Futures.Metals.Gold, Market.CME, new DateTime(2025, 12, 29));
             yield return new(Gold, "/GCZ5", "/GCZ25:XCEC");
-            yield return new(Symbol.CreateOption(Gold, Gold.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 2095m, new DateTime(2025, 06, 25)), "./GCQ5 OGN5  250625P2095", "./OGN25P2095:XCEC");
+            yield return new(Symbol.CreateOption(Gold, Gold.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 2040m, new DateTime(2025, 10, 28)), "./GCZ5 OGX5  251028P2040", "./OGX25P2040:XCEC");
 
             // GBP - Future
             var GBP = Symbol.CreateFuture(Futures.Currencies.GBP, Market.CME, new DateTime(2025, 12, 15));
@@ -151,6 +155,9 @@ public class TastytradeBrokerageSymbolMapperTests
             // Gasoline - Future
             var Gasoline = Symbol.CreateFuture(Futures.Energy.Gasoline, Market.CME, new DateTime(2025, 06, 1));
             yield return new(Gasoline, "/RBM5", "/RBM25:XNYM");
+
+            var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 9, 19));
+            yield return new(Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 142.5m, new DateTime(2025, 06, 20)), "./ZBU5 OZBN5 250620C142.5", "./OZBN25C142.5:XCBT");
         }
     }
 
@@ -165,6 +172,29 @@ public class TastytradeBrokerageSymbolMapperTests
         Assert.IsNotEmpty(brokerageStreamMarketDataSymbol);
         Assert.IsNotNull(brokerageStreamMarketDataSymbol);
         Assert.AreEqual(expectedBrokerageStreamSymbol, brokerageStreamMarketDataSymbol);
+    }
+
+    [Test]
+    public void MapsGoldFutureOptionToBrokerageSymbolsAndBack()
+    {
+        var expectedBrokerageSymbol = "./GCQ5 OGN5  250625P2915";
+        var expectedStreamBrokerageSymbol = "./OGN25P2915:XCEC";
+
+        var goldExpiry = new DateTime(2025, 8, 27);
+        var gold = Symbol.CreateFuture(Futures.Metals.Gold, Market.COMEX, goldExpiry);
+        var expectedOptionContractExpiry = new DateTime(2025, 06, 25);
+        var goldOptionContract = Symbol.CreateOption(gold, gold.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 2915m, expectedOptionContractExpiry);
+
+        var actualLeanSymbol = _symbolMapper.GetLeanSymbol(expectedBrokerageSymbol, SecurityType.FutureOption);
+
+        Assert.AreEqual(goldOptionContract, actualLeanSymbol);
+        Assert.AreEqual(goldExpiry, actualLeanSymbol.Underlying.ID.Date);
+        Assert.AreEqual(expectedOptionContractExpiry, actualLeanSymbol.ID.Date);
+
+        var (actualBrokerageSymbol, actualStreamBrokerageSymbol) = _symbolMapper.GetBrokerageSymbols(actualLeanSymbol);
+
+        Assert.AreEqual(expectedBrokerageSymbol, actualBrokerageSymbol);
+        Assert.AreEqual(expectedStreamBrokerageSymbol, actualStreamBrokerageSymbol);
     }
 
     /// <summary>

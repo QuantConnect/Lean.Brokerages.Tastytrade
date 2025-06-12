@@ -15,14 +15,13 @@
 
 using System;
 using System.Text;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
-using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 
 namespace QuantConnect.Brokerages.Tastytrade.Api;
 
@@ -200,31 +199,6 @@ public sealed class TastytradeApiClient
     }
 
     /// <summary>
-    /// Finds a specific future option contract based on expiration date, strike price, and option type.
-    /// </summary>
-    /// <param name="underlyingFutureTicker">The ticker symbol of the underlying future.</param>
-    /// <param name="expirationDate">The expiration date of the desired option.</param>
-    /// <param name="strike">The strike price of the desired option.</param>
-    /// <param name="optionType">The type of the option (e.g., Call or Put).</param>
-    /// <returns>
-    /// A <see cref="FutureOption"/> matching the specified parameters.
-    /// </returns>
-    /// <exception cref="InvalidOperationException">Thrown if no matching future option is found.</exception>
-    public FutureOption FindFutureOptionAsync(string underlyingFutureTicker, DateTime expirationDate, decimal strike, OptionType optionType)
-    {
-        var futureOptions = GetFutureOptionChains(underlyingFutureTicker);
-        var matchingOption = futureOptions.FirstOrDefault(fo => fo.IsMatchFor(expirationDate, strike, optionType));
-
-        if (matchingOption.Equals(default(FutureOption)))
-        {
-            throw new InvalidOperationException($"{nameof(TastytradeApiClient)}.{nameof(GetFutureOptionChains)}: No matching future option found for ticker '{underlyingFutureTicker}', " +
-                                                $"expiration '{expirationDate:yyyy-MM-dd}', strike '{strike}', type '{optionType}'.");
-        }
-
-        return matchingOption;
-    }
-
-    /// <summary>
     /// Sends an HTTP request and parses the response from the Tastytrade API.
     /// </summary>
     /// <typeparam name="T">The type of the expected response data.</typeparam>
@@ -256,7 +230,7 @@ public sealed class TastytradeApiClient
                     {
                         error = response.DeserializeKebabCase<ErrorResponse>().Error.ToString();
                     }
-                    catch (Newtonsoft.Json.JsonSerializationException)
+                    catch
                     {
                         error = response;
                     }

@@ -47,7 +47,7 @@ public partial class TastytradeBrokerage : IDataQueueUniverseProvider
             case SecurityType.IndexOption:
                 return GetOptionChains(symbol.Canonical.Value.Replace("?", string.Empty), SecurityType.IndexOption, true);
             case SecurityType.FutureOption:
-                return GetFutureOptionChains(symbol.ID.Symbol);
+                return GetFutureOptionChains(symbol.Underlying.ID.Symbol, symbol.ID.Symbol);
             default:
                 throw new NotSupportedException();
         }
@@ -69,14 +69,26 @@ public partial class TastytradeBrokerage : IDataQueueUniverseProvider
     }
 
     /// <summary>
-    /// Retrieves the mapped Lean symbols for future option contracts associated with a given underlying symbol.
+    /// Retrieves the mapped Lean <see cref="Symbol"/> instances for future option contracts 
+    /// that correspond to the specified underlying symbol and match the given security identifier symbol.
     /// </summary>
-    /// <param name="underlyingSymbol">The underlying future symbol (e.g., "ES").</param>
-    /// <returns>An enumerable of Lean <see cref="Symbol"/> instances for valid future option contracts.</returns>
-    private IEnumerable<Symbol> GetFutureOptionChains(string underlyingSymbol)
+    /// <param name="underlyingSymbol">The symbol of the underlying future contract (e.g., "ES").</param>
+    /// <param name="securityIdentifierSymbol">
+    /// The symbol used for filtering option contracts based on their option root symbol.
+    /// </param>
+    /// <returns>
+    /// An enumerable collection of mapped Lean <see cref="Symbol"/> instances 
+    /// representing valid future option contracts for the specified underlying symbol.
+    /// </returns>
+    private IEnumerable<Symbol> GetFutureOptionChains(string underlyingSymbol, string securityIdentifierSymbol)
     {
         foreach (var optionContract in _tastytradeApiClient.GetFutureOptionChains(underlyingSymbol))
         {
+            if (!optionContract.OptionRootSymbol.Equals(securityIdentifierSymbol, StringComparison.InvariantCultureIgnoreCase))
+            {
+                continue;
+            }
+
             yield return _symbolMapper.GetLeanSymbol(optionContract.Symbol, SecurityType.FutureOption, underlyingSymbol);
         }
     }

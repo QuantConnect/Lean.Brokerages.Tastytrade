@@ -47,6 +47,7 @@ public class TastytradeBrokerageDataQueueUniverseProviderTests
             yield return new TestCaseData(Symbols.AAPL);
             yield return new TestCaseData(Symbol.Create("VIX", SecurityType.Index, Market.USA));
             yield return new TestCaseData(Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2026, 03, 20)));
+            yield return new TestCaseData(Symbol.CreateFuture(Futures.Metals.Gold, Market.CME, new DateTime(2026, 03, 20)));
         }
     }
 
