@@ -15,12 +15,8 @@
 
 using System;
 using System.Timers;
-using System.Threading;
 using QuantConnect.Logging;
-using System.Threading.Tasks;
 using QuantConnect.Brokerages.Tastytrade.Api;
-using QuantConnect.Brokerages.Tastytrade.Models.Enum;
-using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
@@ -48,18 +44,31 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     private event Action ReSubscriptionProcess;
 
     /// <summary>
+    /// Callback for reporting brokerage-level messages such as errors or data delays.
+    /// </summary>
+    private readonly Action<BrokerageMessageEvent> _brokerageMessageEvent;
+
+    /// <summary>
+    /// Indicates whether a delayed data warning has already been sent to avoid duplicate notifications.
+    /// </summary>
+    private bool _delayedDataNotified;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MarketDataWebSocketClientWrapper"/> class.
     /// Automatically subscribes to notifications and initializes the WebSocket using a fresh token and DxLink URL.
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used to retrieve tokens and URLs.</param>
     /// <param name="reSubscriptionHandler">An event handler for re-subscribing to data streams when needed.</param>
-    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler)
+    /// <param name="marketDataMessageHandler">The event handler for processing incoming market data messages received from the WebSocket.</param>
+    /// <param name="brokerageMessageEvent">A callback to report brokerage-level events, such as connection errors or data delay warnings.</param>
+    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler, Action<BrokerageMessageEvent> brokerageMessageEvent)
         : base(tastytradeApiClient)
     {
         Open += SetupMarketDataConfiguration;
         Message += marketDataMessageHandler;
-        Initialize(GetApiQuoteTokenAndDxLinkUrl().DxLinkUrl);
         ReSubscriptionProcess += reSubscriptionHandler;
+        _brokerageMessageEvent = brokerageMessageEvent;
+        Initialize(GetApiQuoteTokenAndDxLinkUrl().DxLinkUrl);
     }
 
     /// <summary>
@@ -77,6 +86,13 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             // Quote streamer tokens are valid for 24 hours.
             _tokenExpirationTime = DateTime.UtcNow.AddHours(24).AddMinutes(-1); // buffer 1 mins
             Log.Debug($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(GetApiQuoteTokenAndDxLinkUrl)}: New token received. It will expire at {_tokenExpirationTime:u} (in 23 hours and 59 minutes).");
+
+            if (!_delayedDataNotified && apiQuoteToken.DxlinkUrl.Contains("delayed", StringComparison.InvariantCultureIgnoreCase))
+            {
+                _delayedDataNotified = true;
+                _brokerageMessageEvent?.Invoke(new BrokerageMessageEvent(BrokerageMessageType.Warning, "DelayData", $"{nameof(TastytradeBrokerage)}: detected delayed market data in the streaming URL."));
+            }
+
             return (_token, apiQuoteToken.DxlinkUrl);
         }
 
