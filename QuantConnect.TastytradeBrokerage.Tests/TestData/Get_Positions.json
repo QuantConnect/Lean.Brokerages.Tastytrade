@@ -1,0 +1,26 @@
+{
+    "data": {
+        "items": [
+            {
+                "account-number": "5WX06827",
+                "instrument-type": "Equity",
+                "symbol": "AAPL",
+                "underlying-symbol": "AAPL",
+                "quantity": 1,
+                "average-open-price": "1.0",
+                "close-price": "0.0",
+                "cost-effect": "Credit",
+                "is-frozen": false,
+                "is-suppressed": false,
+                "multiplier": 1,
+                "quantity-direction": "Long",
+                "restricted-quantity": 0,
+                "realized-day-gain": "0.0",
+                "realized-today": "0.0",
+                "created-at": "2025-05-28T13:38:50.850+00:00",
+                "updated-at": "2025-05-28T13:38:50.850+00:00"
+            }
+        ]
+    },
+    "context": "/accounts/5WT00000/positions"
+}

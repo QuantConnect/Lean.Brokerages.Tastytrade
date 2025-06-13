@@ -1,0 +1,8 @@
+{
+  "data-folder": "../../../../Lean/Data/",
+  "tastytrade-api-url": "https://api.cert.tastyworks.com",
+  "tastytrade-websocket-url": "wss://streamer.cert.tastyworks.com",
+  "tastytrade-username": "",
+  "tastytrade-password": "",
+  "tastytrade-account-number": ""
+}

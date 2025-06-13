@@ -1,0 +1,8 @@
+{
+    "data": {
+        "dxlink-url": "wss://tasty-demo-ws.dxfeed.com/delayed",
+        "level": "demo",
+        "token": "wxNzQ3MjMwNTQ0LFU3NDkxNzllMi0yZmU2"
+    },
+    "context": "/api-quote-tokens"
+}

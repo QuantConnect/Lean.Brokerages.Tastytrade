@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+        <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+        <TargetFramework>net9.0</TargetFramework>
+
+        <IsPackable>false</IsPackable>
+        <Copyright>Copyright ©  2021</Copyright>
+        <TestProjectType>UnitTest</TestProjectType>
+        <OutputPath>bin\$(Configuration)\</OutputPath>
+        <Product>QuantConnect.Brokerages.Tastytrade.Tests</Product>
+        <AssemblyName>QuantConnect.Brokerages.Tastytrade.Tests</AssemblyName>
+        <RootNamespace>QuantConnect.Brokerages.Tastytrade.Tests</RootNamespace>
+        <AssemblyTitle>QuantConnect.Brokerages.Tastytrade.Tests</AssemblyTitle>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+        <PackageReference Include="NUnit" Version="4.2.2" />
+        <PackageReference Include="NUnit3TestAdapter" Version="4.6.0">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="NUnit.Framework.Legacy.ClassicAssert" Alias="Assert" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\..\Lean\Tests\QuantConnect.Tests.csproj" />
+      <ProjectReference Include="..\QuantConnect.TastytradeBrokerage\QuantConnect.TastytradeBrokerage.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="config.json" />
+        <Content Include="config.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="TestData\Create_Session_Error_Response.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Create_Session_Response.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Error_Not_Permitted.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Error_Responses.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Get_Account_Balance.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Get_Api_Quote_Token.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Get_Positions.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+</Project>
