@@ -144,7 +144,7 @@ public class TastytradeBrokerageSymbolMapperTests
             yield return new(Symbol.CreateOption(SP500EMini2, SP500EMini2.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 900m, new DateTime(2025, 09, 19)), "./ESU5 ESU5  250919P900", "./ESU25P900:XCME");
 
             // GC - Future
-            var Gold = Symbol.CreateFuture(Futures.Metals.Gold, Market.CME, new DateTime(2025, 12, 29));
+            var Gold = Symbol.CreateFuture(Futures.Metals.Gold, Market.COMEX, new DateTime(2025, 12, 29));
             yield return new(Gold, "/GCZ5", "/GCZ25:XCEC");
             yield return new(Symbol.CreateOption(Gold, Gold.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 2040m, new DateTime(2025, 10, 28)), "./GCZ5 OGX5  251028P2040", "./OGX25P2040:XCEC");
 
@@ -153,7 +153,7 @@ public class TastytradeBrokerageSymbolMapperTests
             yield return new(GBP, "/6BZ5", "/6BZ25:XCME");
 
             // Gasoline - Future
-            var Gasoline = Symbol.CreateFuture(Futures.Energy.Gasoline, Market.CME, new DateTime(2025, 06, 1));
+            var Gasoline = Symbol.CreateFuture(Futures.Energy.Gasoline, Market.NYMEX, new DateTime(2025, 06, 1));
             yield return new(Gasoline, "/RBM5", "/RBM25:XNYM");
 
             var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 9, 19));

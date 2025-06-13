@@ -46,103 +46,16 @@ public class TastytradeBrokerageSymbolMapper
     private static readonly ConcurrentDictionary<string, Symbol> _leanSymbolByBrokerageSymbol = [];
 
     /// <summary>
-    /// Maps the underlying future product code (e.g., "6B") to its corresponding
-    /// streamer exchange code (e.g., "XCME") used for routing market data subscriptions.
+    /// Maps Lean future market identifiers to their corresponding streamer exchange codes used for subscribing to real-time market data.
     /// </summary>
-    /// <remarks>
-    /// This dictionary is populated using data retrieved from the <c>/instruments/future-products</c> endpoint.
-    /// It is used to generate streaming future symbols from Lean <see cref="Symbol"/> objects.
-    /// 
-    /// For example, given a future symbol like:
-    /// <code>
-    /// var gbp = Symbol.CreateFuture(Futures.Currencies.GBP, Market.CME, new DateTime(2025, 12, 15));
-    /// </code>
-    /// You can extract the underlying code ("6B") and map it to the streamer exchange code ("XCME").
-    /// </remarks>
-    private readonly Dictionary<string, string> _futuresSymbolToStreamExchange = new()
+    private readonly Dictionary<string, string> _futureLeanMarketToStreamExchange = new()
     {
-        { "GE", "XCME" },
-        { "MNG", "XNYM" },
-        { "MHG", "XCEC" },
-        { "FBT", "CXERX" },
-        { "FET", "CXERX" },
-        { "6A", "XCME" },
-        { "6E", "XCME" },
-        { "M6E", "XCME" },
-        { "6J", "XCME" },
-        { "BTC", "XCME" },
-        { "MBT", "XCME" },
-        { "ETH", "XCME" },
-        { "MET", "XCME" },
-        { "CL", "XNYM" },
-        { "QM", "XNYM" },
-        { "MCL", "XNYM" },
-        { "GC", "XCEC" },
-        { "MGC", "XCEC" },
-        { "NG", "XNYM" },
-        { "XW", "XCBT" },
-        { "MNQ", "XCME" },
-        { "RTY", "XCME" },
-        { "M2K", "XCME" },
-        { "YM", "XCBT" },
-        { "MYM", "XCBT" },
-        { "UB", "XCBT" },
-        { "ZB", "XCBT" },
-        { "ZF", "XCBT" },
-        { "ZN", "XCBT" },
-        { "ZT", "XCBT" },
-        { "QG", "XNYM" },
-        { "SI", "XCEC" },
-        { "SIL", "XCEC" },
-        { "HG", "XCEC" },
-        { "30Y", "XCBT" },
-        { "ZC", "XCBT" },
-        { "XC", "XCBT" },
-        { "5YY", "XCBT" },
-        { "10Y", "XCBT" },
-        { "ZS", "XCBT" },
-        { "XK", "XCBT" },
-        { "2YY", "XCBT" },
-        { "ZW", "XCBT" },
-        { "VX", "XCBF" },
-        { "VXM", "XCBF" },
-        { "ECNG", "XNYM" },
-        { "ECSI", "XCEC" },
-        { "ECHG", "XCEC" },
-        { "ECYM", "XCBT" },
-        { "ECCL", "XNYM" },
-        { "6M", "XCME" },
-        { "SPRE", "SMFE" },
-        { "S2Y", "SMFE" },
-        { "S10Y", "SMFE" },
-        { "S30Y", "SMFE" },
-        { "SFX", "SMFE" },
-        { "SMES", "SMFE" },
-        { "STIX", "SMFE" },
-        { "S420", "SMFE" },
-        { "SCCX", "SMFE" },
-        { "SETH", "SMFE" },
-        { "SR3", "XCME" },
-        { "ES", "XCME" },
-        { "NQ", "XCME" },
-        { "ECGC", "XCEC" },
-        { "ECRTY", "XCME" },
-        { "ECES", "XCME" },
-        { "HE", "XCME" },
-        { "LE", "XCME" },
-        { "TN", "XCBT" },
-        { "RB", "XNYM" },
-        { "HO", "XNYM" },
-        { "M6A", "XCME" },
-        { "6B", "XCME" },
-        { "M6B", "XCME" },
-        { "6C", "XCME" },
-        { "MCD", "XCME" },
-        { "EC6E", "XCME" },
-        { "ECNQ", "XCME" },
-        { "SM75", "SMFE" },
-        { "SMO", "SMFE" },
-        { "S5C", "SMFE" }
+        { Market.CFE, "XCBF" },
+        { Market.CBOT, "XCBT" },
+        { Market.CME, "XCME" },
+        { Market.COMEX, "XCEC" },
+        { Market.NYMEX, "XNYM" }
+
     };
 
     /// <summary>
@@ -299,12 +212,11 @@ public class TastytradeBrokerageSymbolMapper
     /// </remarks>
     private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureBrokerageSymbols(Symbol symbol)
     {
-        var underlyingCode = symbol.ID.Symbol;
         var expiry = symbol.ID.Date;
         var yearSuffix = expiry.ToString("yy");
-        var baseSymbol = $"/{underlyingCode}{SymbolRepresentation.FuturesMonthLookup[expiry.Month]}";
+        var baseSymbol = $"/{symbol.ID.Symbol}{SymbolRepresentation.FuturesMonthLookup[expiry.Month]}";
 
-        return (baseSymbol + yearSuffix.Last(), $"{baseSymbol}{yearSuffix}:{_futuresSymbolToStreamExchange[underlyingCode]}");
+        return (baseSymbol + yearSuffix.Last(), $"{baseSymbol}{yearSuffix}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
     }
 
     /// <summary>
@@ -346,7 +258,7 @@ public class TastytradeBrokerageSymbolMapper
         var (underlyingFuture, _) = GenerateFutureBrokerageSymbols(symbol.Underlying);
 
         return ($".{underlyingFuture} {optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
-            $"./{optionRoot + yearSuffix}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}:{_futuresSymbolToStreamExchange[symbol.Underlying.ID.Symbol]}");
+            $"./{optionRoot + yearSuffix}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
     }
 
     /// <summary>
