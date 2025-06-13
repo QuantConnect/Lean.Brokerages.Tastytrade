@@ -30,4 +30,30 @@ public class BaseResponse<T>
     /// Gets additional context information about the API response.
     /// </summary>
     public string Context { get; set; }
+
+    /// <summary>
+    /// Gets pagination information for paged API responses, if applicable.
+    /// </summary>
+    public Pagination? Pagination { get; set; }
+}
+
+/// <summary>
+/// Represents pagination details for API responses that return a subset of a larger dataset.
+/// </summary>
+public struct Pagination
+{
+    /// <summary>
+    /// Gets or sets the number of items returned per page.
+    /// </summary>
+    public int PerPage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the index offset of the current page within the total dataset.
+    /// </summary>
+    public int PageOffset { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total number of items available across all pages.
+    /// </summary>
+    public int TotalPages { get; set; }
 }

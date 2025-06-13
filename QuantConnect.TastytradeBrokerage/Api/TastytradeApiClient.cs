@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.Web;
 using System.Text;
 using System.Net.Http;
 using System.Threading;
@@ -118,19 +119,23 @@ public sealed class TastytradeApiClient
     }
 
     /// <summary>
-    /// Retrieves all live orders for the account, including those with statuses:
-    /// Received, Routed, InFlight, and Live.
+    /// Retrieves all active orders for the account with statuses: Received, Routed, InFlight, and Live.
     /// </summary>
     /// <returns>
-    /// The result contains a read-only collection of <see cref="Order"/> objects representing live orders.
+    /// A read-only sequence of <see cref="Order"/> objects representing the current live orders.
     /// </returns>
     /// <remarks>
-    /// The query includes multiple order statuses and limits the result to 100 items per page.
+    /// Results are paginated and limited to 200 orders per page.
     /// </remarks>
-    public IReadOnlyCollection<Order> GetLiveOrders()
+    public IEnumerable<Order> GetLiveOrders()
     {
-        var query = $"status[]={OrderStatus.Received}&status[]={OrderStatus.Routed}&status[]={OrderStatus.InFlight}&status[]={OrderStatus.Live}&per-page=200";
-        return SendRequest<ResponseList<Order>>(HttpMethod.Get, $"/accounts/{AccountNumber}/orders?{query}").Data.Items;
+        foreach (var response in SendRequestWithPagination<ResponseList<Order>>($"/accounts/{AccountNumber}/orders?status[]={OrderStatus.Received}&status[]={OrderStatus.Routed}&status[]={OrderStatus.InFlight}&status[]={OrderStatus.Live}"))
+        {
+            foreach (var order in response.Data.Items)
+            {
+                yield return order;
+            }
+        }
     }
 
     /// <summary>
@@ -237,5 +242,36 @@ public sealed class TastytradeApiClient
                 throw new Exception($"{nameof(TastytradeApiClient)}.{nameof(SendRequest)}: Unexpected error while sending request - {ex.Message}", ex);
             }
         }
+    }
+
+    /// <summary>
+    /// Sends paginated GET requests to the specified endpoint and yields each page of results.
+    /// </summary>
+    /// <typeparam name="T">The type of the data returned in the response.</typeparam>
+    /// <param name="endpoint">The base URI endpoint to send the requests to. Pagination parameters will be appended.</param>
+    /// <returns>
+    /// An <see cref="IEnumerable{BaseResponse}"/> of responses containing data of type <typeparamref name="T"/>.
+    /// </returns>
+    private IEnumerable<BaseResponse<T>> SendRequestWithPagination<T>(string endpoint)
+    {
+        var currentPageOffset = default(int);
+
+        if (!endpoint.EndsWith('&'))
+        {
+            endpoint += "&";
+        }
+
+        var response = default(BaseResponse<T>);
+
+        var parsedQuery = HttpUtility.ParseQueryString("per-page=200");
+        do
+        {
+            parsedQuery["page-offset"] = currentPageOffset.ToString();
+
+            response = SendRequest<T>(HttpMethod.Get, endpoint + parsedQuery.ToString());
+
+            yield return response;
+
+        } while (++currentPageOffset < response.Pagination?.TotalPages);
     }
 }
