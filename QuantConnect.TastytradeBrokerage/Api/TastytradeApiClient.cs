@@ -73,7 +73,7 @@ public sealed class TastytradeApiClient
     /// <returns>The result contains the account balances.</returns>
     public AccountBalance GetAccountBalances()
     {
-        return SendRequest<AccountBalance>(HttpMethod.Get, $"/accounts/{AccountNumber}/balances").Data;
+        return SendRequest<AccountBalance>(HttpMethod.Get, $"/accounts/{AccountNumber}/balances", logResponse: true).Data;
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public sealed class TastytradeApiClient
     /// <returns>The result contains a collection of positions.</returns>
     public IReadOnlyCollection<Position> GetAccountPositions()
     {
-        return SendRequest<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{AccountNumber}/positions").Data.Items;
+        return SendRequest<ResponseList<Position>>(HttpMethod.Get, $"/accounts/{AccountNumber}/positions", logResponse: true).Data.Items;
     }
 
     /// <summary>
@@ -210,10 +210,11 @@ public sealed class TastytradeApiClient
     /// <param name="httpMethod">The HTTP method to use (e.g., GET, POST).</param>
     /// <param name="endpoint">The API endpoint relative to the base URL.</param>
     /// <param name="jsonBody">An optional JSON payload to include in the request body, applicable for methods like POST or PUT.</param>
+    /// <param name="logResponse">Indicates whether the response should be logged for debugging or auditing purposes.</param>
     /// <returns>The result contains the parsed API response.</returns>
     /// <exception cref="HttpRequestException">Thrown when the API response indicates a failure.</exception>
     /// <exception cref="Exception">Thrown when an unexpected error occurs while sending the request.</exception>
-    private BaseResponse<T> SendRequest<T>(HttpMethod httpMethod, string endpoint, string jsonBody = null)
+    private BaseResponse<T> SendRequest<T>(HttpMethod httpMethod, string endpoint, string jsonBody = null, bool logResponse = default)
     {
         using (var requestMessage = new HttpRequestMessage(httpMethod, _baseUrl + endpoint))
         {
@@ -230,9 +231,9 @@ public sealed class TastytradeApiClient
 
                 var response = responseMessage.ReadContentAsString();
 
-                if (Log.DebuggingEnabled)
+                if (logResponse || Log.DebuggingEnabled)
                 {
-                    Log.Debug($"{nameof(TastytradeApiClient)}:{nameof(SendRequest)}.Response: {response}. RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}");
+                    Log.Trace($"{nameof(TastytradeApiClient)}:{nameof(SendRequest)}.Response: {response}. RequestUri: {requestMessage.RequestUri}, Body: {jsonBody}");
                 }
 
                 return response.DeserializeKebabCase<BaseResponse<T>>();

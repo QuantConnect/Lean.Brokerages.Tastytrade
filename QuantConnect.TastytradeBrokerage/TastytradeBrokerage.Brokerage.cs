@@ -151,7 +151,7 @@ public partial class TastytradeBrokerage
     public override List<CashAmount> GetCashBalance()
     {
         var balance = _tastytradeApiClient.GetAccountBalances();
-        return [new(balance.AvailableTradingFunds, balance.Currency)];
+        return [new(balance.CashBalance, balance.Currency)];
     }
 
     /// <summary>
