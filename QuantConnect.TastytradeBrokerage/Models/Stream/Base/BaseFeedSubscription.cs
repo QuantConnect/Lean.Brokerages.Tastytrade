@@ -54,7 +54,7 @@ public abstract class BaseFeedSubscription
     /// </summary>
     public int Channel => 1;
 
-    public abstract IReadOnlyList<SymbolType> SymbolTypes { get; }
+    public virtual IReadOnlyList<SymbolType> SymbolTypes { get; }
 
     /// <summary>
     /// Creates a read-only list of <see cref="SymbolType"/> instances from the specified symbols using the default market data event mapping.

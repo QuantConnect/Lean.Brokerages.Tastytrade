@@ -40,6 +40,7 @@ public readonly struct FeedSetupRequest
     /// Gets the desired data format for FEED_DATA messages.
     /// Allowed values are "FULL" and "COMPACT".
     /// </summary>
+    /// <remarks>The "FULL" format is currently not supported.</remarks>
     public string AcceptDataFormat => "COMPACT";
 
     /// <summary>
@@ -81,4 +82,10 @@ public readonly struct AcceptEventFields
     /// </summary>
     [JsonProperty(nameof(Summary))]
     public string[] Summary => ["eventSymbol", "openInterest"];
+
+    /// <summary>
+    /// Gets the list of fields to receive for Candle events.
+    /// </summary>
+    [JsonProperty(nameof(Candle))]
+    public string[] Candle => ["eventFlags", "eventSymbol", "time", "open", "high", "low", "close", "volume", "openInterest"];
 }

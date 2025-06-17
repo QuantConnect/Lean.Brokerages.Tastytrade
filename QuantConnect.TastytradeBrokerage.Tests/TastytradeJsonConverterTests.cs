@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -890,6 +890,71 @@ public class TastytradeJsonConverterTests
             Assert.AreEqual("./OGN25P2095:XCEC", futureOption.StreamerSymbol);
             Assert.AreEqual(2095m, futureOption.StrikePrice);
             Assert.AreEqual("./GCQ5 OGN5  250625P2095", futureOption.Symbol);
+        }
+    }
+
+    [Test]
+    public void DeserializeFeedDataCandleStreamResponse()
+    {
+        var feedDataResponseJson = @"{
+    ""type"": ""FEED_DATA"",
+    ""channel"": 1,
+    ""data"": [
+        ""Candle"",
+        [
+            4,
+            ""AAPL{=d}"",
+            1750032000000,
+            197.3,
+            198.685,
+            196.5636,
+            198.42,
+            4.3020691E7,
+            ""NaN"",
+            0,
+            ""AAPL{=d}"",
+            1749772800000,
+            199.73,
+            200.37,
+            195.7,
+            196.45,
+            5.1447349E7,
+            ""NaN"",
+            10,
+            ""AAPL{=d}"",
+            926208000000,
+            ""NaN"",
+            ""NaN"",
+            ""NaN"",
+            ""NaN"",
+            ""NaN"",
+            ""NaN""
+        ]
+    ]
+}";
+
+        var feedData = feedDataResponseJson.DeserializeCamelCase<FeedData>();
+
+        Assert.IsNotNull(feedData);
+        Assert.AreEqual(EventType.FeedData, feedData.Type);
+        Assert.AreEqual(1, feedData.Channel);
+        Assert.AreEqual(MarketDataEvent.Candle, feedData.Data.EventType);
+        Assert.AreEqual(3, feedData.Data.Content.Count);
+        Assert.IsInstanceOf<IReadOnlyCollection<CandleContent>>(feedData.Data.Content);
+
+        var candles = feedData.Data.Content.Cast<CandleContent>();
+        Assert.AreEqual(EventFlag.SnapshotBegin, candles.First().EventFlag);
+        Assert.AreEqual(EventFlag.SnapshotSnip, candles.Last().EventFlag);
+        foreach (var candle in candles)
+        {
+            AssertIsNotNullAndIsNotEmpty(candle.Symbol);
+            Assert.GreaterOrEqual(candle.Open, 0);
+            Assert.GreaterOrEqual(candle.High, 0);
+            Assert.GreaterOrEqual(candle.Low, 0);
+            Assert.GreaterOrEqual(candle.Close, 0);
+            Assert.GreaterOrEqual(candle.Volume, 0);
+            Assert.AreEqual(candle.OpenInterest, 0);
+            Assert.AreNotEqual(default, candle.DateTime);
         }
     }
 

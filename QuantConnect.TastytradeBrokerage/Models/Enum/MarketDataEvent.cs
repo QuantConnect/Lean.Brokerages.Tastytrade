@@ -37,5 +37,10 @@ public enum MarketDataEvent
     /// <summary>
     /// A summary event, containing open interest data.
     /// </summary>
-    Summary = 3
+    Summary = 3,
+
+    /// <summary>
+    /// A candle event, containing OHLC, volume data.
+    /// </summary>
+    Candle = 4
 }
