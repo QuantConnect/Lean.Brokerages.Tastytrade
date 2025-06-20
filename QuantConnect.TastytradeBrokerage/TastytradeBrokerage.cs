@@ -27,7 +27,6 @@ using QuantConnect.Logging;
 using Newtonsoft.Json.Linq;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
-using QuantConnect.Data.LevelOne;
 using QuantConnect.Configuration;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -36,6 +35,7 @@ using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.LevelOneOrderBook;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -127,7 +127,7 @@ public partial class TastytradeBrokerage : Brokerage
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
 
-        _levelOneServiceManager = _levelOneServiceManager = new LevelOneServiceManager(
+        _levelOneServiceManager = new LevelOneServiceManager(
         _aggregator,
         (symbols, _) => Subscribe(symbols),
         (symbols, _) => Unsubscribe(symbols));
