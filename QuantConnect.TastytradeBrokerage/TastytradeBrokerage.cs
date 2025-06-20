@@ -27,6 +27,7 @@ using QuantConnect.Logging;
 using Newtonsoft.Json.Linq;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
+using QuantConnect.Data.LevelOne;
 using QuantConnect.Configuration;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -112,12 +113,6 @@ public partial class TastytradeBrokerage : Brokerage
         _isInitialized = true;
         ValidateSubscription();
 
-        SubscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager()
-        {
-            SubscribeImpl = (s, t) => Subscribe(s),
-            UnsubscribeImpl = (s, t) => Unsubscribe(s)
-        };
-
         _algorithm = algorithm;
         _securityProvider = securityProvider;
         _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
@@ -131,6 +126,11 @@ public partial class TastytradeBrokerage : Brokerage
             Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: found no data aggregator instance, creating {aggregatorName}");
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
+
+        _levelOneServiceManager = _levelOneServiceManager = new LevelOneServiceManager(
+        _aggregator,
+        (symbols, _) => Subscribe(symbols),
+        (symbols, _) => Unsubscribe(symbols));
 
         _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
         _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler, OnMessage);
