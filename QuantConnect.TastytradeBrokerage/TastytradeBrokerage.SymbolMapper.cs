@@ -46,6 +46,11 @@ public class TastytradeBrokerageSymbolMapper
     private static readonly ConcurrentDictionary<string, Symbol> _leanSymbolByBrokerageSymbol = [];
 
     /// <summary>
+    /// A cache mapping brokerage stream symbols to their corresponding Lean symbols.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, Symbol> _leanSymbolByBrokerageStreamSymbol = [];
+
+    /// <summary>
     /// Maps Lean future market identifiers to their corresponding streamer exchange codes used for subscribing to real-time market data.
     /// </summary>
     private readonly Dictionary<string, string> _futureLeanMarketToStreamExchange = new()
@@ -79,7 +84,11 @@ public class TastytradeBrokerageSymbolMapper
     /// <exception cref="NotImplementedException">Thrown when the given security type is not supported.</exception>
     public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol = default, bool? isOptionIndex = null)
     {
-        if (_leanSymbolByBrokerageSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
+        if (_leanSymbolByBrokerageStreamSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
+        {
+            return leanSymbol;
+        }
+        else if (_leanSymbolByBrokerageSymbol.TryGetValue(brokerageSymbol, out leanSymbol))
         {
             return leanSymbol;
         }
@@ -118,8 +127,6 @@ public class TastytradeBrokerageSymbolMapper
                 throw new NotImplementedException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GetLeanSymbol)}: " +
                     $"The security type '{securityType}' with brokerage symbol '{brokerageSymbol}' is not supported.");
         }
-
-        _leanSymbolByBrokerageSymbol[brokerageSymbol] = leanSymbol;
 
         return leanSymbol;
     }
@@ -172,6 +179,7 @@ public class TastytradeBrokerageSymbolMapper
             StreamerSymbol = brokerageStreamMarketDataSymbol
         };
         _leanSymbolByBrokerageSymbol[brokerageSymbol] = symbol;
+        _leanSymbolByBrokerageStreamSymbol[brokerageStreamMarketDataSymbol] = symbol;
 
         return (brokerageSymbol, brokerageStreamMarketDataSymbol);
     }

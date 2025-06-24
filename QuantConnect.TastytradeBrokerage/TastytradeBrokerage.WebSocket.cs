@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -18,6 +18,7 @@ using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Logging;
 using System.Collections.Generic;
+using QuantConnect.Brokerages.LevelOneOrderBook;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
@@ -40,9 +41,10 @@ public partial class TastytradeBrokerage
     };
 
     /// <summary>
-    /// Count subscribers for each (symbol, tickType) combination
+    /// Manages Level 1 market data subscriptions and routing of updates to the shared <see cref="IDataAggregator"/>.
+    /// Responsible for tracking and updating individual <see cref="LevelOneMarketData"/> instances per symbol.
     /// </summary>
-    protected DataQueueHandlerSubscriptionManager SubscriptionManager { get; set; }
+    private LevelOneServiceManager _levelOneServiceManager;
 
     private const int ConnectionTimeout = 30000;
 
@@ -104,26 +106,22 @@ public partial class TastytradeBrokerage
             {
                 case EventType.FeedData:
                     var feedData = textMessage.Message.DeserializeCamelCase<FeedData>();
-                    switch (feedData.Data.EventType)
+                    var utcNow = DateTime.UtcNow;
+                    foreach (var content in feedData.Data.Content)
                     {
-                        case MarketDataEvent.Trade:
-                            foreach (var trade in feedData.Data.Content.Cast<TradeContent>())
-                            {
-                                OnTradeReceived(trade);
-                            }
-                            break;
-                        case MarketDataEvent.Quote:
-                            foreach (var quote in feedData.Data.Content.Cast<QuoteContent>())
-                            {
-                                OnQuoteReceived(quote);
-                            }
-                            break;
-                        case MarketDataEvent.Summary:
-                            foreach (var summary in feedData.Data.Content.Cast<SummaryContent>())
-                            {
-                                OnSummaryReceived(summary);
-                            }
-                            break;
+                        var leanSymbol = _symbolMapper.GetLeanSymbol(content.Symbol, default);
+                        switch (feedData.Data.EventType)
+                        {
+                            case MarketDataEvent.Trade:
+                                OnTradeReceived(content as TradeContent, leanSymbol, utcNow);
+                                break;
+                            case MarketDataEvent.Quote:
+                                OnQuoteReceived(content as QuoteContent, leanSymbol, utcNow);
+                                break;
+                            case MarketDataEvent.Summary:
+                                OnSummaryReceived(content as SummaryContent, leanSymbol, utcNow);
+                                break;
+                        }
                     }
                     break;
                 case EventType.AuthorizationState:
@@ -216,7 +214,7 @@ public partial class TastytradeBrokerage
     {
         Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(OnReSubscriptionProcess)}: Starting re-subscription process...");
 
-        var subscribedSymbols = SubscriptionManager?.GetSubscribedSymbols() ?? [];
+        var subscribedSymbols = _levelOneServiceManager.GetSubscribedSymbols() ?? [];
 
         if (!subscribedSymbols.Any())
         {

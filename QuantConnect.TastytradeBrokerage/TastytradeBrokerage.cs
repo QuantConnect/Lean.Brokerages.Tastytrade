@@ -35,6 +35,7 @@ using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.LevelOneOrderBook;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -112,12 +113,6 @@ public partial class TastytradeBrokerage : Brokerage
         _isInitialized = true;
         ValidateSubscription();
 
-        SubscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager()
-        {
-            SubscribeImpl = (s, t) => Subscribe(s),
-            UnsubscribeImpl = (s, t) => Unsubscribe(s)
-        };
-
         _algorithm = algorithm;
         _securityProvider = securityProvider;
         _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
@@ -131,6 +126,11 @@ public partial class TastytradeBrokerage : Brokerage
             Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: found no data aggregator instance, creating {aggregatorName}");
             _aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(aggregatorName);
         }
+
+        _levelOneServiceManager = new LevelOneServiceManager(
+        _aggregator,
+        (symbols, _) => Subscribe(symbols),
+        (symbols, _) => Unsubscribe(symbols));
 
         _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
         _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler, OnMessage);
