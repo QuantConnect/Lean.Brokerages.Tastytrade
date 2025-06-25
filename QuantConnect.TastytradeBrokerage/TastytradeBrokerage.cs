@@ -132,7 +132,11 @@ public partial class TastytradeBrokerage : Brokerage
         (symbols, _) => Subscribe(symbols),
         (symbols, _) => Unsubscribe(symbols));
 
-        _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
+        // If we are used as a 'data-queue-handler' ignore account updates
+        if (!string.IsNullOrEmpty(accountNumber))
+        {
+            _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
+        }
         _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler, OnMessage);
 
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
