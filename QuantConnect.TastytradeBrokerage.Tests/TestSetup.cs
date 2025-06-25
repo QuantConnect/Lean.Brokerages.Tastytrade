@@ -45,10 +45,16 @@ public class TestSetup
         var username = Config.Get("tastytrade-username");
         var password = Config.Get("tastytrade-password");
         var accountNumber = Config.Get("tastytrade-account-number");
+        var refreshToken = Config.Get("tastytrade-refresh-token");
 
         var algorithm = new AlgorithmStub();
 
-        return new TastytradeBrokerage(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider, algorithm);
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return new TastytradeBrokerage(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider, algorithm);
+        }
+
+        return new TastytradeBrokerage(baseUrl, baseWSUrl, accountNumber, refreshToken, orderProvider, securityProvider, algorithm);
     }
 
     [Test, TestCaseSource(nameof(TestParameters))]

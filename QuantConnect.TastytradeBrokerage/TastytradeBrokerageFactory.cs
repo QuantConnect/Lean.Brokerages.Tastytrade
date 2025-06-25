@@ -43,9 +43,11 @@ public class TastytradeBrokerageFactory : BrokerageFactory
         // Sandbox: wss://streamer.cert.tastyworks.com
         // Production: wss://streamer.tastyworks.com
         {"tastytrade-websocket-url", Config.Get("tastytrade-websocket-url")},
+        // Users can have multiple different accounts
+        {"tastytrade-account-number",  Config.Get("tastytrade-account-number")},
+        // USE CASE 2 (developing): Only if refresh token is not provided
         {"tastytrade-username", Config.Get("tastytrade-username")},
         {"tastytrade-password",  Config.Get("tastytrade-password")},
-        {"tastytrade-account-number",  Config.Get("tastytrade-account-number")},
     };
 
     /// <summary>
@@ -80,8 +82,6 @@ public class TastytradeBrokerageFactory : BrokerageFactory
         }
 
         var errors = new List<string>();
-        var userName = Read<string>(job.BrokerageData, "tastytrade-username", errors);
-        var password = Read<string>(job.BrokerageData, "tastytrade-password", errors);
         var accountNumber = Read<string>(job.BrokerageData, "tastytrade-account-number", errors);
 
         if (errors.Count != 0)
@@ -90,7 +90,23 @@ public class TastytradeBrokerageFactory : BrokerageFactory
             throw new ArgumentException(string.Join(Environment.NewLine, errors));
         }
 
-        var tt = new TastytradeBrokerage(baseUrl, baseWSUrl, userName, password, accountNumber, algorithm);
+        var tt = default(TastytradeBrokerage);
+        if (job.BrokerageData.TryGetValue("tastytrade-refresh-token", out var refreshToken) && !string.IsNullOrEmpty(refreshToken))
+        {
+            tt = new TastytradeBrokerage(baseUrl, baseWSUrl, accountNumber, refreshToken, algorithm);
+        }
+        else
+        {
+            var userName = Read<string>(job.BrokerageData, "tastytrade-username", errors);
+            var password = Read<string>(job.BrokerageData, "tastytrade-password", errors);
+
+            if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
+            {
+                throw new ArgumentException("Username or password cannot be empty or null. Please ensure these values are correctly set in the configuration file.");
+            }
+
+            tt = new TastytradeBrokerage(baseUrl, baseWSUrl, userName, password, accountNumber, algorithm);
+        }
 
         Composer.Instance.AddPart<IDataQueueHandler>(tt);
 

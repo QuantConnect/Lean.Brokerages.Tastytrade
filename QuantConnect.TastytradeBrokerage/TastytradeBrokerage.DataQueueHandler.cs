@@ -54,7 +54,8 @@ public partial class TastytradeBrokerage : IDataQueueHandler
             baseWSUrl: baseWSUrl,
             username: job.BrokerageData.TryGetValue("tastytrade-username", out var username) ? username : string.Empty,
             password: job.BrokerageData.TryGetValue("tastytrade-password", out var password) ? password : string.Empty,
-            accountNumber: null,
+            accountNumber: job.BrokerageData.TryGetValue("tastytrade-account-number", out var accountNumber) ? accountNumber : string.Empty,
+            refreshToken: job.BrokerageData.TryGetValue("tastytrade-refresh-token", out var refreshToken) ? refreshToken : string.Empty,
             orderProvider: null,
             securityProvider: null,
             algorithm: null);
