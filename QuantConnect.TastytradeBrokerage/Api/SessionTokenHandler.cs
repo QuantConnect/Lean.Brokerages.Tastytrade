@@ -46,17 +46,17 @@ public sealed class SessionTokenHandler : TokenHandler
     /// <summary>
     /// The remember token used to refresh the session.
     /// </summary>
-    private string _rememberToken = "DCr0Mbk4eEEuS1FhopmhGiqWsCebAIw6tiNv8a7YMakIZKebVIMJoA";
+    private string _rememberToken;
 
     /// <summary>
     /// The current session token used for authorization.
     /// </summary>
-    private string _sessionToken = "UeNQwk6jbcKPJn2X3UIObPs89UfqM1on5wRcgR8Ckr4sVkAWLUiiMw+C";
+    private string _sessionToken;
 
     /// <summary>
     /// The UTC time when the current session expires.
     /// </summary>
-    private DateTime _sessionExpirationTime = new(2025, 06, 26, 14, 08, 0);
+    private DateTime _sessionExpirationTime;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionTokenHandler"/> class.
