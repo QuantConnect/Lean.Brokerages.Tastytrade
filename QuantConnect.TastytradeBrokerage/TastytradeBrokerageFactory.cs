@@ -45,6 +45,8 @@ public class TastytradeBrokerageFactory : BrokerageFactory
         {"tastytrade-websocket-url", Config.Get("tastytrade-websocket-url")},
         // Users can have multiple different accounts
         {"tastytrade-account-number",  Config.Get("tastytrade-account-number")},
+        // USE CASE 1 (production)
+        {"tastytrade-refresh-token", Config.Get("tastytrade-refresh-token")},
         // USE CASE 2 (developing): Only if refresh token is not provided
         {"tastytrade-username", Config.Get("tastytrade-username")},
         {"tastytrade-password",  Config.Get("tastytrade-password")},
