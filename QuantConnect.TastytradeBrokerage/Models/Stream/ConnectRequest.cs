@@ -33,6 +33,7 @@ public sealed class ConnectRequest : BaseSubscribeMessage
     /// <summary>
     /// Initializes a new instance of the <see cref="ConnectRequest"/> class.
     /// </summary>
+    /// <param name="tokenType">The type of the token used for authentication.</param>
     /// <param name="authToken">
     /// The session token used to authenticate the request. This should be the
     /// <c>session-token</c> value returned from the session creation response.
@@ -43,8 +44,8 @@ public sealed class ConnectRequest : BaseSubscribeMessage
     /// <param name="accountNumber">
     /// The account number to subscribe to for receiving real-time updates.
     /// </param>
-    public ConnectRequest(string authToken, int requestId, string accountNumber)
-        : base(authToken, requestId, accountNumber)
+    public ConnectRequest(TokenType tokenType, string authToken, int requestId, string accountNumber)
+        : base(tokenType, authToken, requestId, accountNumber)
     {
     }
 }

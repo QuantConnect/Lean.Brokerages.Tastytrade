@@ -13,6 +13,7 @@
  * limitations under the License.
 */
 
+using System;
 using Newtonsoft.Json;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
@@ -50,6 +51,9 @@ public abstract class BaseSubscribeMessage
     /// <summary>
     /// Initializes a new instance of the <see cref="BaseSubscribeMessage"/> class.
     /// </summary>
+    /// <param name="tokenType">
+    /// The type of the token used for authentication.
+    /// </param>
     /// <param name="authToken">
     /// The session token used to authenticate the request. This should be the
     /// <c>session-token</c> value returned from the session creation response.
@@ -60,10 +64,15 @@ public abstract class BaseSubscribeMessage
     /// <param name="accountNumber">
     /// An optional account number to subscribe to. If not specified, no account-specific data will be subscribed.
     /// </param>
-    protected BaseSubscribeMessage(string authToken, int requestId, string accountNumber = default)
+    protected BaseSubscribeMessage(TokenType tokenType, string authToken, int requestId, string accountNumber = default)
     {
         AccountNumbers = string.IsNullOrEmpty(accountNumber) ? null : [accountNumber];
-        AuthToken = authToken;
+        AuthToken = tokenType switch
+        {
+            TokenType.SessionToken => authToken,
+            TokenType.Bearer => "Bearer " + authToken,
+            _ => throw new NotSupportedException($"{nameof(BaseSubscribeMessage)}: Token type '{tokenType}' is not supported.")
+        };
         RequestId = requestId;
     }
 

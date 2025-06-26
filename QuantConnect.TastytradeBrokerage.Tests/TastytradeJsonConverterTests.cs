@@ -118,9 +118,17 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeStreamHeartbeatMessage()
     {
-        var heartbeatJson = new HeartbeatRequest("your session token here", 1).ToJson();
+        var heartbeatJson = new HeartbeatRequest(TokenType.SessionToken, "your session token here", 1).ToJson();
 
         Assert.AreEqual("{\"action\":\"heartbeat\",\"auth-token\":\"your session token here\",\"request-id\":1}", heartbeatJson);
+    }
+
+    [Test]
+    public void SerializeStreamHeartbeatMessageWithBearerToken()
+    {
+        var heartbeatJson = new HeartbeatRequest(TokenType.Bearer, "your session token here", 1).ToJson();
+
+        Assert.AreEqual("{\"action\":\"heartbeat\",\"auth-token\":\"Bearer your session token here\",\"request-id\":1}", heartbeatJson);
     }
 
     [Test]
@@ -139,9 +147,17 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeStreamConnectMessage()
     {
-        var connectJson = new ConnectRequest("your session token here", 1, "12345").ToJson();
+        var connectJson = new ConnectRequest(TokenType.SessionToken, "your session token here", 1, "12345").ToJson();
 
         Assert.AreEqual("{\"action\":\"connect\",\"value\":[\"12345\"],\"auth-token\":\"your session token here\",\"request-id\":1}", connectJson);
+    }
+
+    [Test]
+    public void SerializeStreamConnectMessageWithBearerToken()
+    {
+        var connectJson = new ConnectRequest(TokenType.Bearer, "your session token here", 1, "12345").ToJson();
+
+        Assert.AreEqual("{\"action\":\"connect\",\"value\":[\"12345\"],\"auth-token\":\"Bearer your session token here\",\"request-id\":1}", connectJson);
     }
 
     [Test]
