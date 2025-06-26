@@ -4,5 +4,6 @@
   "tastytrade-websocket-url": "wss://streamer.cert.tastyworks.com",
   "tastytrade-username": "",
   "tastytrade-password": "",
-  "tastytrade-account-number": ""
+  "tastytrade-account-number": "",
+  "tastytrade-refresh-token": ""
 }

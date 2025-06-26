@@ -40,7 +40,7 @@ public readonly struct FeedSetupRequest
     /// Gets the desired data format for FEED_DATA messages.
     /// Allowed values are "FULL" and "COMPACT".
     /// </summary>
-    public string AcceptDataFormat => "FULL";
+    public string AcceptDataFormat => "COMPACT";
 
     /// <summary>
     /// Gets the accepted fields for each supported event type (Quote, Trade, etc.).

@@ -32,10 +32,11 @@ public sealed class HeartbeatRequest : BaseSubscribeMessage
     /// <summary>
     /// Initializes a new instance of the <see cref="HeartbeatRequest"/> class.
     /// </summary>
+    /// <param name="tokenType">The type of the token used for authentication.</param>
     /// <param name="authToken">The session token for authentication.</param>
     /// <param name="requestId">Optional request identifier for tracking.</param>
-    public HeartbeatRequest(string authToken, int requestId)
-        : base(authToken, requestId)
+    public HeartbeatRequest(TokenType tokenType, string authToken, int requestId)
+        : base(tokenType, authToken, requestId)
     {
     }
 }

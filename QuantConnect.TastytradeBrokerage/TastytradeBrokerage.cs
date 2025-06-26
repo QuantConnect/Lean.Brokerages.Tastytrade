@@ -76,6 +76,11 @@ public partial class TastytradeBrokerage : Brokerage
     private protected TastytradeBrokerageSymbolMapper _symbolMapper;
 
     /// <summary>
+    /// Represents the Lean API connection.
+    /// </summary>
+    private static ApiConnection _leanApiClient;
+
+    /// <summary>
     /// Provide data from external Lean algorithm.
     /// </summary>
     protected IAlgorithm _algorithm;
@@ -88,23 +93,99 @@ public partial class TastytradeBrokerage : Brokerage
         && _clientWrapperByWebSocketType[WebSocketType.MarketData]?.IsOpen == true;
 
     /// <summary>
-    /// Parameterless constructor for brokerage
+    /// Parameterless constructor for brokerage.
     /// </summary>
-    /// <remarks>This parameterless constructor is required for brokerages implementing <see cref="IDataQueueHandler"/></remarks>
+    /// <remarks>
+    /// This parameterless constructor is required for brokerages implementing <see cref="IDataQueueHandler"/>.
+    /// </remarks>
     public TastytradeBrokerage() : base(BrokerageName)
     { }
 
-    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
-    : base(BrokerageName)
-    {
-        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, orderProvider, securityProvider, algorithm);
-    }
-
-    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
-        : this(baseUrl, baseWSUrl, username, password, accountNumber, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio, algorithm)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TastytradeBrokerage"/> class using token-based authentication.
+    /// </summary>
+    /// <param name="baseUrl">The base URL for Tastytrade API requests.</param>
+    /// <param name="baseWSUrl">The base WebSocket URL for real-time data streams.</param>
+    /// <param name="accountNumber">The brokerage account number.</param>
+    /// <param name="refreshToken">The refresh token used to obtain new access tokens.</param>
+    /// <param name="orderProvider">The order provider responsible for order management.</param>
+    /// <param name="securityProvider">The security provider supplying security information.</param>
+    /// <param name="algorithm">The algorithm instance interacting with the brokerage.</param>
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string accountNumber, string refreshToken, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
+        : this(baseUrl, baseWSUrl, default, default, accountNumber, refreshToken, orderProvider, securityProvider, algorithm)
     { }
 
-    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TastytradeBrokerage"/> class using token-based authentication.
+    /// </summary>
+    /// <param name="baseUrl">The base URL for Tastytrade API requests.</param>
+    /// <param name="baseWSUrl">The base WebSocket URL for real-time data streams.</param>
+    /// <param name="accountNumber">The brokerage account number.</param>
+    /// <param name="refreshToken">The refresh token used to obtain new access tokens.</param>
+    /// <param name="algorithm">The algorithm instance interacting with the brokerage.</param>
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string accountNumber, string refreshToken, IAlgorithm algorithm)
+    : this(baseUrl, baseWSUrl, accountNumber, refreshToken, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio, algorithm)
+    { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TastytradeBrokerage"/> class using username and password authentication.
+    /// </summary>
+    /// <param name="baseUrl">The base URL for Tastytrade API requests.</param>
+    /// <param name="baseWSUrl">The base WebSocket URL for real-time data streams.</param>
+    /// <param name="username">The username for Tastytrade account authentication.</param>
+    /// <param name="password">The password for Tastytrade account authentication.</param>
+    /// <param name="accountNumber">The brokerage account number.</param>
+    /// <param name="orderProvider">The order provider responsible for order management.</param>
+    /// <param name="securityProvider">The security provider supplying security information.</param>
+    /// <param name="algorithm">The algorithm instance interacting with the brokerage.</param>
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
+        : this(baseUrl, baseWSUrl, username, password, accountNumber, default, orderProvider, securityProvider, algorithm)
+    { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TastytradeBrokerage"/> class using username and password authentication, providing only algorithm dependencies.
+    /// </summary>
+    /// <param name="baseUrl">The base URL for Tastytrade API requests.</param>
+    /// <param name="baseWSUrl">The base WebSocket URL for real-time data streams.</param>
+    /// <param name="username">The username for Tastytrade account authentication.</param>
+    /// <param name="password">The password for Tastytrade account authentication.</param>
+    /// <param name="accountNumber">The brokerage account number.</param>
+    /// <param name="algorithm">The algorithm instance interacting with the brokerage, used to infer order and security providers.</param>
+    public TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, IAlgorithm algorithm)
+        : this(baseUrl, baseWSUrl, username, password, accountNumber, default, algorithm?.Portfolio?.Transactions, algorithm?.Portfolio, algorithm)
+    { }
+
+    /// <summary>
+    /// Central constructor that initializes the <see cref="TastytradeBrokerage"/> with full configuration.
+    /// </summary>
+    /// <param name="baseUrl">The base URL for Tastytrade API requests.</param>
+    /// <param name="baseWSUrl">The base WebSocket URL for real-time data streams.</param>
+    /// <param name="username">The username for Tastytrade account authentication (can be empty if using token-based auth).</param>
+    /// <param name="password">The password for Tastytrade account authentication (can be empty if using token-based auth).</param>
+    /// <param name="accountNumber">The brokerage account number.</param>
+    /// <param name="refreshToken">The refresh token for access renewal (optional).</param>
+    /// <param name="orderProvider">The order provider responsible for order management.</param>
+    /// <param name="securityProvider">The security provider supplying security information.</param>
+    /// <param name="algorithm">The algorithm instance interacting with the brokerage.</param>
+    private TastytradeBrokerage(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, string refreshToken, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
+        : base(BrokerageName)
+    {
+        Initialize(baseUrl, baseWSUrl, username, password, accountNumber, refreshToken, orderProvider, securityProvider, algorithm);
+    }
+
+    /// <summary>
+    /// Initializes the <see cref="TastytradeBrokerage"/> instance with API credentials, connection settings, and dependencies.
+    /// </summary>
+    /// <param name="baseUrl">The base URL for Tastytrade REST API requests.</param>
+    /// <param name="baseWSUrl">The base WebSocket URL for real-time market data and account events.</param>
+    /// <param name="username">The username for Tastytrade account authentication. Leave empty when using token-based authentication.</param>
+    /// <param name="password">The password for Tastytrade account authentication. Leave empty when using token-based authentication.</param>
+    /// <param name="accountNumber">The brokerage account number to associate with this instance.</param>
+    /// <param name="refreshToken">The refresh token used to obtain new access tokens automatically. Optional if using username/password authentication only.</param>
+    /// <param name="orderProvider">The order provider responsible for order management and tracking within the algorithm.</param>
+    /// <param name="securityProvider">The security provider supplying security definitions and holdings for the algorithm.</param>
+    /// <param name="algorithm">The algorithm instance integrating with the brokerage, providing access to portfolio, transactions, and runtime context.</param>
+    protected void Initialize(string baseUrl, string baseWSUrl, string username, string password, string accountNumber, string refreshToken, IOrderProvider orderProvider, ISecurityProvider securityProvider, IAlgorithm algorithm)
     {
         if (_isInitialized)
         {
@@ -115,7 +196,18 @@ public partial class TastytradeBrokerage : Brokerage
 
         _algorithm = algorithm;
         _securityProvider = securityProvider;
-        _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
+
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
+            _tastytradeApiClient = new(baseUrl, Name, accountNumber, refreshToken, _leanApiClient);
+        }
+        else
+        {
+            Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using development initialization process");
+            _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
+        }
+
         _symbolMapper = new(_tastytradeApiClient);
         _orderProvider = orderProvider;
 
@@ -132,7 +224,11 @@ public partial class TastytradeBrokerage : Brokerage
         (symbols, _) => Subscribe(symbols),
         (symbols, _) => Unsubscribe(symbols));
 
-        _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
+        // If we are used as a 'data-queue-handler' ignore account updates
+        if (!string.IsNullOrEmpty(accountNumber))
+        {
+            _clientWrapperByWebSocketType[WebSocketType.Account] = new AccountWebSocketClientWrapper(_tastytradeApiClient, baseWSUrl, OnAccountUpdateMessageHandler);
+        }
         _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler, OnMessage);
 
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
@@ -174,8 +270,8 @@ public partial class TastytradeBrokerage : Brokerage
             var token = Globals.UserToken;
             var organizationId = Globals.OrganizationID;
             // Verify we can authenticate with this user and token
-            var api = new ApiConnection(userId, token);
-            if (!api.Connected)
+            _leanApiClient = new ApiConnection(userId, token);
+            if (!_leanApiClient.Connected)
             {
                 throw new ArgumentException("Invalid api user id or token, cannot authenticate subscription.");
             }
@@ -224,7 +320,7 @@ public partial class TastytradeBrokerage : Brokerage
             }
             var request = new RestRequest("modules/license/read", Method.POST) { RequestFormat = DataFormat.Json };
             request.AddParameter("application/json", JsonConvert.SerializeObject(information), ParameterType.RequestBody);
-            api.TryRequest(request, out ModulesReadLicenseRead result);
+            _leanApiClient.TryRequest(request, out ModulesReadLicenseRead result);
             if (!result.Success)
             {
                 throw new InvalidOperationException($"Request for subscriptions from web failed, Response Errors : {string.Join(',', result.Errors)}");

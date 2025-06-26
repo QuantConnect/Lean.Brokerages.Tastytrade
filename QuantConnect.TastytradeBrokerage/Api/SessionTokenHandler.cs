@@ -18,15 +18,15 @@ using System.Text;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
-using System.Net.Http.Headers;
 using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Api;
 
 /// <summary>
 /// Handles automatic session token management for HTTP requests, including creation, refreshing, and disposal of sessions.
 /// </summary>
-public sealed class HttpTokenHandler : DelegatingHandler
+public sealed class SessionTokenHandler : TokenHandler
 {
     /// <summary>
     /// Full URL used for session-related API requests (e.g., "https://tasty.com/sessions").
@@ -59,26 +59,16 @@ public sealed class HttpTokenHandler : DelegatingHandler
     private DateTime _sessionExpirationTime;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="HttpTokenHandler"/> class.
+    /// Initializes a new instance of the <see cref="SessionTokenHandler"/> class.
     /// </summary>
     /// <param name="baseUrl">The base URL for the Tastytrade API.</param>
     /// <param name="username">The username used for authentication.</param>
     /// <param name="password">The password used for authentication.</param>
-    public HttpTokenHandler(string baseUrl, string username, string password) : base(new HttpClientHandler())
+    public SessionTokenHandler(string baseUrl, string username, string password) : base()
     {
         _username = username;
         _password = password;
         _baseUrlWithSessionEndpoint = baseUrl.TrimEnd('/') + "/sessions";
-    }
-
-    /// <inheritdoc/>
-    protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        _sessionToken = GetSessionToken(cancellationToken);
-
-        request.Headers.Authorization = new AuthenticationHeaderValue(_sessionToken);
-
-        return base.Send(request, cancellationToken);
     }
 
     /// <summary>
@@ -86,7 +76,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid session token string.</returns>
-    public string GetSessionToken(CancellationToken cancellationToken)
+    public override (TokenType, string) GetAccessToken(CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_sessionToken))
         {
@@ -97,7 +87,7 @@ public sealed class HttpTokenHandler : DelegatingHandler
             _sessionToken = UpdateSession(_username, _rememberToken, cancellationToken);
         }
 
-        return _sessionToken;
+        return (TokenType.SessionToken, _sessionToken);
     }
 
     /// <summary>
@@ -155,12 +145,12 @@ public sealed class HttpTokenHandler : DelegatingHandler
         {
             _sessionToken = null;
             _rememberToken = null;
-            Log.Trace($"{nameof(HttpTokenHandler)}.{nameof(DestroySessionAsync)}: Session destroyed successfully.");
+            Log.Trace($"{nameof(SessionTokenHandler)}.{nameof(DestroySessionAsync)}: Session destroyed successfully.");
         }
         else
         {
             var responseBody = response.ReadContentAsString();
-            Log.Error($"{nameof(HttpTokenHandler)}.{nameof(DestroySessionAsync)}: Failed to destroy session. " +
+            Log.Error($"{nameof(SessionTokenHandler)}.{nameof(DestroySessionAsync)}: Failed to destroy session. " +
                      $"StatusCode: {response.StatusCode}, Response: {responseBody}");
         }
     }

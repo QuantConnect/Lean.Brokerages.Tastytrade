@@ -118,9 +118,17 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeStreamHeartbeatMessage()
     {
-        var heartbeatJson = new HeartbeatRequest("your session token here", 1).ToJson();
+        var heartbeatJson = new HeartbeatRequest(TokenType.SessionToken, "your session token here", 1).ToJson();
 
         Assert.AreEqual("{\"action\":\"heartbeat\",\"auth-token\":\"your session token here\",\"request-id\":1}", heartbeatJson);
+    }
+
+    [Test]
+    public void SerializeStreamHeartbeatMessageWithBearerToken()
+    {
+        var heartbeatJson = new HeartbeatRequest(TokenType.Bearer, "your session token here", 1).ToJson();
+
+        Assert.AreEqual("{\"action\":\"heartbeat\",\"auth-token\":\"Bearer your session token here\",\"request-id\":1}", heartbeatJson);
     }
 
     [Test]
@@ -139,9 +147,17 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeStreamConnectMessage()
     {
-        var connectJson = new ConnectRequest("your session token here", 1, "12345").ToJson();
+        var connectJson = new ConnectRequest(TokenType.SessionToken, "your session token here", 1, "12345").ToJson();
 
         Assert.AreEqual("{\"action\":\"connect\",\"value\":[\"12345\"],\"auth-token\":\"your session token here\",\"request-id\":1}", connectJson);
+    }
+
+    [Test]
+    public void SerializeStreamConnectMessageWithBearerToken()
+    {
+        var connectJson = new ConnectRequest(TokenType.Bearer, "your session token here", 1, "12345").ToJson();
+
+        Assert.AreEqual("{\"action\":\"connect\",\"value\":[\"12345\"],\"auth-token\":\"Bearer your session token here\",\"request-id\":1}", connectJson);
     }
 
     [Test]
@@ -875,6 +891,35 @@ public class TastytradeJsonConverterTests
             Assert.AreEqual(2095m, futureOption.StrikePrice);
             Assert.AreEqual("./GCQ5 OGN5  250625P2095", futureOption.Symbol);
         }
+    }
+
+    [Test]
+    public void SerializeLeanAccessTokenMetaDataRequest()
+    {
+        var leanAccessTokenJson = new LeanAccessTokenMetaDataRequest("Tastytrade", "zxcvb123", "7DZ64577").ToJson();
+
+        Assert.AreEqual("{\"brokerage\":\"tastytrade\",\"refreshToken\":\"zxcvb123\",\"accountId\":\"7DZ64577\"}", leanAccessTokenJson);
+    }
+
+    [Test]
+    public void DeserializeLeanAccessTokenMetaDataResponse()
+    {
+        var jsonContent = @"{
+    ""accessToken"": ""zxcvb123"",
+    ""tokenType"": ""Bearer"",
+    ""expiresIn"": 900,
+    ""tokenId"": ""123bvcxz"",
+    ""success"": true
+}";
+
+        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<LeanAccessTokenMetaDataResponse>();
+
+        Assert.IsNotNull(leanAccessTokenResponse);
+        Assert.AreEqual("zxcvb123", leanAccessTokenResponse.AccessToken);
+        Assert.AreEqual(TokenType.Bearer, leanAccessTokenResponse.TokenType);
+
+        var expectedDateTime = DateTime.UtcNow.AddSeconds(900).AddSeconds(-70); //  The 70 second buffer to test time expiration
+        Assert.Less(expectedDateTime, leanAccessTokenResponse.AccessTokenExpires);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

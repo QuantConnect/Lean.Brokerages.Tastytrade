@@ -17,8 +17,9 @@ using System;
 using System.Web;
 using System.Text;
 using System.Net.Http;
-using System.Threading;
+using QuantConnect.Api;
 using QuantConnect.Logging;
+using System.Net.Http.Headers;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -47,23 +48,51 @@ public sealed class TastytradeApiClient
     private readonly HttpClient _httpClient;
 
     /// <summary>
-    /// A delegate that retrieves the current session token for authenticating API requests.
+    /// Provides access tokens for authenticating API requests.
     /// </summary>
-    public readonly Func<CancellationToken, string> GetSessionToken;
+    public readonly ITokenProvider TokenProvider;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class.
+    /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class using Lean token-based authentication.
+    /// </summary>
+    /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
+    /// <param name="brokerageName">The name of the brokerage associated with the token.</param>
+    /// <param name="accountNumber">The account number linked to the request.</param>
+    /// <param name="refreshToken">The refresh token used to obtain a new access token.</param>
+    /// <param name="leanApiClient">The Lean API client instance.</param>
+
+    public TastytradeApiClient(string baseUrl, string brokerageName, string accountNumber, string refreshToken, ApiConnection leanApiClient)
+        : this(baseUrl, new LeanTokenHandler(leanApiClient, brokerageName, accountNumber, refreshToken), accountNumber)
+    {
+    }
+
+    /// <summary>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class using username and password authentication.
     /// </summary>
     /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
     /// <param name="username">The Tastytrade account username.</param>
     /// <param name="password">The Tastytrade account password.</param>
-    /// <param name="accountNumber">The account number associated with the Tastytrade account.</param>
+    /// <param name="accountNumber">The account number linked to the request.</param>
     public TastytradeApiClient(string baseUrl, string username, string password, string accountNumber)
+        : this(baseUrl, new SessionTokenHandler(baseUrl, username, password), accountNumber)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class using a custom token handler.
+    /// </summary>
+    /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
+    /// <param name="tokenHandler">The token handler used to authenticate API requests.</param>
+    /// <param name="accountNumber">The account number associated with the Tastytrade account.</param>
+    private TastytradeApiClient(string baseUrl, TokenHandler tokenHandler, string accountNumber)
     {
         _baseUrl = baseUrl.TrimEnd('/');
-        var httpTokenHandler = new HttpTokenHandler(baseUrl, username, password);
-        GetSessionToken = httpTokenHandler.GetSessionToken;
-        _httpClient = new HttpClient(httpTokenHandler);
+        _httpClient = new HttpClient(tokenHandler);
+        // All requests must include a User-Agent header or they will be rejected.
+        /// <see href="https://developer.tastytrade.com/api-overview/#api-conventions-rest-json"/>
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("quantconnect-tastytrade-brokerage", "1.0"));
+        TokenProvider = tokenHandler;
         AccountNumber = accountNumber;
     }
 

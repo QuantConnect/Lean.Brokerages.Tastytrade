@@ -16,18 +16,13 @@
 using System;
 using System.Timers;
 using System.Threading;
-using QuantConnect.Logging;
-using System.Threading.Tasks;
 using QuantConnect.Brokerages.Tastytrade.Api;
-using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream;
 
 namespace QuantConnect.Brokerages.Tastytrade.WebSocket;
 
 public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
 {
-    private const int ConnectionTimeout = 30000;
-
     /// <summary>
     /// Static counter used to generate unique request IDs for outgoing messages.
     /// </summary>
@@ -64,8 +59,8 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
             return;
         }
 
-        var sessionToken = _tastyTradeApiClient.GetSessionToken(default);
-        Send(new HeartbeatRequest(sessionToken, NextRequestId).ToJson());
+        var (tokenType, sessionToken) = _tastyTradeApiClient.TokenProvider.GetAccessToken(default);
+        Send(new HeartbeatRequest(tokenType, sessionToken, NextRequestId).ToJson());
     }
 
     /// <summary>
@@ -76,9 +71,9 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="e">The event data.</param>
     private void SendConnectMessage(object sender, EventArgs e)
     {
-        var sessionToken = _tastyTradeApiClient.GetSessionToken(default);
+        var (tokenType, sessionToken) = _tastyTradeApiClient.TokenProvider.GetAccessToken(default);
         var accountNumber = _tastyTradeApiClient.AccountNumber;
 
-        Send(new ConnectRequest(sessionToken, NextRequestId, accountNumber).ToJson());
+        Send(new ConnectRequest(tokenType, sessionToken, NextRequestId, accountNumber).ToJson());
     }
 }
