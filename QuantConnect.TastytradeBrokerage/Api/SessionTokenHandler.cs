@@ -87,7 +87,7 @@ public sealed class SessionTokenHandler : TokenHandler
             _sessionToken = UpdateSession(_username, _rememberToken, cancellationToken);
         }
 
-        return (TokenType.Unknown, _sessionToken);
+        return (TokenType.SessionToken, _sessionToken);
     }
 
     /// <summary>

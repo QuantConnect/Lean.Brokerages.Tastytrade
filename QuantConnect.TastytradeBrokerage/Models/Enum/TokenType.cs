@@ -25,9 +25,9 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Enum;
 public enum TokenType
 {
     /// <summary>
-    /// Token type is unknown or not specified.
+    /// A Session token, typically used for usename/password authorization headres.
     /// </summary>
-    Unknown = 0,
+    SessionToken = 0,
 
     /// <summary>
     /// A Bearer token, typically used for standard HTTP Authorization headers.
