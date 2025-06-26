@@ -19,6 +19,7 @@ using System.Text;
 using System.Net.Http;
 using QuantConnect.Api;
 using QuantConnect.Logging;
+using System.Net.Http.Headers;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -88,6 +89,9 @@ public sealed class TastytradeApiClient
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _httpClient = new HttpClient(tokenHandler);
+        // All requests must include a User-Agent header or they will be rejected.
+        /// <see href="https://developer.tastytrade.com/api-overview/#api-conventions-rest-json"/>
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("quantconnect-tastytrade-brokerage", "1.0"));
         TokenProvider = tokenHandler;
         AccountNumber = accountNumber;
     }

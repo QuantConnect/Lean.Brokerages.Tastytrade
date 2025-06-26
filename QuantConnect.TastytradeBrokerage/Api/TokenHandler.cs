@@ -54,7 +54,7 @@ public abstract class TokenHandler : DelegatingHandler, ITokenProvider
         request.Headers.Authorization = tokenType switch
         {
             TokenType.SessionToken => new AuthenticationHeaderValue(accessToken),
-            TokenType.Bearer => new AuthenticationHeaderValue(accessToken),
+            TokenType.Bearer => new AuthenticationHeaderValue(TokenType.Bearer.ToString(), accessToken),
             _ => throw new NotSupportedException($"{nameof(TokenHandler)}.{nameof(Send)}: Token type '{tokenType}' is not supported.")
         };
 
