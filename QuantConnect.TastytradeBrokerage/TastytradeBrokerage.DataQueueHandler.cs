@@ -144,6 +144,9 @@ public partial class TastytradeBrokerage : IDataQueueHandler
                 case EventFlag.SnapshotBegin:
                     break;
                 case EventFlag.SnapshotSnip:
+                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"{nameof(TastytradeBrokerage)}.{nameof(OnCandleReceived)}: Received SNAPSHOT_SNIP received for symbol '{leanSymbol}'. The historical data snapshot was incomplete due to server-side limits. Additional data may exist but will not be delivered automatically."));
+                    candleFeedService.SnapshotCompletedEvent.Set();
+                    return;
                 case EventFlag.SnapshotEnd:
                     candleFeedService.SnapshotCompletedEvent.Set();
                     return;
