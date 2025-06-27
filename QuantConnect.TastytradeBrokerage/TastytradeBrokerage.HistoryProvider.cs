@@ -31,7 +31,7 @@ namespace QuantConnect.Brokerages.Tastytrade;
 /// </summary>
 public partial class TastytradeBrokerage
 {
-    private readonly ConcurrentDictionary<string, CandleFeedService> _historyStreams = new();
+    private readonly ConcurrentDictionary<Symbol, CandleFeedService> _historyStreams = new();
 
     /// <summary>
     /// Indicates whether the warning for invalid <see cref="SecurityType"/> has been fired.
@@ -76,9 +76,9 @@ public partial class TastytradeBrokerage
 
         var candleFeedService = new CandleFeedService(request.Symbol, request.Resolution);
 
-        var feedSymbol = SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
+        SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
 
-        _historyStreams[feedSymbol] = candleFeedService;
+        _historyStreams[request.Symbol] = candleFeedService;
 
         try
         {
@@ -93,9 +93,9 @@ public partial class TastytradeBrokerage
         }
         finally
         {
-            feedSymbol = SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedUnsubscription(s, r, t));
+            SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedUnsubscription(s, r, t));
             candleFeedService?.Dispose();
-            _historyStreams.TryRemove(feedSymbol, out _);
+            _historyStreams.TryRemove(request.Symbol, out _);
         }
     }
 
@@ -115,22 +115,32 @@ public partial class TastytradeBrokerage
     }
 
     /// <summary>
-    /// Builds and sends a candle feed subscription or unsubscription message, then returns the formatted symbol with resolution postfix.
+    /// Constructs and sends a candle feed subscription or unsubscription message to the market data websocket.
     /// </summary>
     /// <typeparam name="T">
-    /// The type of the candle feed message to send, which must implement both <see cref="BaseFeedSubscription"/> and <see cref="ICandleFeedMessage"/>.
+    /// The type of the candle feed message to send, which must inherit from <see cref="BaseFeedSubscription"/>.
+    /// Typically <c>CandleFeedSubscription</c> or <c>CandleFeedUnsubscription</c>.
     /// </typeparam>
-    /// <param name="symbol">The base LEAN symbol to subscribe or unsubscribe (e.g., "AAPL").</param>
-    /// <param name="resolution">The resolution of the candle data (e.g., Minute, Hour, Daily).</param>
-    /// <param name="startDateTimeUtc">The UTC start time for the subscription or unsubscription.</param>
-    /// <param name="createFeedMessage">A factory delegate that constructs the candle feed message using the brokerage-formatted symbol, resolution, and start time.</param>
-    /// <returns>The formatted brokerage symbol with resolution postfix (e.g., "AAPL{=1d}").</returns>
-    private string SendCandleFeedRequest<T>(
+    /// <param name="symbol">
+    /// The base LEAN <see cref="Symbol"/> to subscribe or unsubscribe (e.g., <c>AAPL</c>, <c>SPY</c>).
+    /// </param>
+    /// <param name="resolution">
+    /// The resolution of the candle data to request (e.g., <see cref="Resolution.Minute"/>, <see cref="Resolution.Hour"/>).
+    /// </param>
+    /// <param name="startDateTimeUtc">
+    /// The UTC start time for the subscription or unsubscription.
+    /// </param>
+    /// <param name="createFeedMessage">
+    /// A factory delegate that creates the feed message using the brokerage-formatted symbol,
+    /// resolution, and start time. The formatted symbol typically includes a postfix to indicate resolution
+    /// (e.g., <c>AAPL{=1d}</c>).
+    /// </param>
+    private void SendCandleFeedRequest<T>(
         Symbol symbol,
         Resolution resolution,
         DateTime startDateTimeUtc,
         Func<string, Resolution, DateTime, T> createFeedMessage)
-        where T : BaseFeedSubscription, ICandleFeedMessage
+        where T : BaseFeedSubscription
     {
         var brokerageSymbol = _symbolMapper.GetBrokerageSymbols(symbol).brokerageStreamMarketDataSymbol;
 
@@ -142,7 +152,5 @@ public partial class TastytradeBrokerage
         }
 
         _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(feedMessage.ToJson());
-
-        return feedMessage.GetFirstSymbolWithResolution();
     }
 }
