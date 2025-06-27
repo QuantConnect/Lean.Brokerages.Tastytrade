@@ -133,6 +133,26 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     private void OnSummaryReceived(SummaryContent summary, Symbol leanSymbol, DateTime summaryDateTime)
     {
         _levelOneServiceManager.HandleOpenInterest(leanSymbol, summaryDateTime, summary.OpenInterest);
+    }
 
+    private void OnCandleReceived(CandleContent candle, Symbol leanSymbol)
+    {
+        if (_historyStreams.TryGetValue(leanSymbol, out var candleFeedService))
+        {
+            switch (candle.EventFlag)
+            {
+                case EventFlag.SnapshotBegin:
+                    break;
+                case EventFlag.SnapshotSnip:
+                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"{nameof(TastytradeBrokerage)}.{nameof(OnCandleReceived)}: Received SNAPSHOT_SNIP received for symbol '{leanSymbol}'. The historical data snapshot was incomplete due to server-side limits. Additional data may exist but will not be delivered automatically."));
+                    candleFeedService.SnapshotCompletedEvent.Set();
+                    return;
+                case EventFlag.SnapshotEnd:
+                    candleFeedService.SnapshotCompletedEvent.Set();
+                    return;
+            }
+
+            candleFeedService.Add(candle.DateTime, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume, candle.OpenInterest);
+        }
     }
 }

@@ -40,13 +40,4 @@ public sealed class FeedSubscription : BaseFeedSubscription
     {
         SymbolTypes = CreateSymbolTypes(symbols, symbolMapper);
     }
-
-    /// <summary>
-    /// Converts the current object to its JSON representation.
-    /// </summary>
-    /// <returns>A JSON string representation of the subscription.</returns>
-    public string ToJson()
-    {
-        return JsonConvert.SerializeObject(this, JsonSettings.CamelCase);
-    }
 }

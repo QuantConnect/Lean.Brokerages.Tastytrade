@@ -184,3 +184,74 @@ public sealed class SummaryContent : BaseContent
         OpenInterest = openInterest;
     }
 }
+
+/// <summary>
+/// Represents candlestick market data content for a specific symbol, including price, volume, and open interest.
+/// </summary>
+public sealed class CandleContent : BaseContent
+{
+    /// <summary>
+    /// Gets the event flag indicating the state of the data, such as snapshot boundaries (beginning or end).
+    /// </summary>
+    public EventFlag EventFlag { get; }
+
+    /// <summary>
+    /// Gets the timestamp associated with the candle data.
+    /// </summary>
+    public DateTime DateTime { get; }
+
+    /// <summary>
+    /// Gets the open price for the candle.
+    /// </summary>
+    public decimal Open { get; }
+
+    /// <summary>
+    /// Gets the highest price within the candle period.
+    /// </summary>
+    public decimal High { get; }
+
+    /// <summary>
+    /// Gets the lowest price within the candle period.
+    /// </summary>
+    public decimal Low { get; }
+
+    /// <summary>
+    /// Gets the closing price for the candle.
+    /// </summary>
+    public decimal Close { get; }
+
+    /// <summary>
+    /// Gets the traded volume during the candle period.
+    /// </summary>
+    public decimal Volume { get; }
+
+    /// <summary>
+    /// Gets the open interest value at the time of the candle.
+    /// </summary>
+    public decimal OpenInterest { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CandleContent"/> class.
+    /// </summary>
+    /// <param name="symbol">The symbol associated with the candle data.</param>
+    /// <param name="eventFlag">The flag indicating the event type or data snapshot state.</param>
+    /// <param name="dateTime">The timestamp of the candle.</param>
+    /// <param name="open">The open price.</param>
+    /// <param name="high">The high price.</param>
+    /// <param name="low">The low price.</param>
+    /// <param name="close">The close price.</param>
+    /// <param name="volume">The trading volume.</param>
+    /// <param name="openInterest">The open interest value.</param>
+    public CandleContent(EventFlag eventFlag, string symbol, DateTime dateTime, decimal open, decimal high, decimal low, decimal close, decimal volume, decimal openInterest)
+        : base(symbol)
+    {
+        EventFlag = eventFlag;
+        DateTime = dateTime;
+        Open = open;
+        High = high;
+        Low = low;
+        Close = close;
+        Volume = volume;
+        OpenInterest = openInterest;
+    }
+}

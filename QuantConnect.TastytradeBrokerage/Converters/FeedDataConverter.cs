@@ -28,19 +28,37 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
     /// Number of fields expected for each trade entry in the market data array.
     /// Format: [symbol, price, size, time]
     /// </summary>
+    /// <remarks>
+    /// This count corresponds to the fields defined in <see cref="AcceptEventFields.Trade"/>:
+    /// </remarks>
     private const int TradeFieldCount = 4;
 
     /// <summary>
     /// Number of fields expected for each quote entry in the market data array.
     /// Format: [symbol, bidPrice, bidSize, askPrice, askSize]
     /// </summary>
+    /// <remarks>
+    /// This count corresponds to the fields defined in <see cref="AcceptEventFields.Quote"/>:
+    /// </remarks>
     private const int QuoteFieldCount = 5;
 
     /// <summary>
     /// Number of fields expected for each summary entry in the market data array.
     /// Format: [symbol, openInterest]
     /// </summary>
+    /// <remarks>
+    /// This count corresponds to the fields defined in <see cref="AcceptEventFields.Summary"/>:
+    /// </remarks>
     private const int SummaryFieldCount = 2;
+
+    /// <summary>
+    /// Number of fields expected for each candle entry in the market data array.
+    /// Format: [eventFlags, symbol, time, open, high, low, close, volume, openInterest]
+    /// </summary>
+    /// <remarks>
+    /// This count corresponds to the fields defined in <see cref="AcceptEventFields.Candle"/>:
+    /// </remarks>
+    private const int CandleFieldCount = 9;
 
     /// <summary>
     /// Gets a value indicating whether this <see cref="JsonConverter"/> can write JSON.
@@ -71,6 +89,7 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
             "Trade" => MarketDataEvent.Trade,
             "Quote" => MarketDataEvent.Quote,
             "Summary" => MarketDataEvent.Summary,
+            "Candle" => MarketDataEvent.Candle,
             _ => throw new NotSupportedException($"{nameof(FeedDataConverter)}.{nameof(ReadJson)}.")
         };
 
@@ -82,9 +101,30 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
                 return new StreamDataResponse(eventType, ConvertArrayToQuoteContent(jToken[1] as JArray));
             case MarketDataEvent.Summary:
                 return new StreamDataResponse(eventType, ConvertArrayToSummaryContent(jToken[1] as JArray));
+            case MarketDataEvent.Candle:
+                return new StreamDataResponse(eventType, ConvertArrayToCandleContent(jToken[1] as JArray)); // CandleContent
             default:
                 throw new NotImplementedException($"{nameof(FeedDataConverter)}.{nameof(ReadJson)}.");
         }
+    }
+
+    private static CandleContent[] ConvertArrayToCandleContent(JArray jArray)
+    {
+        var candles = new CandleContent[jArray.Count / CandleFieldCount];
+        for (int i = 0, j = 0; i < candles.Length; i++, j += CandleFieldCount)
+        {
+            candles[i] = new CandleContent(
+                eventFlag: int.TryParse(jArray[j].ToString(), out var eventFlag) ? (EventFlag)eventFlag : EventFlag.Unknown,
+                symbol: jArray[j + 1].ToString(),
+                dateTime: Time.UnixMillisecondTimeStampToDateTime(jArray[j + 2].Value<long>()),
+                open: decimal.TryParse(jArray[j + 3].ToString(), out var o) ? o : 0m,
+                high: decimal.TryParse(jArray[j + 4].ToString(), out var h) ? h : 0m,
+                low: decimal.TryParse(jArray[j + 5].ToString(), out var l) ? l : 0m,
+                close: decimal.TryParse(jArray[j + 6].ToString(), out var c) ? c : 0m,
+                volume: decimal.TryParse(jArray[j + 7].ToString(), out var v) ? v : 0m,
+                openInterest: decimal.TryParse(jArray[j + 8].ToString(), out var oi) ? oi : 0m);
+        }
+        return candles;
     }
 
     /// <summary>

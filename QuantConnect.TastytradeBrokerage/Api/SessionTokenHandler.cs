@@ -59,6 +59,11 @@ public sealed class SessionTokenHandler : TokenHandler
     private DateTime _sessionExpirationTime;
 
     /// <summary>
+    /// The HTTP client used to send requests to the Tastytrade API.
+    /// </summary>
+    private readonly HttpClient _httpClient;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="SessionTokenHandler"/> class.
     /// </summary>
     /// <param name="baseUrl">The base URL for the Tastytrade API.</param>
@@ -69,6 +74,7 @@ public sealed class SessionTokenHandler : TokenHandler
         _username = username;
         _password = password;
         _baseUrlWithSessionEndpoint = baseUrl.TrimEnd('/') + "/sessions";
+        _httpClient = new HttpClient();
     }
 
     /// <summary>
@@ -171,7 +177,7 @@ public sealed class SessionTokenHandler : TokenHandler
             requestMessage.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
         }
 
-        var responseMessage = base.Send(requestMessage, cancellationToken);
+        var responseMessage = _httpClient.Send(requestMessage, cancellationToken);
 
         responseMessage.EnsureSuccessStatusCode(requestMessage, jsonBody);
 
