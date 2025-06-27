@@ -242,12 +242,10 @@ public partial class TastytradeBrokerage : Brokerage
     /// <returns><c>true</c> if the symbol is eligible for subscription; otherwise, <c>false</c>.</returns>
     private bool CanSubscribe(Symbol symbol)
     {
-        if (symbol.Value.IndexOfInvariant("universe", true) != -1 || symbol.IsCanonical())
-        {
-            return false;
-        }
-
-        return true;
+        return
+            symbol.Value.IndexOfInvariant("universe", true) == -1
+            && !symbol.IsCanonical()
+            && _symbolMapper.SupportedSecurityType.Contains(symbol.SecurityType);
     }
 
     private class ModulesReadLicenseRead : QuantConnect.Api.RestResponse

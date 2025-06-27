@@ -64,6 +64,21 @@ public class TastytradeBrokerageSymbolMapper
     };
 
     /// <summary>
+    /// Represents a set of supported security types.
+    /// </summary>
+    /// <remarks>
+    /// This HashSet contains the supported security types that are allowed within the system.
+    /// </remarks>
+    public readonly HashSet<SecurityType> SupportedSecurityType = new()
+    {
+        SecurityType.Equity,
+        SecurityType.Option,
+        SecurityType.IndexOption,
+        SecurityType.Future,
+        SecurityType.FutureOption
+    };
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeBrokerageSymbolMapper"/> class.
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used to query future instruments.</param>
