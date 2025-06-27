@@ -23,7 +23,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// <summary>
 /// Represents a feed unsubscription request for candle (OHLC) data for a specific symbol and resolution.
 /// </summary>
-public class CandleFeedUnSubscription : BaseFeedSubscription
+public sealed class CandleFeedUnsubscription : BaseFeedSubscription, ICandleFeedMessage
 {
     /// <summary>
     /// Gets the collection of candle subscription requests to be removed.
@@ -32,12 +32,12 @@ public class CandleFeedUnSubscription : BaseFeedSubscription
     public IReadOnlyCollection<CandleSubscriptionRequest> Candles { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CandleFeedUnSubscription"/> class for a specific symbol, resolution, and start time.
+    /// Initializes a new instance of the <see cref="CandleFeedUnsubscription"/> class for a specific symbol, resolution, and start time.
     /// </summary>
     /// <param name="symbol">The base symbol to unsubscribe from (e.g., "AAPL").</param>
     /// <param name="resolution">The resolution of the candle data (e.g., Minute, Hour, Daily).</param>
     /// <param name="startDateTime">The starting time for the unsubscription. Will be converted to Unix timestamp in seconds.</param>
-    public CandleFeedUnSubscription(string symbol, Resolution resolution, DateTime startDateTime)
+    public CandleFeedUnsubscription(string symbol, Resolution resolution, DateTime startDateTime)
     {
         Candles = [new(symbol, resolution, startDateTime)];
     }

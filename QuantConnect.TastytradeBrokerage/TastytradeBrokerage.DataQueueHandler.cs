@@ -135,22 +135,21 @@ public partial class TastytradeBrokerage : IDataQueueHandler
         _levelOneServiceManager.HandleOpenInterest(leanSymbol, summaryDateTime, summary.OpenInterest);
     }
 
-    private void OnCandleReceived(CandleContent candleContent)
+    private void OnCandleReceived(CandleContent candle)
     {
-        if (_historyStreams.TryGetValue(candleContent.Symbol, out var blockCollection))
+        if (_historyStreams.TryGetValue(candle.Symbol, out var candleFeedService))
         {
-            switch (candleContent.EventFlag)
+            switch (candle.EventFlag)
             {
                 case EventFlag.SnapshotBegin:
-                    // TODO: ResetEvent
                     break;
                 case EventFlag.SnapshotSnip:
                 case EventFlag.SnapshotEnd:
-                    blockCollection.CompleteAdding();
-                    break;
+                    candleFeedService.SnapshotCompletedEvent.Set();
+                    return;
             }
 
-            // TODO: blockCollection.Add(new TradeBar());
+            candleFeedService.Add(candle.DateTime, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume);
         }
     }
 }

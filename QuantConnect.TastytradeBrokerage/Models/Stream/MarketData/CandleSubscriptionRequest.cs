@@ -34,9 +34,9 @@ public readonly struct CandleSubscriptionRequest
     public MarketDataEvent Type => MarketDataEvent.Candle;
 
     /// <summary>
-    /// Gets the starting time for the candle subscription, represented as a Unix timestamp in seconds.
+    /// Gets the starting time for the candle subscription, represented as a Unix timestamp in milliseconds.
     /// </summary>
-    public uint FromTime { get; }
+    public long FromTime { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CandleSubscriptionRequest"/> struct with the specified symbol, resolution, and start time.
@@ -47,6 +47,6 @@ public readonly struct CandleSubscriptionRequest
     public CandleSubscriptionRequest(string symbol, Resolution resolution, DateTime fromTime)
     {
         Symbol = resolution.GetSymbolWithPeriodPostfix(symbol);
-        FromTime = (uint)Time.DateTimeToUnixTimeStamp(fromTime);
+        FromTime = (long)Time.DateTimeToUnixTimeStampMilliseconds(fromTime);
     }
 }

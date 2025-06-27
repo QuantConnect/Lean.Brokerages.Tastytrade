@@ -23,7 +23,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 /// <summary>
 /// Represents a feed subscription request for candle (OHLC) data for a specific symbol and resolution.
 /// </summary>
-public class CandleFeedSubscription : BaseFeedSubscription
+public sealed class CandleFeedSubscription : BaseFeedSubscription, ICandleFeedMessage
 {
     /// <summary>
     /// Gets the collection of candle subscription requests to be added.
