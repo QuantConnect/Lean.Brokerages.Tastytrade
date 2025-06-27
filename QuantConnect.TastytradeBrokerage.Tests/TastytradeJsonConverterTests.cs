@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -243,7 +243,7 @@ public class TastytradeJsonConverterTests
     {
         var feedSetupJson = new FeedSetupRequest().ToJson();
 
-        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"FULL\",\"acceptEventFields\":{\"Quote\":[\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventSymbol\",\"price\",\"size\",\"time\"],\"Summary\":[\"eventSymbol\",\"openInterest\"]}}", feedSetupJson);
+        Assert.AreEqual("{\"type\":\"FEED_SETUP\",\"channel\":1,\"acceptDataFormat\":\"COMPACT\",\"acceptEventFields\":{\"Quote\":[\"eventSymbol\",\"bidPrice\",\"askPrice\",\"bidSize\",\"askSize\"],\"Trade\":[\"eventSymbol\",\"price\",\"size\",\"time\"],\"Summary\":[\"eventSymbol\",\"openInterest\"],\"Candle\":[\"eventFlags\",\"eventSymbol\",\"time\",\"open\",\"high\",\"low\",\"close\",\"volume\",\"openInterest\"]}}", feedSetupJson);
     }
 
     [Test]
@@ -891,6 +891,15 @@ public class TastytradeJsonConverterTests
             Assert.AreEqual(2095m, futureOption.StrikePrice);
             Assert.AreEqual("./GCQ5 OGN5  250625P2095", futureOption.Symbol);
         }
+    }
+
+    [Test]
+    public void SerializeCandleFeedSubscriptionMessage()
+    {
+        var candleFeedSubscription = new CandleFeedSubscription("AAPL", Resolution.Daily, new DateTime(2022, 10, 24)).ToJson();
+
+        AssertIsNotNullAndIsNotEmpty(candleFeedSubscription);
+        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL{=d}\",\"type\":\"Candle\",\"fromTime\":1666569600}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", candleFeedSubscription);
     }
 
     [Test]

@@ -154,4 +154,13 @@ public class TastytradeBrokerageAdditionalTests
             Assert.AreEqual(TokenType.Bearer, tokenType);
         });
     }
+
+    [TestCase("AAPL", Resolution.Daily, "AAPL{=d}")]
+    [TestCase(".SPX250919C5050", Resolution.Hour, ".SPX250919C5050{=h}")]
+    [TestCase("BRK/B", Resolution.Tick, "BRK/B{=t}")]
+    public void GetSymbolWithPeriodPostfix(string brokerageSymbol, Resolution resolution, string expectedSymbolPeriodType)
+    {
+        var actualSymbolPeriodType = resolution.GetSymbolWithPeriodPostfix(brokerageSymbol);
+        Assert.AreEqual(expectedSymbolPeriodType, actualSymbolPeriodType);
+    }
 }

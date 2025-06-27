@@ -109,6 +109,11 @@ public partial class TastytradeBrokerage
                     var utcNow = DateTime.UtcNow;
                     foreach (var content in feedData.Data.Content)
                     {
+                        if (feedData.Data.EventType == MarketDataEvent.Candle)
+                        {
+                            OnCandleReceived(content as CandleContent);
+                            continue;
+                        }
                         var leanSymbol = _symbolMapper.GetLeanSymbol(content.Symbol, default);
                         switch (feedData.Data.EventType)
                         {

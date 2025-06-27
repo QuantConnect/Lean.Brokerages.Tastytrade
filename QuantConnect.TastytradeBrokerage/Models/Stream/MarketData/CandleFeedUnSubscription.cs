@@ -13,31 +13,32 @@
  * limitations under the License.
 */
 
+using System;
 using Newtonsoft.Json;
 using System.Collections.Generic;
-using QuantConnect.Brokerages.Tastytrade.Serialization;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 /// <summary>
-/// Represents a feed unsubscription for specified symbols and types.
+/// Represents a feed unsubscription request for candle (OHLC) data for a specific symbol and resolution.
 /// </summary>
-public sealed class FeedUnSubscription : BaseFeedSubscription
+public class CandleFeedUnSubscription : BaseFeedSubscription
 {
     /// <summary>
-    /// Gets the list of symbol-type pairs to unsubscribe from.
+    /// Gets the collection of candle subscription requests to be removed.
     /// </summary>
     [JsonProperty("remove")]
-    public override IReadOnlyList<SymbolType> SymbolTypes { get; }
+    public IReadOnlyCollection<CandleSubscriptionRequest> Candles { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FeedUnSubscription"/> class with the specified symbols.
+    /// Initializes a new instance of the <see cref="CandleFeedUnSubscription"/> class for a specific symbol, resolution, and start time.
     /// </summary>
-    /// <param name="symbols">The symbols to unsubscribe from.</param>
-    /// <param name="symbolMapper">The brokerage symbol mapper used to resolve brokerage-specific symbol representations.</param>
-    public FeedUnSubscription(IEnumerable<Symbol> symbols, TastytradeBrokerageSymbolMapper symbolMapper)
+    /// <param name="symbol">The base symbol to unsubscribe from (e.g., "AAPL").</param>
+    /// <param name="resolution">The resolution of the candle data (e.g., Minute, Hour, Daily).</param>
+    /// <param name="startDateTime">The starting time for the unsubscription. Will be converted to Unix timestamp in seconds.</param>
+    public CandleFeedUnSubscription(string symbol, Resolution resolution, DateTime startDateTime)
     {
-        SymbolTypes = CreateSymbolTypes(symbols, symbolMapper);
+        Candles = [new(symbol, resolution, startDateTime)];
     }
 }

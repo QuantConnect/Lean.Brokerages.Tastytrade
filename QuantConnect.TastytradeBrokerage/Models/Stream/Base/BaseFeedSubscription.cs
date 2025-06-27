@@ -14,8 +14,10 @@
 */
 
 using System.Linq;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Tastytrade.Serialization;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
@@ -75,5 +77,14 @@ public abstract class BaseFeedSubscription
         }
 
         return symbolTypes;
+    }
+
+    /// <summary>
+    /// Converts the current object to its JSON string representation using camelCase formatting.
+    /// </summary>
+    /// <returns>A JSON string representing the subscription or unsubscription payload.</returns>
+    public string ToJson()
+    {
+        return JsonConvert.SerializeObject(this, JsonSettings.CamelCase);
     }
 }
