@@ -149,7 +149,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
                     return;
             }
 
-            candleFeedService.Add(candle.DateTime, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume);
+            candleFeedService.Add(candle.DateTime, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume, candle.OpenInterest);
         }
     }
 }

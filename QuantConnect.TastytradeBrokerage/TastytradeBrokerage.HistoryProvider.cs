@@ -74,7 +74,7 @@ public partial class TastytradeBrokerage
             return null;
         }
 
-        var candleFeedService = new CandleFeedService(request.Symbol, request.Resolution);
+        var candleFeedService = new CandleFeedService(request.Symbol, request.Resolution, request.TickType);
 
         SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
 
