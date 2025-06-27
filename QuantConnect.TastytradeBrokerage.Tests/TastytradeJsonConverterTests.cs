@@ -899,7 +899,15 @@ public class TastytradeJsonConverterTests
         var candleFeedSubscription = new CandleFeedSubscription("AAPL", Resolution.Daily, new DateTime(2022, 10, 24)).ToJson();
 
         AssertIsNotNullAndIsNotEmpty(candleFeedSubscription);
-        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL{=d}\",\"type\":\"Candle\",\"fromTime\":1666569600}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", candleFeedSubscription);
+        Assert.AreEqual("{\"add\":[{\"symbol\":\"AAPL{=d}\",\"type\":\"Candle\",\"fromTime\":1666569600000}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", candleFeedSubscription);
+    }
+
+    [Test]
+    public void SerializeCandleFeedUnSubscriptionMessage()
+    {
+        var candleFeedSubscription = new CandleFeedUnsubscription("AAPL", Resolution.Daily, new DateTime(2022, 10, 24)).ToJson();
+        AssertIsNotNullAndIsNotEmpty(candleFeedSubscription);
+        Assert.AreEqual("{\"remove\":[{\"symbol\":\"AAPL{=d}\",\"type\":\"Candle\",\"fromTime\":1666569600000}],\"type\":\"FEED_SUBSCRIPTION\",\"channel\":1}", candleFeedSubscription);
     }
 
     [Test]
