@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Logging;
 using QuantConnect.Interfaces;
@@ -31,6 +32,16 @@ namespace QuantConnect.Brokerages.Tastytrade;
 /// </summary>
 public partial class TastytradeBrokerage
 {
+    /// <summary>
+    /// Provides thread-safe management of historical candle feed data requests,
+    /// ensuring serialized processing per symbol while allowing parallel operations across different symbols.
+    /// </summary>
+    private readonly ConcurrentDictionary<Symbol, SemaphoreSlim> _symbolLocks = new();
+
+    /// <summary>
+    /// Stores active candle feed service instances per symbol for handling historical data requests.
+    /// Entries are removed after each request completes.
+    /// </summary>
     private readonly ConcurrentDictionary<Symbol, CandleFeedService> _historyStreams = new();
 
     /// <summary>
@@ -74,11 +85,12 @@ public partial class TastytradeBrokerage
             return null;
         }
 
+        var symbolLock = _symbolLocks.GetOrAdd(request.Symbol, _ => new SemaphoreSlim(1, 1));
+        symbolLock.Wait();
+
         var candleFeedService = new CandleFeedService(request.Symbol, request.Resolution, request.TickType);
-
-        SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
-
         _historyStreams[request.Symbol] = candleFeedService;
+        SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
 
         try
         {
@@ -94,8 +106,9 @@ public partial class TastytradeBrokerage
         finally
         {
             SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedUnsubscription(s, r, t));
-            candleFeedService?.Dispose();
+            candleFeedService.Dispose();
             _historyStreams.TryRemove(request.Symbol, out _);
+            symbolLock.Release();
         }
     }
 

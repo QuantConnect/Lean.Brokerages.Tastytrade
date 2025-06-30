@@ -42,19 +42,19 @@ public class CandleFeedService : IDisposable
     private readonly DateTimeZone _symbolDateTimeZone;
 
     /// <summary>
+    /// Internal list storing candle data in descending order by time (newest first).
+    /// </summary>
+    private readonly List<BaseData> _dataDescendingOrder = [];
+
+    /// <summary>
     /// The duration of each candle period, derived from the resolution.
     /// </summary>
-    private readonly TimeSpan _period;
+    public readonly TimeSpan period;
 
     /// <summary>
     /// The history tick type.
     /// </summary>
-    private readonly TickType _tickType;
-
-    /// <summary>
-    /// Internal list storing candle data in descending order by time (newest first).
-    /// </summary>
-    private readonly List<BaseData> _dataDescendingOrder = [];
+    public readonly TickType tickType;
 
     /// <summary>
     /// Gets the candle data ordered ascending by time (oldest first).
@@ -77,8 +77,8 @@ public class CandleFeedService : IDisposable
     public CandleFeedService(Symbol symbol, Resolution resolution, TickType tickType)
     {
         _symbol = symbol;
-        _period = resolution.ToTimeSpan();
-        _tickType = tickType;
+        period = resolution.ToTimeSpan();
+        this.tickType = tickType;
         _symbolDateTimeZone = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType).TimeZone;
     }
 
@@ -93,16 +93,16 @@ public class CandleFeedService : IDisposable
     /// <param name="volume">The trading volume during the candle period.</param>
     public void Add(DateTime dateTime, decimal open, decimal high, decimal low, decimal close, decimal volume, decimal openInterest)
     {
-        switch (_tickType)
+        switch (tickType)
         {
             case TickType.Trade:
-                _dataDescendingOrder.Add(new TradeBar(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, open, high, low, close, volume, _period));
+                _dataDescendingOrder.Add(new TradeBar(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, open, high, low, close, volume, period));
                 break;
             case TickType.OpenInterest:
                 _dataDescendingOrder.Add(new OpenInterest(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, openInterest));
                 break;
             default:
-                throw new NotSupportedException($"{nameof(CandleFeedService)}.{nameof(Add)}: Unsupported TickType '{_tickType}' for symbol '{_symbol}'. ");
+                throw new NotSupportedException($"{nameof(CandleFeedService)}.{nameof(Add)}: Unsupported TickType '{tickType}' for symbol '{_symbol}'. ");
         }
     }
 

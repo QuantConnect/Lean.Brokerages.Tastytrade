@@ -19,55 +19,61 @@ using NUnit.Framework;
 using QuantConnect.Data;
 using QuantConnect.Tests;
 using QuantConnect.Logging;
+using Microsoft.CodeAnalysis;
 using QuantConnect.Securities;
 using QuantConnect.Data.Market;
+using System.Collections.Generic;
 using QuantConnect.Lean.Engine.HistoricalData;
+using QuantConnect.Data.Fundamental;
+using System.ComponentModel.DataAnnotations;
+using NodaTime;
+using QuantConnect.Util;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
-[TestFixture, Ignore("Not implemented")]
+[TestFixture]
 public class TastytradeBrokerageHistoryProviderTests
 {
-    private static TestCaseData[] TestParameters
+    private BrokerageHistoryProvider _historyProvider;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _historyProvider = new BrokerageHistoryProvider();
+        _historyProvider.SetBrokerage(TestSetup.CreateBrokerage(null, null));
+        _historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, null, null, null, false, null, null, new AlgorithmSettings()));
+    }
+
+    private static IEnumerable<TestCaseData> HistoryTestParameters
     {
         get
         {
-            return new[]
-            {
-                    // valid parameters, example:
-                    new TestCaseData(Symbols.BTCUSD, Resolution.Tick, TimeSpan.FromMinutes(1), TickType.Quote, typeof(Tick), false),
-                    new TestCaseData(Symbols.BTCUSD, Resolution.Minute, TimeSpan.FromMinutes(10), TickType.Quote, typeof(QuoteBar), false),
-                    new TestCaseData(Symbols.BTCUSD, Resolution.Daily, TimeSpan.FromDays(10), TickType.Quote, typeof(QuoteBar), false),
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Daily, TimeSpan.FromDays(10), TickType.Trade, typeof(TradeBar), false);
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Minute, TimeSpan.FromMinutes(100), TickType.Trade, typeof(TradeBar), false);
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Second, TimeSpan.FromMinutes(10), TickType.Trade, typeof(TradeBar), false);
 
-                    new TestCaseData(Symbols.BTCUSD, Resolution.Tick, TimeSpan.FromMinutes(1), TickType.Trade, typeof(Tick), false),
-                    new TestCaseData(Symbols.BTCUSD, Resolution.Minute, TimeSpan.FromMinutes(10), TickType.Trade, typeof(TradeBar), false),
-                    new TestCaseData(Symbols.BTCUSD, Resolution.Daily, TimeSpan.FromDays(10), TickType.Trade, typeof(TradeBar), false),
+            var aaplOptionContract = Symbol.CreateOption(Symbols.AAPL, Symbols.AAPL.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 27));
+            yield return new TestCaseData(aaplOptionContract, Resolution.Daily, TimeSpan.FromDays(30), TickType.Trade, typeof(TradeBar), false);
+            yield return new TestCaseData(aaplOptionContract, Resolution.Daily, TimeSpan.FromDays(30), TickType.OpenInterest, typeof(OpenInterest), false);
 
-                    // invalid parameter, validate SecurityType more accurate
-                    new TestCaseData(Symbols.SPY, Resolution.Hour, TimeSpan.FromHours(14), TickType.Quote, typeof(QuoteBar), true),
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Tick, TimeSpan.FromMinutes(1), TickType.Trade, typeof(Tick), false);
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Minute, TimeSpan.FromMinutes(10), TickType.Trade, typeof(TradeBar), false);
 
-                    /// New Listed Symbol on Brokerage <see cref="Slice.SymbolChangedEvents"/>
-                    new TestCaseData(Symbol.Create("SUSHIGBP", SecurityType.Crypto, Market.Coinbase), Resolution.Minute, TimeSpan.FromHours(2), TickType.Trade, typeof(TradeBar), false),
+            // invalid parameter, validate SecurityType more accurate
+            yield return new TestCaseData(Symbols.BTCUSD, Resolution.Hour, TimeSpan.FromHours(14), TickType.Quote, typeof(QuoteBar), true);
 
-                    /// Symbol was delisted form Brokerage (can return history data or not) <see cref="Slice.Delistings"/>
-                    new TestCaseData(Symbol.Create("SNTUSD", SecurityType.Crypto, Market.Coinbase), Resolution.Daily, TimeSpan.FromDays(14), TickType.Trade, typeof(TradeBar), true),
-                };
+            // invalid parameter, validate TickType more accurate
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Daily, TimeSpan.FromDays(10), TickType.Quote, typeof(QuoteBar), true);
         }
     }
 
-    [Test, TestCaseSource(nameof(TestParameters))]
+    [Test, TestCaseSource(nameof(HistoryTestParameters))]
     public void GetsHistory(Symbol symbol, Resolution resolution, TimeSpan period, TickType tickType, Type dataType, bool throwsException)
     {
         TestDelegate test = () =>
         {
-            var brokerage = new TastytradeBrokerage();
-
-            var historyProvider = new BrokerageHistoryProvider();
-            historyProvider.SetBrokerage(brokerage);
-            historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null,
-                null, null, null, null,
-                false, null, null, null));
-
             var marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
             var now = DateTime.UtcNow;
             var requests = new[]
@@ -86,10 +92,10 @@ public class TastytradeBrokerageHistoryProviderTests
                         tickType)
             };
 
-            var historyArray = historyProvider.GetHistory(requests, TimeZones.Utc).ToArray();
+            var historyArray = _historyProvider.GetHistory(requests, TimeZones.Utc).ToArray();
             foreach (var slice in historyArray)
             {
-                if (resolution == Resolution.Tick)
+                if (resolution == Resolution.Tick || tickType == TickType.OpenInterest)
                 {
                     foreach (var tick in slice.Ticks[symbol])
                     {
@@ -106,7 +112,7 @@ public class TastytradeBrokerageHistoryProviderTests
                 }
             }
 
-            if (historyProvider.DataPointCount > 0)
+            if (_historyProvider.DataPointCount > 0)
             {
                 // Ordered by time
                 Assert.That(historyArray, Is.Ordered.By("Time"));
@@ -116,16 +122,75 @@ public class TastytradeBrokerageHistoryProviderTests
                 Assert.AreEqual(timesArray.Length, timesArray.Distinct().Count());
             }
 
-            Log.Trace("Data points retrieved: " + historyProvider.DataPointCount);
+            Log.Trace("Data points retrieved: " + _historyProvider.DataPointCount);
         };
 
         if (throwsException)
         {
-            Assert.Throws<ArgumentException>(test);
+            Assert.Throws<ArgumentNullException>(test);
         }
         else
         {
             Assert.DoesNotThrow(test);
         }
+    }
+
+    [Test]
+    public void GetHistoryConcurrentRequestsReturnsExpectedSlices()
+    {
+        var startDateTimeNY = new DateTime(2025, 05, 25, 09, 30, 00);
+        var endDateTimeNY = new DateTime(2025, 06, 27, 15, 30, 00);
+
+        var requests = new Resolution[] { Resolution.Daily, Resolution.Hour }
+            .SelectMany(r => Enumerable.Repeat(r, 4)
+                .Select(_ => CreateHistoryRequest(Symbols.AAPL, r, TickType.Trade, startDateTimeNY, endDateTimeNY)))
+            .ToList();
+
+        var results = new ConcurrentBag<Slice[]>();
+
+        // Act
+        Parallel.ForEach(requests, request =>
+        {
+            var history = _historyProvider.GetHistory([request], TimeZones.Utc).ToArray();
+            results.Add(history);
+        });
+
+        Assert.AreEqual(8, results.Count, "Expected 8 history results (2 resolutions x 4 each).");
+
+        foreach (var historyData in results)
+        {
+            Assert.IsNotNull(historyData, "History result should not be null.");
+            Assert.IsTrue(historyData.All(d => d != null), "All returned data points should be non-null.");
+        }
+    }
+
+    private static HistoryRequest CreateHistoryRequest(Symbol symbol, Resolution resolution, TickType tickType, DateTime startDateTime, DateTime endDateTime,
+    SecurityExchangeHours exchangeHours = null, DateTimeZone dataTimeZone = null, bool includeExtendedMarketHours = true)
+    {
+        if (exchangeHours == null)
+        {
+            exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType);
+        }
+
+        if (dataTimeZone == null)
+        {
+            dataTimeZone = TimeZones.NewYork;
+        }
+
+        var dataType = LeanData.GetDataType(resolution, tickType);
+        return new HistoryRequest(
+            startDateTime.ConvertToUtc(exchangeHours.TimeZone),
+            endDateTime.ConvertToUtc(exchangeHours.TimeZone),
+            dataType,
+            symbol,
+            resolution,
+            exchangeHours,
+            dataTimeZone,
+            resolution,
+            includeExtendedMarketHours,
+            false,
+            DataNormalizationMode.Raw,
+            tickType
+            );
     }
 }
