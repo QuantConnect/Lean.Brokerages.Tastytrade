@@ -54,12 +54,12 @@ public class TastytradeBrokerageHistoryProviderTests
             yield return new TestCaseData(Symbols.AAPL, Resolution.Minute, TimeSpan.FromMinutes(100), TickType.Trade, typeof(TradeBar), false);
             yield return new TestCaseData(Symbols.AAPL, Resolution.Second, TimeSpan.FromMinutes(10), TickType.Trade, typeof(TradeBar), false);
 
-            var aaplOptionContract = Symbol.CreateOption(Symbols.AAPL, Symbols.AAPL.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 27));
+            var aaplOptionContract = Symbol.CreateOption(Symbols.AAPL, Symbols.AAPL.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 07, 03));
             yield return new TestCaseData(aaplOptionContract, Resolution.Daily, TimeSpan.FromDays(30), TickType.Trade, typeof(TradeBar), false);
             yield return new TestCaseData(aaplOptionContract, Resolution.Daily, TimeSpan.FromDays(30), TickType.OpenInterest, typeof(OpenInterest), false);
 
             yield return new TestCaseData(Symbols.AAPL, Resolution.Tick, TimeSpan.FromMinutes(1), TickType.Trade, typeof(Tick), false);
-            yield return new TestCaseData(Symbols.AAPL, Resolution.Minute, TimeSpan.FromMinutes(10), TickType.Trade, typeof(TradeBar), false);
+            yield return new TestCaseData(Symbols.AAPL, Resolution.Minute, TimeSpan.FromMinutes(15), TickType.Trade, typeof(TradeBar), false);
 
             // invalid parameter, validate SecurityType more accurate
             yield return new TestCaseData(Symbols.BTCUSD, Resolution.Hour, TimeSpan.FromHours(14), TickType.Quote, typeof(QuoteBar), true);
@@ -108,7 +108,7 @@ public class TastytradeBrokerageHistoryProviderTests
                 }
                 else if (slice.Bars.TryGetValue(symbol, out var tradeBar))
                 {
-                    Log.Debug($"{tradeBar}");
+                    Log.Debug($"{tradeBar} IsFillForward: {tradeBar.IsFillForward}");
                 }
             }
 
