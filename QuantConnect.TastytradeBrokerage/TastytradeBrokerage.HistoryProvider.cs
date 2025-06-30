@@ -20,6 +20,7 @@ using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Services;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
@@ -36,7 +37,7 @@ public partial class TastytradeBrokerage
     /// Provides thread-safe management of historical candle feed data requests,
     /// ensuring serialized processing per symbol while allowing parallel operations across different symbols.
     /// </summary>
-    private readonly ConcurrentDictionary<Symbol, SemaphoreSlim> _symbolLocks = new();
+    private readonly ConcurrentDictionary<Symbol, RefCountedLock> _symbolLocks = new();
 
     /// <summary>
     /// Stores active candle feed service instances per symbol for handling historical data requests.
@@ -85,11 +86,11 @@ public partial class TastytradeBrokerage
             return null;
         }
 
-        var symbolLock = _symbolLocks.GetOrAdd(request.Symbol, _ => new SemaphoreSlim(1, 1));
-        symbolLock.Wait();
+        var symbolLock = _symbolLocks.GetOrAdd(request.Symbol, _ => new RefCountedLock());
+        symbolLock.Enter();
 
-        var candleFeedService = new CandleFeedService(request.Symbol, request.Resolution, request.TickType);
-        _historyStreams[request.Symbol] = candleFeedService;
+        var candleFeedService = _historyStreams[request.Symbol] = new CandleFeedService(request.Symbol, request.Resolution, request.TickType);
+
         SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
 
         try
@@ -108,7 +109,10 @@ public partial class TastytradeBrokerage
             SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedUnsubscription(s, r, t));
             candleFeedService.Dispose();
             _historyStreams.TryRemove(request.Symbol, out _);
-            symbolLock.Release();
+            if (symbolLock.Exit())
+            {
+                _symbolLocks.TryRemove(request.Symbol, out _);
+            }
         }
     }
 
