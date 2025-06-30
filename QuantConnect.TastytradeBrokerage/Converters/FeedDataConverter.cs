@@ -114,7 +114,7 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
         for (int i = 0, j = 0; i < candles.Length; i++, j += CandleFieldCount)
         {
             candles[i] = new CandleContent(
-                eventFlag: int.TryParse(jArray[j].ToString(), out var eventFlag) ? (EventFlag)eventFlag : EventFlag.Unknown,
+                eventFlag: int.TryParse(jArray[j].ToString(), out var eventFlag) ? (EventFlag)eventFlag : EventFlag.None,
                 symbol: jArray[j + 1].ToString(),
                 dateTime: Time.UnixMillisecondTimeStampToDateTime(jArray[j + 2].Value<long>()),
                 open: decimal.TryParse(jArray[j + 3].ToString(), out var o) ? o : 0m,

@@ -13,43 +13,59 @@
  * limitations under the License.
 */
 
+using System;
+
 namespace QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 /// <summary>
-/// Represents event flags in a WebSocket message.
+///Represents flags that indicate various states of an indexed event in a WebSocket message.
 /// </summary>
 /// <remarks>
 /// The source <see href="https://github.com/dxFeed/dxfeed-graal-net-api/blob/2c16add3a5d95837d4caa24827d9001cd438bd46/src/DxFeed.Graal.Net/Events/EventFlags.cs#L12"/>
+/// <seealso href="https://docs.dxfeed.com/dxfeed/api/com/dxfeed/event/IndexedEvent.html#getEventFlags--"/>
 /// </remarks>
+[Flags]
 public enum EventFlag
 {
     /// <summary>
-    /// Indicates that the event flag is unknown or not set.
+    /// Indicates that no flags are set or the flag is unknown.
     /// </summary>
-    Unknown = 0,
+    None = 0,
 
     /// <summary>
-    /// Indicates when the loading of a snapshot starts.
+    /// Indicates that an ongoing transactional update is in process.
+    /// Events with this flag should be held in a pending list until the transaction completes.
     /// </summary>
-    SnapshotBegin = 4,
+    TxPending = 1 << 0, // bit 0
 
     /// <summary>
-    /// <see cref="SnapshotEnd"/> or <see cref="SnapshotSnip"/> indicates the end of a snapshot.
-    /// The difference between <see cref="SnapshotEnd"/>  and <see cref="SnapshotSnip"/> is the following:
-    /// <see cref="SnapshotEnd"/> indicates that the data source sent all the data pertaining to
-    /// the subscription for the corresponding indexed event,
-    /// while <see cref="SnapshotSnip"/> indicates that some limit on the amount of data was reached
-    /// and while there still might be more data available, it will not be provided.
+    /// Indicates that the event with the corresponding index should be removed.
     /// </summary>
-    SnapshotEnd = 8,
+    RemoveEvent = 1 << 1, // bit 1
 
     /// <summary>
-    /// <see cref="SnapshotEnd"/> or <see cref="SnapshotSnip"/> indicates the end of a snapshot.
-    /// The difference between <see cref="SnapshotEnd"/>  and <see cref="SnapshotSnip"/> is the following:
-    /// <see cref="SnapshotEnd"/> indicates that the data source sent all the data pertaining to
-    /// the subscription for the corresponding indexed event,
-    /// while <see cref="SnapshotSnip"/> indicates that some limit on the amount of data was reached
-    /// and while there still might be more data available, it will not be provided.
+    /// Indicates the start of loading a snapshot.
+    /// On a new subscription, the first event for a non-zero source id may have this flag set,
+    /// meaning a multi-event snapshot is incoming and events should be held until snapshot completion.
     /// </summary>
-    SnapshotSnip = 10
+    SnapshotBegin = 1 << 2, // bit 2
+
+    /// <summary>
+    /// Indicates the end of a snapshot.
+    /// This means the data source has sent all data pertaining to the subscription for this indexed event.
+    /// </summary>
+    SnapshotEnd = 1 << 3, // bit 3
+
+    /// <summary>
+    /// Indicates the snapshot was truncated due to reaching a data limit.
+    /// More data might be available but will not be provided.
+    /// This flag also marks the end of the snapshot, but differs from <see cref="SnapshotEnd"/> in that the snapshot is incomplete.
+    /// </summary>
+    SnapshotSnip = 1 << 4, // bit 4
+
+    /// <summary>
+    /// Used to activate snapshot mode without starting the snapshot synchronization protocol.
+    /// This is intended for publishing only and switches on snapshot mode if not yet activated.
+    /// </summary>
+    SnapshotMode = 1 << 6 // bit 6
 }
