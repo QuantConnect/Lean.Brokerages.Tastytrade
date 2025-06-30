@@ -14,12 +14,10 @@
 */
 
 using System;
-using System.Threading;
 using QuantConnect.Data;
 using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Services;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -37,13 +35,7 @@ public partial class TastytradeBrokerage
     /// Provides thread-safe management of historical candle feed data requests,
     /// ensuring serialized processing per symbol while allowing parallel operations across different symbols.
     /// </summary>
-    private readonly ConcurrentDictionary<Symbol, RefCountedLock> _symbolLocks = new();
-
-    /// <summary>
-    /// Stores active candle feed service instances per symbol for handling historical data requests.
-    /// Entries are removed after each request completes.
-    /// </summary>
-    private readonly ConcurrentDictionary<Symbol, CandleFeedService> _historyStreams = new();
+    private readonly Dictionary<Symbol, CandleFeedContext> _historyLockStreams = [];
 
     /// <summary>
     /// Indicates whether the warning for invalid <see cref="SecurityType"/> has been fired.
@@ -86,32 +78,44 @@ public partial class TastytradeBrokerage
             return null;
         }
 
-        var symbolLock = _symbolLocks.GetOrAdd(request.Symbol, _ => new RefCountedLock());
-        symbolLock.Enter();
+        var context = default(CandleFeedContext);
+        while (true)
+        {
+            lock (_historyLockStreams)
+            {
+                if (!_historyLockStreams.TryGetValue(request.Symbol, out context))
+                {
+                    context = new CandleFeedContext(request);
+                    _historyLockStreams[request.Symbol] = context;
+                    break;
+                }
+            }
 
-        var candleFeedService = _historyStreams[request.Symbol] = new CandleFeedService(request.Symbol, request.Resolution, request.TickType);
+            context.FinishResetEvent.WaitOne();
+        }
 
         SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedSubscription(s, r, t));
 
         try
         {
-            if (!candleFeedService.SnapshotCompletedEvent.WaitOne(TimeSpan.FromSeconds(100)))
+            if (!context.CandleFeedService.SnapshotCompletedEvent.WaitOne(TimeSpan.FromSeconds(20)))
             {
                 OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, $"{nameof(TastytradeBrokerage)}.{nameof(GetHistory)}: Timeout waiting for snapshot data." +
                     $"Request details - Symbol: {request.Symbol.Value} ({request.Symbol.SecurityType}), Resolution: {request.Resolution}, StartTimeUtc: {request.StartTimeUtc:u}, EndTimeLocal: {request.EndTimeLocal:u}."));
                 return null;
             }
 
-            return FilterHistory(candleFeedService.Candles, request, request.StartTimeLocal, request.EndTimeLocal);
+            return FilterHistory(context.CandleFeedService.Candles, request, request.StartTimeLocal, request.EndTimeLocal);
         }
         finally
         {
             SendCandleFeedRequest(request.Symbol, request.Resolution, request.StartTimeUtc, (s, r, t) => new CandleFeedUnsubscription(s, r, t));
-            candleFeedService.Dispose();
-            _historyStreams.TryRemove(request.Symbol, out _);
-            if (symbolLock.Exit())
+
+            lock (_historyLockStreams)
             {
-                _symbolLocks.TryRemove(request.Symbol, out _);
+                _historyLockStreams.Remove(request.Symbol);
+                context.FinishResetEvent.Set();
+                context.Dispose();
             }
         }
     }
@@ -129,6 +133,24 @@ public partial class TastytradeBrokerage
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Attempts to retrieve the <see cref="CandleFeedService"/> associated with the specified symbol.
+    /// </summary>
+    /// <param name="symbol">The symbol for which to retrieve the candle feed service.</param>
+    /// <param name="candleFeedService">Outputs the found <see cref="CandleFeedService"/> if it exists; otherwise, <c>null</c>.</param>
+    /// <returns><c>true</c> if the candle feed service was found; otherwise, <c>false</c>.</returns>
+    private bool TryGetCandleFeedService(Symbol symbol, out CandleFeedService candleFeedService)
+    {
+        candleFeedService = default;
+        if (_historyLockStreams.TryGetValue(symbol, out var candleFeedContext))
+        {
+            candleFeedService = candleFeedContext.CandleFeedService;
+            return true;
+        }
+        Log.Error($"{nameof(TastytradeBrokerage)}.{nameof(TryGetCandleFeedService)}: CandleFeedService not found for symbol: {symbol}");
+        return false;
     }
 
     /// <summary>

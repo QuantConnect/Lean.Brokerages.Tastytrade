@@ -137,7 +137,7 @@ public partial class TastytradeBrokerage : IDataQueueHandler
 
     private void OnCandleReceived(CandleContent candle, Symbol leanSymbol)
     {
-        if (_historyStreams.TryGetValue(leanSymbol, out var candleFeedService))
+        if (TryGetCandleFeedService(leanSymbol, out var candleFeedService))
         {
             switch (candle.EventFlag)
             {
