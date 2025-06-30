@@ -144,10 +144,13 @@ public partial class TastytradeBrokerage
     private bool TryGetCandleFeedService(Symbol symbol, out CandleFeedService candleFeedService)
     {
         candleFeedService = default;
-        if (_historyLockStreams.TryGetValue(symbol, out var candleFeedContext))
+        lock (_historyLockStreams)
         {
-            candleFeedService = candleFeedContext.CandleFeedService;
-            return true;
+            if (_historyLockStreams.TryGetValue(symbol, out var candleFeedContext))
+            {
+                candleFeedService = candleFeedContext.CandleFeedService;
+                return true;
+            }
         }
         Log.Error($"{nameof(TastytradeBrokerage)}.{nameof(TryGetCandleFeedService)}: CandleFeedService not found for symbol: {symbol}");
         return false;
