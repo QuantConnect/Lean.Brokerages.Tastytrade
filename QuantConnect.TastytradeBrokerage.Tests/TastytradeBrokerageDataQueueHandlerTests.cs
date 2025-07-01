@@ -57,7 +57,7 @@ public partial class TastytradeBrokerageTests
             var spxw = Symbol.CreateOption(spx, "SPXW", spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5935m, new DateTime(2025, 06, 30));
             yield return new TestCaseData(new[] { spxw }, Resolution.Tick);
 
-            var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
+            var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 09, 19));
             yield return new TestCaseData(new[] { SP500EMini }, Resolution.Tick);
 
             var SP500EMini2 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 09, 19));

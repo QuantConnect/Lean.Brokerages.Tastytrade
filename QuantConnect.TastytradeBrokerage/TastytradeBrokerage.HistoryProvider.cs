@@ -18,6 +18,7 @@ using QuantConnect.Data;
 using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
+using QuantConnect.Securities.Option;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Services;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -51,6 +52,17 @@ public partial class TastytradeBrokerage
     private volatile bool _invalidTickTypeWarningFired;
 
     /// <summary>
+    /// Indicates whether a warning about an invalid time range has already been logged.
+    /// </summary>
+    private volatile bool _invalidTimeRangeWarningLogged;
+
+    /// <summary>
+    /// Indicates whether the expired option contract warning has already been fired.
+    /// Prevents repeated warnings for expired option subscriptions.
+    /// </summary>
+    private bool _expiredOptionContractWarningFired;
+
+    /// <summary>
     /// Gets the history for the requested symbols
     /// <see cref="IBrokerage.GetHistory(HistoryRequest)"/>
     /// </summary>
@@ -63,7 +75,7 @@ public partial class TastytradeBrokerage
             if (!_invalidSecurityTypeWarningFired)
             {
                 _invalidSecurityTypeWarningFired = true;
-                Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(GetHistory)}: Unsupported SecurityType '{request.Symbol.SecurityType}' for symbol '{request.Symbol}'");
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "UnsupportedSecurityType", $"SecurityType '{request.Symbol.SecurityType}' for symbol '{request.Symbol}' is not supported."));
             }
             return null;
         }
@@ -73,8 +85,29 @@ public partial class TastytradeBrokerage
             if (!_invalidTickTypeWarningFired)
             {
                 _invalidTickTypeWarningFired = true;
-                Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(GetHistory)}: Request error: only 'Trade' TickType is supported. You requested '{request.TickType}'.");
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "UnsupportedTickType", $"TickType '{request.TickType}' is not supported. Only '{nameof(TickType.Trade)}' and '{nameof(TickType.OpenInterest)}' are allowed."));
             }
+            return null;
+        }
+
+        if (request.Symbol.SecurityType.IsOption() && OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow))
+        {
+            if (!_expiredOptionContractWarningFired)
+            {
+                _expiredOptionContractWarningFired = true;
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "ExpiredOptionContract", $"Historical data for the expired option contract '{request.Symbol}' is not available."));
+            }
+            return null;
+        }
+
+        if (request.StartTimeUtc >= request.EndTimeUtc)
+        {
+            if (!_invalidTimeRangeWarningLogged)
+            {
+                _invalidTimeRangeWarningLogged = true;
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "InvalidDateRange", "The history request start date must precede the end date, no history returned"));
+            }
+
             return null;
         }
 

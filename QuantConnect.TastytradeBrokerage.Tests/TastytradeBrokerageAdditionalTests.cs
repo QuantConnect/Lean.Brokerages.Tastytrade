@@ -74,6 +74,7 @@ public class TastytradeBrokerageAdditionalTests
     }
 
     [TestCase("ESM5", Description = "E-Mini S&P 500 Jun 25")]
+    [TestCase("ESU5", Description = "E-Mini S&P 500 Jun 25")]
     [TestCase("GCZ5", Description = "Gold Dec 25")]
     [TestCase("6BZ5", Description = "British Pound Dec 25")]
     [TestCase("RBM5", Description = "RBOB Gasoline Jun 25")]

@@ -73,6 +73,7 @@ public class TastytradeBrokerageSymbolMapper
     {
         SecurityType.Equity,
         SecurityType.Option,
+        SecurityType.Index,
         SecurityType.IndexOption,
         SecurityType.Future,
         SecurityType.FutureOption
