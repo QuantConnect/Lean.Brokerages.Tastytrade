@@ -96,11 +96,11 @@ public class CandleFeedService : IDisposable
         switch (tickType)
         {
             case TickType.Trade:
-                if (open == null || high == null || low == null || close == null || volume == null)
+                if (open == null || high == null || low == null || close == null || (volume == null && _symbol.SecurityType != SecurityType.Index))
                 {
                     return;
                 }
-                _dataDescendingOrder.Add(new TradeBar(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, open.Value, high.Value, low.Value, close.Value, volume.Value, period));
+                _dataDescendingOrder.Add(new TradeBar(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, open.Value, high.Value, low.Value, close.Value, volume ?? 0m, period));
                 break;
             case TickType.OpenInterest:
                 if (openInterest == null)
