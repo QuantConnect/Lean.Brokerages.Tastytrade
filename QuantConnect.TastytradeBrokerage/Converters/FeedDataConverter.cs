@@ -117,12 +117,12 @@ public class FeedDataConverter : JsonConverter<StreamDataResponse>
                 eventFlag: int.TryParse(jArray[j].ToString(), out var eventFlag) ? (EventFlag)eventFlag : EventFlag.None,
                 symbol: jArray[j + 1].ToString(),
                 dateTime: Time.UnixMillisecondTimeStampToDateTime(jArray[j + 2].Value<long>()),
-                open: decimal.TryParse(jArray[j + 3].ToString(), out var o) ? o : 0m,
-                high: decimal.TryParse(jArray[j + 4].ToString(), out var h) ? h : 0m,
-                low: decimal.TryParse(jArray[j + 5].ToString(), out var l) ? l : 0m,
-                close: decimal.TryParse(jArray[j + 6].ToString(), out var c) ? c : 0m,
-                volume: decimal.TryParse(jArray[j + 7].ToString(), out var v) ? v : 0m,
-                openInterest: decimal.TryParse(jArray[j + 8].ToString(), out var oi) ? oi : 0m);
+                open: decimal.TryParse(jArray[j + 3].ToString(), out var o) ? o : null,
+                high: decimal.TryParse(jArray[j + 4].ToString(), out var h) ? h : null,
+                low: decimal.TryParse(jArray[j + 5].ToString(), out var l) ? l : null,
+                close: decimal.TryParse(jArray[j + 6].ToString(), out var c) ? c : null,
+                volume: decimal.TryParse(jArray[j + 7].ToString(), out var v) ? v : null,
+                openInterest: decimal.TryParse(jArray[j + 8].ToString(), out var oi) ? oi : null);
         }
         return candles;
     }

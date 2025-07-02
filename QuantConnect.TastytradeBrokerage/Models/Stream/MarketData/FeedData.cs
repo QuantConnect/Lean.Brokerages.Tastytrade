@@ -203,32 +203,32 @@ public sealed class CandleContent : BaseContent
     /// <summary>
     /// Gets the open price for the candle.
     /// </summary>
-    public decimal Open { get; }
+    public decimal? Open { get; }
 
     /// <summary>
     /// Gets the highest price within the candle period.
     /// </summary>
-    public decimal High { get; }
+    public decimal? High { get; }
 
     /// <summary>
     /// Gets the lowest price within the candle period.
     /// </summary>
-    public decimal Low { get; }
+    public decimal? Low { get; }
 
     /// <summary>
     /// Gets the closing price for the candle.
     /// </summary>
-    public decimal Close { get; }
+    public decimal? Close { get; }
 
     /// <summary>
     /// Gets the traded volume during the candle period.
     /// </summary>
-    public decimal Volume { get; }
+    public decimal? Volume { get; }
 
     /// <summary>
     /// Gets the open interest value at the time of the candle.
     /// </summary>
-    public decimal OpenInterest { get; }
+    public decimal? OpenInterest { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CandleContent"/> class.
@@ -242,7 +242,7 @@ public sealed class CandleContent : BaseContent
     /// <param name="close">The close price.</param>
     /// <param name="volume">The trading volume.</param>
     /// <param name="openInterest">The open interest value.</param>
-    public CandleContent(EventFlag eventFlag, string symbol, DateTime dateTime, decimal open, decimal high, decimal low, decimal close, decimal volume, decimal openInterest)
+    public CandleContent(EventFlag eventFlag, string symbol, DateTime dateTime, decimal? open, decimal? high, decimal? low, decimal? close, decimal? volume, decimal? openInterest)
         : base(symbol)
     {
         EventFlag = eventFlag;

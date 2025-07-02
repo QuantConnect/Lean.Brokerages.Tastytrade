@@ -91,15 +91,23 @@ public class CandleFeedService : IDisposable
     /// <param name="low">The lowest price during the candle period.</param>
     /// <param name="close">The closing price.</param>
     /// <param name="volume">The trading volume during the candle period.</param>
-    public void Add(DateTime dateTime, decimal open, decimal high, decimal low, decimal close, decimal volume, decimal openInterest)
+    public void Add(DateTime dateTime, decimal? open, decimal? high, decimal? low, decimal? close, decimal? volume, decimal? openInterest)
     {
         switch (tickType)
         {
             case TickType.Trade:
-                _dataDescendingOrder.Add(new TradeBar(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, open, high, low, close, volume, period));
+                if (open == null || high == null || low == null || close == null || volume == null)
+                {
+                    return;
+                }
+                _dataDescendingOrder.Add(new TradeBar(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, open.Value, high.Value, low.Value, close.Value, volume.Value, period));
                 break;
             case TickType.OpenInterest:
-                _dataDescendingOrder.Add(new OpenInterest(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, openInterest));
+                if (openInterest == null)
+                {
+                    return;
+                }
+                _dataDescendingOrder.Add(new OpenInterest(dateTime.ConvertFromUtc(_symbolDateTimeZone), _symbol, openInterest.Value));
                 break;
             default:
                 throw new NotSupportedException($"{nameof(CandleFeedService)}.{nameof(Add)}: Unsupported TickType '{tickType}' for symbol '{_symbol}'. ");
