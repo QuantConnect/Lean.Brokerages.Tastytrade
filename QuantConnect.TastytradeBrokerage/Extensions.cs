@@ -277,4 +277,26 @@ public static class Extensions
             throw new HttpRequestException(message, null, responseMessage.StatusCode);
         }
     }
+
+    /// <summary>
+    /// Returns the symbol combined with the period type postfix based on the specified <see cref="Resolution"/>.
+    /// </summary>
+    /// <param name="resolution">The resolution that determines the period type postfix.</param>
+    /// <param name="symbol">The base symbol to which the period type will be appended.</param>
+    /// <returns>The symbol with the corresponding period type postfix (e.g., "AAPL{=1m}").</returns>
+    /// <exception cref="NotSupportedException">Thrown when the provided resolution is not supported.</exception>
+    public static string GetSymbolWithPeriodPostfix(this Resolution resolution, string symbol)
+    {
+        var periodPostfix = resolution switch
+        {
+            Resolution.Tick => "{=t}",
+            Resolution.Second => "{=s}",
+            Resolution.Minute => "{=m}",
+            Resolution.Hour => "{=h}",
+            Resolution.Daily => "{=d}",
+            _ => throw new NotSupportedException($"The resolution '{resolution}' is not supported for symbol period formatting.")
+        };
+
+        return $"{symbol}{periodPostfix}";
+    }
 }

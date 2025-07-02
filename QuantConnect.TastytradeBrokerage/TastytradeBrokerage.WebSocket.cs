@@ -121,6 +121,9 @@ public partial class TastytradeBrokerage
                             case MarketDataEvent.Summary:
                                 OnSummaryReceived(content as SummaryContent, leanSymbol, utcNow);
                                 break;
+                            case MarketDataEvent.Candle:
+                                OnCandleReceived(content as CandleContent, leanSymbol);
+                                break;
                         }
                     }
                     break;

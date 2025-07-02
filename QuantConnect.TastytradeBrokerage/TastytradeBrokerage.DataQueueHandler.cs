@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -133,6 +133,25 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     private void OnSummaryReceived(SummaryContent summary, Symbol leanSymbol, DateTime summaryDateTime)
     {
         _levelOneServiceManager.HandleOpenInterest(leanSymbol, summaryDateTime, summary.OpenInterest);
+    }
 
+    private void OnCandleReceived(CandleContent candle, Symbol leanSymbol)
+    {
+        if (TryGetCandleFeedService(leanSymbol, out var candleFeedService))
+        {
+            if (candle.EventFlag.HasFlag(EventFlag.SnapshotSnip))
+            {
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"{nameof(TastytradeBrokerage)}.{nameof(OnCandleReceived)}: Received SNAPSHOT_SNIP received for symbol {leanSymbol} | {candleFeedService.tickType} | {candleFeedService.period.ToHigherResolutionEquivalent(true)}. The historical data snapshot was incomplete due to server-side limits. Additional data may exist but will not be delivered automatically."));
+                candleFeedService.SnapshotCompletedEvent.Set();
+                return;
+            }
+            else if (candle.EventFlag.HasFlag(EventFlag.SnapshotEnd) || candle.EventFlag.HasFlag(EventFlag.RemoveEvent))
+            {
+                candleFeedService.SnapshotCompletedEvent.Set();
+                return;
+            }
+
+            candleFeedService.Add(candle.DateTime, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume, candle.OpenInterest);
+        }
     }
 }

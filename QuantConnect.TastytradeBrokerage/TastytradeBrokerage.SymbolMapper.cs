@@ -64,6 +64,22 @@ public class TastytradeBrokerageSymbolMapper
     };
 
     /// <summary>
+    /// Represents a set of supported security types.
+    /// </summary>
+    /// <remarks>
+    /// This HashSet contains the supported security types that are allowed within the system.
+    /// </remarks>
+    public readonly HashSet<SecurityType> SupportedSecurityType = new()
+    {
+        SecurityType.Equity,
+        SecurityType.Option,
+        SecurityType.Index,
+        SecurityType.IndexOption,
+        SecurityType.Future,
+        SecurityType.FutureOption
+    };
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeBrokerageSymbolMapper"/> class.
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used to query future instruments.</param>
@@ -84,6 +100,7 @@ public class TastytradeBrokerageSymbolMapper
     /// <exception cref="NotImplementedException">Thrown when the given security type is not supported.</exception>
     public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string underlyingBrokerageSymbol = default, bool? isOptionIndex = null)
     {
+        brokerageSymbol = RemovePostfix(brokerageSymbol);
         if (_leanSymbolByBrokerageStreamSymbol.TryGetValue(brokerageSymbol, out var leanSymbol))
         {
             return leanSymbol;
@@ -370,4 +387,19 @@ public class TastytradeBrokerageSymbolMapper
     {
         return brokerageTicker.Replace("/", string.Empty).Replace(".", string.Empty);
     }
+
+    /// <summary>
+    /// Removes the trailing curly-brace postfix from a brokerage symbol if present.
+    /// <para>
+    /// Candle updates from the websocket typically include a postfix in the format <c>{...}</c> 
+    /// to indicate resolution or period (e.g., <c>AAPL{=d}</c>, <c>.AAPL2025{=h}</c>).
+    /// </para>
+    /// <para>
+    /// Other websocket channels such as quote or trade feeds return symbols without the curly-brace postfix.
+    /// This method normalizes the symbol by stripping the postfix for consistent handling.
+    /// </para>
+    /// </summary>
+    /// <param name="symbol">The brokerage-formatted symbol received from the websocket feed.</param>
+    /// <returns>The normalized symbol with the curly-brace postfix removed, if present.</returns>
+    private static string RemovePostfix(string symbol) => symbol.Split('{')[0];
 }

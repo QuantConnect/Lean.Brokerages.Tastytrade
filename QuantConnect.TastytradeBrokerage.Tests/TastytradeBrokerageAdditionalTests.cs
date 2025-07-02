@@ -74,6 +74,7 @@ public class TastytradeBrokerageAdditionalTests
     }
 
     [TestCase("ESM5", Description = "E-Mini S&P 500 Jun 25")]
+    [TestCase("ESU5", Description = "E-Mini S&P 500 Jun 25")]
     [TestCase("GCZ5", Description = "Gold Dec 25")]
     [TestCase("6BZ5", Description = "British Pound Dec 25")]
     [TestCase("RBM5", Description = "RBOB Gasoline Jun 25")]
@@ -153,5 +154,14 @@ public class TastytradeBrokerageAdditionalTests
             Assert.IsNotEmpty(accessToken, "Access token should not be empty.");
             Assert.AreEqual(TokenType.Bearer, tokenType);
         });
+    }
+
+    [TestCase("AAPL", Resolution.Daily, "AAPL{=d}")]
+    [TestCase(".SPX250919C5050", Resolution.Hour, ".SPX250919C5050{=h}")]
+    [TestCase("BRK/B", Resolution.Tick, "BRK/B{=t}")]
+    public void GetSymbolWithPeriodPostfix(string brokerageSymbol, Resolution resolution, string expectedSymbolPeriodType)
+    {
+        var actualSymbolPeriodType = resolution.GetSymbolWithPeriodPostfix(brokerageSymbol);
+        Assert.AreEqual(expectedSymbolPeriodType, actualSymbolPeriodType);
     }
 }
