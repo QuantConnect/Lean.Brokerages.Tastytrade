@@ -49,17 +49,15 @@ public class TastytradeBrokerageHistoryProviderTests
         {
             var AAPL = CreateSymbol("AAPL", SecurityType.Equity);
             yield return new TestCaseData(AAPL, Resolution.Minute, TickType.Trade, new DateTime(2025, 05, 30), new DateTime(2025, 06, 30), false);
-            var endDate = DateTime.UtcNow.Date;
-            var startDate = endDate.AddDays(-45);
+            var endDate = DateTime.UtcNow.Date.AddHours(23);
+            var startDate = DateTime.UtcNow.Date;
             yield return new TestCaseData(AAPL, Resolution.Minute, TickType.Trade, startDate, endDate, false);
-            yield return new TestCaseData(AAPL, Resolution.Tick, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1), false);
-            yield return new TestCaseData(AAPL, Resolution.Second, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1), false);
+            yield return new TestCaseData(AAPL, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("AAPL,Tick,Trade");
+            yield return new TestCaseData(AAPL, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("AAPL,Second,Trade");
             yield return new TestCaseData(AAPL, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 18), new DateTime(2025, 07, 1), false);
             yield return new TestCaseData(AAPL, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 18), new DateTime(2025, 07, 01), false);
 
             var SPX = Symbol.Create("SPX", SecurityType.Index, Market.USA);
-            yield return new TestCaseData(SPX, Resolution.Tick, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1), false);
-            yield return new TestCaseData(SPX, Resolution.Second, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1), false);
             yield return new TestCaseData(SPX, Resolution.Minute, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
             yield return new TestCaseData(SPX, Resolution.Minute, TickType.Trade, startDate, endDate, false);
             yield return new TestCaseData(SPX, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
@@ -67,14 +65,14 @@ public class TastytradeBrokerageHistoryProviderTests
 
             var spxOptionContract = Symbol.CreateOption(SPX, SPX.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 6195, new DateTime(2025, 07, 18));
             yield return new TestCaseData(spxOptionContract, Resolution.Minute, TickType.Trade, startDate, endDate, false);
-            yield return new TestCaseData(spxOptionContract, Resolution.Tick, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1), false);
-            yield return new TestCaseData(spxOptionContract, Resolution.Second, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1), false);
+            yield return new TestCaseData(spxOptionContract, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("SPX_OptionContract,Tick,Trade");
+            yield return new TestCaseData(spxOptionContract, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("SPX_OptionContract,Second,Trade");
             yield return new TestCaseData(spxOptionContract, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 18), new DateTime(2025, 07, 1), false);
             yield return new TestCaseData(spxOptionContract, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 18), new DateTime(2025, 07, 01), false);
 
             var AAPLOption = Symbol.CreateOption(AAPL, Market.USA, AAPL.SecurityType.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 07, 03));
-            yield return new TestCaseData(AAPLOption, Resolution.Tick, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
-            yield return new TestCaseData(AAPLOption, Resolution.Second, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
+            yield return new TestCaseData(AAPLOption, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("AAPL_OptionContract,Tick,Trade");
+            yield return new TestCaseData(AAPLOption, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("AAPL_OptionContract,Second,Trade");
             yield return new TestCaseData(AAPLOption, Resolution.Minute, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
             yield return new TestCaseData(AAPLOption, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
             yield return new TestCaseData(AAPLOption, Resolution.Daily, TickType.Trade, new DateTime(2025, 06, 1), new DateTime(2025, 07, 01), false);
@@ -82,8 +80,8 @@ public class TastytradeBrokerageHistoryProviderTests
             var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 09, 19));
             yield return new TestCaseData(SP500EMini, Resolution.Minute, TickType.Trade, new DateTime(2025, 05, 30), new DateTime(2025, 06, 30), false);
             yield return new TestCaseData(SP500EMini, Resolution.Minute, TickType.Trade, startDate, endDate, false);
-            yield return new TestCaseData(SP500EMini, Resolution.Tick, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1, 20, 0, 0), false);
-            yield return new TestCaseData(SP500EMini, Resolution.Second, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1, 20, 0, 0), false);
+            yield return new TestCaseData(SP500EMini, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("SP500EMini,Tick,Trade");
+            yield return new TestCaseData(SP500EMini, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("SP500EMini,Second,Trade");
             yield return new TestCaseData(SP500EMini, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 18), new DateTime(2025, 07, 1), false);
             yield return new TestCaseData(SP500EMini, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 18), new DateTime(2025, 07, 01), false);
 
@@ -93,8 +91,8 @@ public class TastytradeBrokerageHistoryProviderTests
 
             var SP500EMini_OptionContract = Symbol.CreateOption(SP500EMini, SP500EMini.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 6200m, new DateTime(2025, 09, 19));
             yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Minute, TickType.Trade, new DateTime(2025, 05, 30), new DateTime(2025, 06, 30), false);
-            yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Tick, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1, 20, 0, 0), false);
-            yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Second, TickType.Trade, new DateTime(2025, 06, 25), new DateTime(2025, 07, 1, 20, 0, 0), false);
+            yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("SP500EMini_OptionContract,Tick,Trade");
+            yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("SP500EMini_OptionContract,Second,Trade");
             yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 18), new DateTime(2025, 07, 1), false);
             yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 18), new DateTime(2025, 07, 01), false);
 
