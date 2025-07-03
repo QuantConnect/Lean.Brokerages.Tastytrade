@@ -50,7 +50,7 @@ public class TastytradeBrokerageHistoryProviderTests
             var AAPL = CreateSymbol("AAPL", SecurityType.Equity);
             yield return new TestCaseData(AAPL, Resolution.Minute, TickType.Trade, new DateTime(2025, 05, 30), new DateTime(2025, 06, 30), false);
             var endDate = DateTime.UtcNow.Date.AddHours(23);
-            var startDate = DateTime.UtcNow.Date;
+            var startDate = DateTime.UtcNow.Date.AddDays(-1);
             yield return new TestCaseData(AAPL, Resolution.Minute, TickType.Trade, startDate, endDate, false);
             yield return new TestCaseData(AAPL, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("AAPL,Tick,Trade");
             yield return new TestCaseData(AAPL, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("AAPL,Second,Trade");
@@ -106,6 +106,11 @@ public class TastytradeBrokerageHistoryProviderTests
     [TestCaseSource(nameof(ValidHistoryParameters))]
     public void GetsHistory(Symbol symbol, Resolution resolution, TickType tickType, DateTime startDateTime, DateTime endDateTime, bool isNullResult)
     {
+        if ((resolution == Resolution.Tick || resolution == Resolution.Second) && symbol.SecurityType.IsOption() && !symbol.IsMarketOpen(DateTime.UtcNow, false))
+        {
+            Assert.Pass($"Skipped test for {symbol} at {resolution} resolution because the market is closed for this option contract.");
+        }
+
         var historyRequest = CreateHistoryRequest(symbol, resolution, tickType, startDateTime, endDateTime);
 
         var history = _historyProvider.GetHistory(new[] { historyRequest }, TimeZones.NewYork)?.ToList();
@@ -144,34 +149,41 @@ public class TastytradeBrokerageHistoryProviderTests
                 .Select(_ => CreateHistoryRequest(Symbols.AAPL, r, TickType.Trade, startDateTimeNY, endDateTimeNY)))
             .ToList();
 
-        var results = new ConcurrentBag<Slice[]>();
+        var results = new ConcurrentDictionary<Resolution, ConcurrentBag<Slice[]>>();
 
         // Act
         Parallel.ForEach(requests, request =>
         {
             var history = _historyProvider.GetHistory([request], TimeZones.Utc).ToArray();
-            results.Add(history);
+            results.AddOrUpdate(
+                request.Resolution,
+                _ => new ConcurrentBag<Slice[]> { history },
+                (_, bag) =>
+                {
+                    bag.Add(history);
+                    return bag;
+                }
+            );
         });
 
-        Assert.AreEqual(8, results.Count, "Expected 8 history results (2 resolutions x 4 each).");
+        Assert.AreEqual(8, results.Values.Sum(bag => bag.Count), "Expected 8 history results (2 resolutions x 4 each).");
 
 
-        foreach (var historyData in results)
+        foreach (var (resolution, slices) in results)
         {
-            Assert.IsNotNull(historyData, "History result should not be null.");
-            Assert.That(historyData, Is.Ordered.By("Time"), "History data should be ordered by time.");
-
-            var timesArray = historyData.Select(x => x.Time).ToArray();
-            Assert.AreEqual(timesArray.Length, timesArray.Distinct().Count(), "History data should not contain duplicate bars.");
-
-            // Validate start and end boundaries
-            if (timesArray.Length > 0)
+            foreach (var historyData in slices)
             {
+                Assert.IsNotNull(historyData, "History result should not be null.");
+                Assert.That(historyData, Is.Ordered.By("Time"), "History data should be ordered by time.");
+
+                var timesArray = historyData.Select(x => x.Time).ToArray();
+                Assert.AreEqual(timesArray.Length, timesArray.Distinct().Count(), "History data should not contain duplicate bars.");
+
                 var firstTimeUtc = timesArray.First();
                 var lastTimeUtc = timesArray.Last();
 
                 Assert.That(firstTimeUtc, Is.GreaterThanOrEqualTo(startDateTimeNY), "First bar time should be >= start time.");
-                Assert.That(lastTimeUtc, Is.LessThanOrEqualTo(endDateTimeNY), "Last bar time should be <= end time.");
+                Assert.That(lastTimeUtc.ConvertFromUtc(TimeZones.NewYork), Is.LessThanOrEqualTo(endDateTimeNY), "Last bar time should be <= end time.");
             }
         }
     }

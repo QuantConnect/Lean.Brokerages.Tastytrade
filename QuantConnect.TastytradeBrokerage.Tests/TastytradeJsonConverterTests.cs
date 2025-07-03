@@ -960,17 +960,17 @@ public class TastytradeJsonConverterTests
         Assert.IsInstanceOf<IReadOnlyCollection<CandleContent>>(feedData.Data.Content);
 
         var candles = feedData.Data.Content.Cast<CandleContent>();
-        Assert.AreEqual(EventFlag.SnapshotBegin, candles.First().EventFlag);
-        Assert.AreEqual(EventFlag.SnapshotSnip, candles.Last().EventFlag);
+        Assert.IsTrue(candles.First().EventFlag.HasFlag(EventFlag.SnapshotBegin));
+        Assert.AreEqual(EventFlag.RemoveEvent | EventFlag.SnapshotEnd, candles.Last().EventFlag);
         foreach (var candle in candles)
         {
             AssertIsNotNullAndIsNotEmpty(candle.Symbol);
-            Assert.GreaterOrEqual(candle.Open, 0);
-            Assert.GreaterOrEqual(candle.High, 0);
-            Assert.GreaterOrEqual(candle.Low, 0);
-            Assert.GreaterOrEqual(candle.Close, 0);
-            Assert.GreaterOrEqual(candle.Volume, 0);
-            Assert.AreEqual(candle.OpenInterest, 0);
+            Assert.IsTrue(candle.Open == null || candle.Open > 0, "Open should be null or greater than zero.");
+            Assert.IsTrue(candle.High == null || candle.High > 0, "High should be null or greater than zero.");
+            Assert.IsTrue(candle.Low == null || candle.Low > 0, "Low should be null or greater than zero.");
+            Assert.IsTrue(candle.Close == null || candle.Close > 0, "Close should be null or greater than zero.");
+            Assert.IsTrue(candle.Volume == null || candle.Volume > 0, "Volume should be null or greater than zero.");
+            Assert.AreEqual(candle.OpenInterest, null);
             Assert.AreNotEqual(default, candle.DateTime);
         }
     }

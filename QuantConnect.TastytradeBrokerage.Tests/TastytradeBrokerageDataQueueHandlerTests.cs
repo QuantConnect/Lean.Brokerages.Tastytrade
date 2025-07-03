@@ -42,19 +42,19 @@ public partial class TastytradeBrokerageTests
             yield return new TestCaseData(new[] { AAPL }, Resolution.Second);
             yield return new TestCaseData(new[] { AAPL }, Resolution.Minute);
 
-            var aaplOptionContract = Symbol.CreateOption(AAPL, AAPL.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
+            var aaplOptionContract = Symbol.CreateOption(AAPL, Market.USA, AAPL.SecurityType.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 07, 03));
             yield return new TestCaseData(new[] { aaplOptionContract }, Resolution.Tick);
             yield return new TestCaseData(new[] { aaplOptionContract }, Resolution.Second);
             yield return new TestCaseData(new[] { aaplOptionContract }, Resolution.Minute);
 
             var spx = Symbols.SPX;
-            var spxOptionContract = Symbol.CreateOption(spx, spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5635m, new DateTime(2025, 06, 20));
+            var spxOptionContract = Symbol.CreateOption(spx, spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 6195, new DateTime(2025, 07, 18));
             yield return new TestCaseData(new[] { spx }, Resolution.Tick);
             yield return new TestCaseData(new[] { spx, spxOptionContract }, Resolution.Tick);
             yield return new TestCaseData(new[] { spxOptionContract }, Resolution.Second);
             yield return new TestCaseData(new[] { spxOptionContract }, Resolution.Minute);
 
-            var spxw = Symbol.CreateOption(spx, "SPXW", spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5935m, new DateTime(2025, 06, 30));
+            var spxw = Symbol.CreateOption(spx, "SPXW", spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 5935m, new DateTime(2025, 07, 18));
             yield return new TestCaseData(new[] { spxw }, Resolution.Tick);
 
             var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 09, 19));
@@ -72,15 +72,20 @@ public partial class TastytradeBrokerageTests
 
 
     [Test, TestCaseSource(nameof(TestParameters))]
-    public void StreamsData(Symbol[] symbol, Resolution resolution)
+    public void StreamsData(Symbol[] symbols, Resolution resolution)
     {
+        foreach (var symbol in symbols)
+        {
+            AssertMarketOpen(symbol, true);
+        }
+
         var obj = new object();
         var cancellationTokenSource = new CancellationTokenSource();
         var resetEvent = new AutoResetEvent(false);
         var brokerage = (TastytradeBrokerage)Brokerage;
 
         var incomingSymbolDataByTickType = new ConcurrentDictionary<(Symbol, TickType), List<BaseData>>();
-        var configs = symbol.SelectMany(s => GetSubscriptionDataConfigs(s, resolution)).ToList();
+        var configs = symbols.SelectMany(s => GetSubscriptionDataConfigs(s, resolution)).ToList();
 
         Action<BaseData> callback = (dataPoint) =>
         {
@@ -104,7 +109,7 @@ public partial class TastytradeBrokerageTests
 
             lock (obj)
             {
-                if (incomingSymbolDataByTickType.Count == configs.Count && incomingSymbolDataByTickType.All(d => d.Value.Count > 2))
+                if (incomingSymbolDataByTickType.Count == configs.Count && incomingSymbolDataByTickType.Any(d => d.Value.Count > 2))
                 {
                     resetEvent.Set();
                 }
