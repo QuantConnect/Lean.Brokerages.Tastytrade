@@ -16,6 +16,7 @@
 using System;
 using QuantConnect.Data;
 using QuantConnect.Logging;
+using QuantConnect.Securities;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
 using QuantConnect.Securities.Option;
@@ -90,8 +91,14 @@ public partial class TastytradeBrokerage
             return null;
         }
 
-        if ((request.Symbol.SecurityType == SecurityType.Future && request.Symbol.ID.Date.Date < DateTime.UtcNow.Date)
-            || (request.Symbol.SecurityType.IsOption() && OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow)))
+        var isExpired = request.Symbol.SecurityType switch
+        {
+            SecurityType.Future => request.Symbol.ID.Date.Date < DateTime.UtcNow.ConvertFromUtc(MarketHoursDatabase.FromDataFolder().GetExchangeHours(request.Symbol.ID.Market, request.Symbol, request.Symbol.SecurityType).TimeZone).Date,
+            _ when request.Symbol.SecurityType.IsOption() => OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow),
+            _ => false
+        };
+
+        if (isExpired)
         {
             if (!_expiredOptionContractWarningFired)
             {
