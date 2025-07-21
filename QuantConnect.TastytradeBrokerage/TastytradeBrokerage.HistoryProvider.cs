@@ -90,12 +90,13 @@ public partial class TastytradeBrokerage
             return null;
         }
 
-        if (request.Symbol.SecurityType.IsOption() && OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow))
+        if ((request.Symbol.SecurityType == SecurityType.Future && request.Symbol.ID.Date.Date < DateTime.UtcNow.Date)
+            || (request.Symbol.SecurityType.IsOption() && OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow)))
         {
             if (!_expiredOptionContractWarningFired)
             {
                 _expiredOptionContractWarningFired = true;
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "ExpiredOptionContract", $"Historical data for the expired option contract '{request.Symbol}' is not available."));
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "ExpiredSymbol", $"Historical data for the expired contract '{request.Symbol}' is not supported."));
             }
             return null;
         }

@@ -158,6 +158,9 @@ public class TastytradeBrokerageSymbolMapperTests
 
             var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 9, 19));
             yield return new(Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 142.5m, new DateTime(2025, 06, 20)), "./ZBU5 OZBN5 250620C142.5", "./OZBN25C142.5:XCBT");
+
+            var euroDollar = Symbol.CreateFuture(Futures.Financials.EuroDollar, Market.CME, new DateTime(2030, 06, 17));
+            yield return new TestCaseData(euroDollar, "/GEM0", "/GEM30:XCME");
         }
     }
 
@@ -199,8 +202,6 @@ public class TastytradeBrokerageSymbolMapperTests
 
     public static IEnumerable<TestCaseData> GetFutureSymbolsTestCases()
     {
-         yield return new TestCaseData("/ESZ4", Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2024, 12, 20)));
-
         // Natural gas futures expire the month previous to the contract month:
         // Expiry: August -> Contract month: September (U)
         yield return new TestCaseData("/NGU5", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2025, 08, 27)));
@@ -214,6 +215,8 @@ public class TastytradeBrokerageSymbolMapperTests
         yield return new TestCaseData("/BZF6", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 11, 28)));
         // Expiry: December 2025 -> Contract month: February (G) 2026 (26)
         yield return new TestCaseData("/BZG6", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 12, 31)));
+
+        yield return new TestCaseData("/GEM0", Symbol.CreateFuture(Futures.Financials.EuroDollar, Market.CME, new DateTime(2030, 06, 17)));
     }
 
     [TestCaseSource(nameof(GetFutureSymbolsTestCases))]

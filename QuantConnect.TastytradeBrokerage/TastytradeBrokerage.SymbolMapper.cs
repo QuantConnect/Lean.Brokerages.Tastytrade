@@ -116,7 +116,7 @@ public class TastytradeBrokerageSymbolMapper
                 leanSymbol = Symbol.Create(NormalizeEquityTicker(brokerageSymbol), securityType, Market.USA);
                 break;
             case SecurityType.Future:
-                leanSymbol = SymbolRepresentation.ParseFutureSymbol(ToFutureLeanTickerFormat(brokerageSymbol), (int)Math.Round(DateTime.UtcNow.Year / 10.0) * 10 + int.Parse(brokerageSymbol[^1].ToString()));
+                leanSymbol = SymbolRepresentation.ParseFutureSymbol(ToFutureLeanTickerFormat(brokerageSymbol));
                 break;
             case SecurityType.Option:
             case SecurityType.IndexOption:
