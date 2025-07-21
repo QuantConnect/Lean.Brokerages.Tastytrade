@@ -237,11 +237,8 @@ public class TastytradeBrokerageSymbolMapper
     /// </remarks>
     private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureBrokerageSymbols(Symbol symbol)
     {
-        var expiry = symbol.ID.Date;
-        var yearSuffix = expiry.ToString("yy");
-        var baseSymbol = $"/{symbol.ID.Symbol}{SymbolRepresentation.FuturesMonthLookup[expiry.Month]}";
-
-        return (baseSymbol + yearSuffix.Last(), $"{baseSymbol}{yearSuffix}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
+        var baseSymbol = "/" + SymbolRepresentation.GenerateFutureTicker(symbol.ID.Symbol, symbol.ID.Date, includeExpirationDate: false);
+        return (baseSymbol.Remove(baseSymbol.Length - 2, 1), $"{baseSymbol}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
     }
 
     /// <summary>

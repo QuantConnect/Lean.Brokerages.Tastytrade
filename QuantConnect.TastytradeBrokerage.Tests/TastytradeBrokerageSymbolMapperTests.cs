@@ -154,10 +154,13 @@ public class TastytradeBrokerageSymbolMapperTests
 
             // Gasoline - Future
             var Gasoline = Symbol.CreateFuture(Futures.Energy.Gasoline, Market.NYMEX, new DateTime(2025, 06, 1));
-            yield return new(Gasoline, "/RBM5", "/RBM25:XNYM");
+            yield return new(Gasoline, "/RBN5", "/RBN25:XNYM");
 
             var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 9, 19));
             yield return new(Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 142.5m, new DateTime(2025, 06, 20)), "./ZBU5 OZBN5 250620C142.5", "./OZBN25C142.5:XCBT");
+
+            var euroDollar = Symbol.CreateFuture(Futures.Financials.EuroDollar, Market.CME, new DateTime(2030, 06, 17));
+            yield return new TestCaseData(euroDollar, "/GEM0", "/GEM30:XCME");
         }
     }
 
@@ -195,6 +198,35 @@ public class TastytradeBrokerageSymbolMapperTests
 
         Assert.AreEqual(expectedBrokerageSymbol, actualBrokerageSymbol);
         Assert.AreEqual(expectedStreamBrokerageSymbol, actualStreamBrokerageSymbol);
+    }
+
+    public static IEnumerable<TestCaseData> GetFutureSymbolsTestCases()
+    {
+        // Natural gas futures expire the month previous to the contract month:
+        // Expiry: August -> Contract month: September (U)
+        yield return new TestCaseData("/NGU5", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2025, 08, 27)));
+        // Expiry: December 2025 -> Contract month: January (U) 2026 (26)
+        yield return new TestCaseData("/NGF6", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2025, 12, 29)));
+
+        // BrentLastDayFinancial futures expire two months previous to the contract month:
+        // Expiry: August -> Contract month: October (V)
+        yield return new TestCaseData("/BZV5", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 08, 29)));
+        // Expiry: November 2025 -> Contract month: January (F) 2026 (26)
+        yield return new TestCaseData("/BZF6", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 11, 28)));
+        // Expiry: December 2025 -> Contract month: February (G) 2026 (26)
+        yield return new TestCaseData("/BZG6", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 12, 31)));
+
+        yield return new TestCaseData("/GEM0", Symbol.CreateFuture(Futures.Financials.EuroDollar, Market.CME, new DateTime(2030, 06, 17)));
+    }
+
+    [TestCaseSource(nameof(GetFutureSymbolsTestCases))]
+    public void ConvertsFutureSymbolRoundTrip(string brokerageSymbol, Symbol leanSymbol)
+    {
+        Assert.IsTrue(_symbolMapperStub.TryGetLeanSymbol(brokerageSymbol, InstrumentType.Future, out var convertedLeanSymbol));
+        Assert.AreEqual(leanSymbol, convertedLeanSymbol);
+
+        var convertedBrokerageSymbol = _symbolMapper.GetBrokerageSymbols(leanSymbol);
+        Assert.AreEqual(brokerageSymbol, convertedBrokerageSymbol.brokerageSymbol);
     }
 
     /// <summary>

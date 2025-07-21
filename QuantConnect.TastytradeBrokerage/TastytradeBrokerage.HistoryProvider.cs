@@ -16,6 +16,7 @@
 using System;
 using QuantConnect.Data;
 using QuantConnect.Logging;
+using QuantConnect.Securities;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
 using QuantConnect.Securities.Option;
@@ -90,12 +91,19 @@ public partial class TastytradeBrokerage
             return null;
         }
 
-        if (request.Symbol.SecurityType.IsOption() && OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow))
+        var isExpired = request.Symbol.SecurityType switch
+        {
+            SecurityType.Future => request.Symbol.ID.Date.Date < DateTime.UtcNow.ConvertFromUtc(MarketHoursDatabase.FromDataFolder().GetExchangeHours(request.Symbol.ID.Market, request.Symbol, request.Symbol.SecurityType).TimeZone).Date,
+            _ when request.Symbol.SecurityType.IsOption() => OptionSymbol.IsOptionContractExpired(request.Symbol, DateTime.UtcNow),
+            _ => false
+        };
+
+        if (isExpired)
         {
             if (!_expiredOptionContractWarningFired)
             {
                 _expiredOptionContractWarningFired = true;
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "ExpiredOptionContract", $"Historical data for the expired option contract '{request.Symbol}' is not available."));
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "ExpiredSymbol", $"Historical data for the expired contract '{request.Symbol}' is not supported."));
             }
             return null;
         }

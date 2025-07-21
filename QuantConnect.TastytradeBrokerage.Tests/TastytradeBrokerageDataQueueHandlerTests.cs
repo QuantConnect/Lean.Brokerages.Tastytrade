@@ -67,6 +67,11 @@ public partial class TastytradeBrokerageTests
             yield return new TestCaseData(new[] { SP500EMini, SP500EMini_OptionContract }, Resolution.Tick);
 
             yield return new TestCaseData(new[] { AAPL, aaplOptionContract, spx, spxOptionContract, spxw, SP500EMini, SP500EMini_OptionContract }, Resolution.Tick);
+
+            var brentLastDayFinancialAugust = Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 08, 29));
+            var brentLastDayFinancialNovember = Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 11, 28));
+            var brentLastDayFinancialDecember = Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 12, 31));
+            yield return new TestCaseData(new[] { brentLastDayFinancialAugust, brentLastDayFinancialNovember, brentLastDayFinancialDecember }, Resolution.Tick);
         }
     }
 

@@ -100,6 +100,9 @@ public class TastytradeBrokerageHistoryProviderTests
 
             yield return new TestCaseData(AAPL, Resolution.Second, TickType.Quote, new DateTime(2024, 10, 1), new DateTime(2024, 11, 8), true).SetDescription("Not Support Quote TickType request.");
             yield return new TestCaseData(AAPL, Resolution.Minute, TickType.Trade, new DateTime(2024, 11, 8), new DateTime(2024, 10, 1), true).SetDescription("StartDate > EndDate");
+
+            var expiredSP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2024, 12, 20));
+            yield return new TestCaseData(expiredSP500EMini, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 18), new DateTime(2025, 07, 01), true).SetDescription("Not Supported expired Futures");
         }
     }
 
