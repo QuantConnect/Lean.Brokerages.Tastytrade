@@ -83,7 +83,7 @@ public sealed class SessionTokenHandler : TokenHandler
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid session token string.</returns>
-    public override (TokenType TokenType, string AccessToken) GetAccessToken(CancellationToken cancellationToken)
+    public override TokenCredentials GetAccessToken(CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_sessionToken))
         {
@@ -94,7 +94,7 @@ public sealed class SessionTokenHandler : TokenHandler
             _sessionToken = UpdateSession(_username, _rememberToken, cancellationToken);
         }
 
-        return (TokenType.SessionToken, _sessionToken);
+        return new (TokenType.SessionToken, _sessionToken);
     }
 
     /// <summary>

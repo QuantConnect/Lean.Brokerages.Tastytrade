@@ -147,13 +147,13 @@ public class TastytradeBrokerageAdditionalTests
 
         var leanTokenHandler = new TastytradeApiClient(baseUrl, "Tastytrade", accountNumber, refreshToken, leanApiClient);
 
-        var (tokenType, accessToken) = leanTokenHandler.TokenProvider.GetAccessToken(CancellationToken.None);
+        var tokenCredentials = leanTokenHandler.TokenProvider.GetAccessToken(CancellationToken.None);
 
         Assert.Multiple(() =>
         {
-            Assert.IsNotNull(accessToken, "Access token should not be null.");
-            Assert.IsNotEmpty(accessToken, "Access token should not be empty.");
-            Assert.AreEqual(TokenType.Bearer, tokenType);
+            Assert.IsNotNull(tokenCredentials.AccessToken, "Access token should not be null.");
+            Assert.IsNotEmpty(tokenCredentials.AccessToken, "Access token should not be empty.");
+            Assert.AreEqual(TokenType.Bearer, tokenCredentials.TokenType);
         });
     }
 
