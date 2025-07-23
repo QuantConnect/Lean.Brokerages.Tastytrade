@@ -62,7 +62,7 @@ public sealed class TastytradeApiClient
     /// <param name="refreshToken">The refresh token used to obtain a new access token.</param>
     /// <param name="leanApiClient">The Lean API client instance.</param>
     public TastytradeApiClient(string baseUrl, string brokerageName, string accountNumber, string refreshToken, ApiConnection leanApiClient)
-        : this(baseUrl, new OAuthTokenHandler<LeanAccessTokenMetaDataRequest, LeanAccessTokenMetaDataResponse>(leanApiClient, new(brokerageName, accountNumber, refreshToken)), accountNumber)
+        : this(baseUrl, new OAuthTokenHandler<LeanAccessTokenMetaDataRequest, LeanAccessTokenMetaDataResponse>(leanApiClient, new(brokerageName, refreshToken, accountNumber)), accountNumber)
     {
     }
 
