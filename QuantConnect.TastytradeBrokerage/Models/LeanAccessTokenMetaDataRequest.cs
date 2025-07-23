@@ -13,32 +13,19 @@
  * limitations under the License.
 */
 
-using Newtonsoft.Json;
-using QuantConnect.Brokerages.Tastytrade.Serialization;
+using QuantConnect.Brokerages.Authentication;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
 /// Represents a request for an access token from Lean, containing required account and brokerage details.
 /// </summary>
-public class LeanAccessTokenMetaDataRequest
+public sealed class LeanAccessTokenMetaDataRequest : AccessTokenMetaDataRequest
 {
-    /// <summary>
-    /// Gets the brokerage associated with the access token request. 
-    /// The brokerage name is stored in lowercase format.
-    /// </summary>
-    public string Brokerage { get; }
-
     /// <summary>
     /// Gets the refresh token used to request a new access token.
     /// </summary>
     public string RefreshToken { get; }
-
-    /// <summary>
-    /// Gets the account number associated with the access token request.
-    /// </summary>
-    [JsonProperty("accountId")]
-    public string AccountNumber { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LeanAccessTokenMetaDataRequest"/> class.
@@ -47,18 +34,8 @@ public class LeanAccessTokenMetaDataRequest
     /// <param name="refreshToken">The refresh token used to obtain a new access token.</param>
     /// <param name="accountNumber">The account number linked to the request.</param>
     public LeanAccessTokenMetaDataRequest(string brokerage, string refreshToken, string accountNumber)
+        : base(brokerage, accountNumber)
     {
-        Brokerage = brokerage.ToLowerInvariant();
         RefreshToken = refreshToken;
-        AccountNumber = accountNumber;
-    }
-
-    /// <summary>
-    /// Serializes the request to a JSON string using camelCase property naming.
-    /// </summary>
-    /// <returns>The JSON representation of the request.</returns>
-    public string ToJson()
-    {
-        return JsonConvert.SerializeObject(this, JsonSettings.CamelCase);
     }
 }

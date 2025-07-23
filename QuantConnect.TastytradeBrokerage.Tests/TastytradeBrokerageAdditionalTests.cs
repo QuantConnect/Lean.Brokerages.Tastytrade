@@ -21,7 +21,7 @@ using QuantConnect.Util;
 using QuantConnect.Interfaces;
 using QuantConnect.Configuration;
 using QuantConnect.Brokerages.Tastytrade.Api;
-using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Authentication;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -134,6 +134,7 @@ public class TastytradeBrokerageAdditionalTests
     [Test, Explicit("Requires valid refresh token for Tastytrade account.")]
     public void RefreshToken()
     {
+        var baseUrl = Config.Get("tastytrade-api-url");
         var accountNumber = Config.Get("tastytrade-account-number");
         var refreshToken = Config.Get("tastytrade-refresh-token");
 
@@ -144,9 +145,9 @@ public class TastytradeBrokerageAdditionalTests
             throw new ArgumentException("Invalid api user id or token, cannot authenticate subscription.");
         }
 
-        var leanTokenHandler = new LeanTokenHandler(leanApiClient, "Tastytrade", accountNumber, refreshToken);
+        var leanTokenHandler = new TastytradeApiClient(baseUrl, "Tastytrade", accountNumber, refreshToken, leanApiClient);
 
-        var (tokenType, accessToken) = leanTokenHandler.GetAccessToken(CancellationToken.None);
+        var (tokenType, accessToken) = leanTokenHandler.TokenProvider.GetAccessToken(CancellationToken.None);
 
         Assert.Multiple(() =>
         {

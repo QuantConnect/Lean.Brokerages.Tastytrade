@@ -19,6 +19,7 @@ using System.Linq;
 using NUnit.Framework;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
@@ -980,7 +981,7 @@ public class TastytradeJsonConverterTests
     {
         var leanAccessTokenJson = new LeanAccessTokenMetaDataRequest("Tastytrade", "zxcvb123", "7DZ64577").ToJson();
 
-        Assert.AreEqual("{\"brokerage\":\"tastytrade\",\"refreshToken\":\"zxcvb123\",\"accountId\":\"7DZ64577\"}", leanAccessTokenJson);
+        Assert.AreEqual("{\"refreshToken\":\"zxcvb123\",\"brokerage\":\"tastytrade\",\"accountId\":\"7DZ64577\"}", leanAccessTokenJson);
     }
 
     [Test]

@@ -21,6 +21,7 @@ using QuantConnect.Api;
 using QuantConnect.Logging;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.Tastytrade.Models;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
@@ -50,7 +51,7 @@ public sealed class TastytradeApiClient
     /// <summary>
     /// Provides access tokens for authenticating API requests.
     /// </summary>
-    public readonly ITokenProvider TokenProvider;
+    public readonly TokenHandler TokenProvider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class using Lean token-based authentication.
@@ -60,9 +61,8 @@ public sealed class TastytradeApiClient
     /// <param name="accountNumber">The account number linked to the request.</param>
     /// <param name="refreshToken">The refresh token used to obtain a new access token.</param>
     /// <param name="leanApiClient">The Lean API client instance.</param>
-
     public TastytradeApiClient(string baseUrl, string brokerageName, string accountNumber, string refreshToken, ApiConnection leanApiClient)
-        : this(baseUrl, new LeanTokenHandler(leanApiClient, brokerageName, accountNumber, refreshToken), accountNumber)
+        : this(baseUrl, new OAuthTokenHandler<LeanAccessTokenMetaDataRequest, LeanAccessTokenMetaDataResponse>(leanApiClient, new(brokerageName, accountNumber, refreshToken)), accountNumber)
     {
     }
 

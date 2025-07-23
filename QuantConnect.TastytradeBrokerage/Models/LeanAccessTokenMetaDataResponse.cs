@@ -14,43 +14,23 @@
 */
 
 using System;
-using Newtonsoft.Json;
-using QuantConnect.Api;
-using QuantConnect.Brokerages.Tastytrade.Models.Enum;
+using QuantConnect.Brokerages.Authentication;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models;
 
 /// <summary>
 /// Represents the response containing access token metadata from Lean authentication.
 /// </summary>
-public class LeanAccessTokenMetaDataResponse : RestResponse
+public sealed class LeanAccessTokenMetaDataResponse : AccessTokenMetaDataResponse
 {
-    /// <summary>
-    /// Gets the access token provided by Lean.
-    /// </summary>
-    public string AccessToken { get; }
-
-    /// <summary>
-    /// Gets the type of the token (e.g., "Bearer").
-    /// </summary>
-    public TokenType TokenType { get; }
-
-    /// <summary>
-    /// Gets the UTC expiration timestamp of the access token, with a 1-minute safety buffer applied.
-    /// </summary>
-    public DateTime AccessTokenExpires { get; }
-
     /// <summary>
     /// Initializes a new instance of the <see cref="LeanAccessTokenMetaDataResponse"/> class.
     /// </summary>
     /// <param name="accessToken">The access token returned by Lean.</param>
     /// <param name="tokenType">The type of token returned (e.g., "Bearer").</param>
     /// <param name="expiresIn">The token lifetime in seconds, provided by Lean.</param>
-    [JsonConstructor]
     public LeanAccessTokenMetaDataResponse(string accessToken, TokenType tokenType, int expiresIn)
+        : base(accessToken, tokenType, DateTime.UtcNow.AddSeconds(expiresIn).AddMinutes(-1))
     {
-        AccessToken = accessToken;
-        TokenType = tokenType;
-        AccessTokenExpires = DateTime.UtcNow.AddSeconds(expiresIn).AddMinutes(-1); // 1-minute buffer to account for clock drift
     }
 }
