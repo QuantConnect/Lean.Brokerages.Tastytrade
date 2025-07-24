@@ -1002,7 +1002,7 @@ public class TastytradeJsonConverterTests
         Assert.AreEqual(TokenType.Bearer, leanAccessTokenResponse.TokenType);
 
         var expectedDateTime = DateTime.UtcNow.AddSeconds(900).AddSeconds(-70); //  The 70 second buffer to test time expiration
-        Assert.Less(expectedDateTime, leanAccessTokenResponse.AccessTokenExpires);
+        Assert.Less(expectedDateTime, leanAccessTokenResponse.Expiration);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)
