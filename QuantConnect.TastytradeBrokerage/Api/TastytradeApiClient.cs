@@ -94,6 +94,7 @@ public sealed class TastytradeApiClient
         _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("quantconnect-tastytrade-brokerage", "1.0"));
         TokenProvider = tokenHandler;
         AccountNumber = accountNumber;
+        Log.Debug($"TastytradeApiClient:ctor: TokenHandler of type '{tokenHandler.GetType().Name}'");
     }
 
     /// <summary>
