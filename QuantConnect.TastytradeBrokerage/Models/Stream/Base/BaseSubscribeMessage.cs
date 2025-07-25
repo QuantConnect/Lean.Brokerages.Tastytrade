@@ -15,6 +15,7 @@
 
 using System;
 using Newtonsoft.Json;
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Serialization;
 

@@ -18,8 +18,9 @@ using System.Text;
 using System.Net.Http;
 using System.Threading;
 using QuantConnect.Logging;
+using System.Net.Http.Headers;
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.Tastytrade.Models;
-using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade.Api;
 
@@ -69,7 +70,7 @@ public sealed class SessionTokenHandler : TokenHandler
     /// <param name="baseUrl">The base URL for the Tastytrade API.</param>
     /// <param name="username">The username used for authentication.</param>
     /// <param name="password">The password used for authentication.</param>
-    public SessionTokenHandler(string baseUrl, string username, string password) : base()
+    public SessionTokenHandler(string baseUrl, string username, string password) : base((tokenType, accessToken) => new AuthenticationHeaderValue(accessToken))
     {
         _username = username;
         _password = password;
@@ -82,7 +83,7 @@ public sealed class SessionTokenHandler : TokenHandler
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid session token string.</returns>
-    public override (TokenType, string) GetAccessToken(CancellationToken cancellationToken)
+    public override TokenCredentials GetAccessToken(CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_sessionToken))
         {
@@ -93,7 +94,7 @@ public sealed class SessionTokenHandler : TokenHandler
             _sessionToken = UpdateSession(_username, _rememberToken, cancellationToken);
         }
 
-        return (TokenType.SessionToken, _sessionToken);
+        return new (TokenType.SessionToken, _sessionToken);
     }
 
     /// <summary>

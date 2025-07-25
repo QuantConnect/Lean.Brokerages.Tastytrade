@@ -13,6 +13,7 @@
  * limitations under the License.
 */
 
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.Base;
 
