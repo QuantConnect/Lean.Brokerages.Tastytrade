@@ -123,5 +123,19 @@ public enum EventType
     /// <summary>
     /// Indicates the current trading status of a symbol or market.
     /// </summary>
-    TradingStatus = 15
+    TradingStatus = 15,
+
+    /// <summary>
+    /// A summary report of the year-to-date performance or gain of an underlying asset or portfolio.
+    /// Useful for annual performance evaluation or reporting.
+    /// </summary>
+    UnderlyingYearGainSummary = 16,
+
+    /// <summary>
+    /// Represents a chain of related orders for a specific underlying symbol and account.
+    /// Includes comprehensive metadata such as creation/update timestamps, 
+    /// computed trade statistics (e.g., fees, gains, durations), order legs, and market state snapshots.
+    /// Useful for reconstructing trading strategies, tracking order flows, and analyzing performance.
+    /// </summary>
+    OrderChain = 17
 }
