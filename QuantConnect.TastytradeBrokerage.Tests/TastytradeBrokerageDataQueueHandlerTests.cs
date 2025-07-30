@@ -72,6 +72,10 @@ public partial class TastytradeBrokerageTests
             var brentLastDayFinancialNovember = Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 11, 28));
             var brentLastDayFinancialDecember = Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 12, 31));
             yield return new TestCaseData(new[] { brentLastDayFinancialAugust, brentLastDayFinancialNovember, brentLastDayFinancialDecember }, Resolution.Tick);
+
+            var rut = Symbol.Create("RUT", SecurityType.Index, Market.USA);
+            var rutw = Symbol.CreateOption(rut, "RUTW", rut.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 1200m, new DateTime(2025, 07, 31));
+            yield return new TestCaseData(new[] { rut, rutw }, Resolution.Tick);
         }
     }
 

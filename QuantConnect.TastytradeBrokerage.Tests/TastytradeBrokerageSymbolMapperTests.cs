@@ -61,6 +61,10 @@ public class TastytradeBrokerageSymbolMapperTests
             var spxw = Symbol.CreateOption(spx, "SPXW", spx.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 1400m, new DateTime(2025, 05, 30));
             yield return new("SPXW  250530C01400000", InstrumentType.EquityOption, "SPX", spxw);
 
+            var rut = Symbol.Create("RUT", SecurityType.Index, Market.USA);
+            var rutw = Symbol.CreateOption(rut, "RUTW", rut.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 1200m, new DateTime(2025, 07, 31));
+            yield return new("RUTW  250731C01200000", InstrumentType.EquityOption, "RUT", rutw);
+
             var SP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2025, 06, 20));
             yield return new("/ESM5", InstrumentType.Future, "/ES", SP500EMini);
 
@@ -111,6 +115,14 @@ public class TastytradeBrokerageSymbolMapperTests
             //// SPXW - Index
             yield return new TestCaseData(Symbol.CreateOption(SPX, "SPXW", Market.USA, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call,
                 3500m, new DateTime(2025, 07, 18)), "SPXW  250718C03500000", ".SPXW250718C3500");
+
+            // RUT - Index
+            var rut = Symbol.Create("RUT", SecurityType.Index, Market.USA);
+            yield return new(rut, "RUT", "RUT");
+
+            // RUTW - IndexOption
+            yield return new(Symbol.CreateOption(rut, "RUTW", rut.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 1200m, new DateTime(2025, 07, 31)), "RUTW  250731C01200000", ".RUTW250731C1200");
+
             // F - Equity
             var F = Symbol.Create("F", SecurityType.Equity, Market.USA);
             yield return new TestCaseData(F, "F", "F");
