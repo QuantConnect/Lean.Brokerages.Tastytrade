@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -141,8 +141,8 @@ public partial class TastytradeBrokerage
         {
             if (!context.CandleFeedService.SnapshotCompletedEvent.WaitOne(TimeSpan.FromSeconds(20)))
             {
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, $"{nameof(TastytradeBrokerage)}.{nameof(GetHistory)}: Timeout waiting for snapshot data." +
-                    $"Request details - Symbol: {request.Symbol.Value} ({request.Symbol.SecurityType}), Resolution: {request.Resolution}, StartTimeUtc: {request.StartTimeUtc:u}, EndTimeLocal: {request.EndTimeLocal:u}."));
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"{nameof(TastytradeBrokerage)}.{nameof(GetHistory)}: Timeout waiting for snapshot data." +
+                    $"Request details - Symbol: {request.Symbol.Value} ({request.Symbol.SecurityType}), Resolution: {request.Resolution}, StartTimeUtc: {request.StartTimeUtc:u}, EndTimeUtc: {request.EndTimeUtc:u}, StartTimeLocal: {request.StartTimeLocal:u}, EndTimeLocal: {request.EndTimeLocal:u}."));
                 return null;
             }
 

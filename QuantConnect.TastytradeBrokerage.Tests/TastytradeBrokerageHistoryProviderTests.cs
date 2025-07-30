@@ -90,7 +90,7 @@ public class TastytradeBrokerageHistoryProviderTests
             yield return new TestCaseData(Y10TreasuryNote_OptionContract, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 01), new DateTime(2025, 07, 01), false);
 
             var SP500EMini_OptionContract = Symbol.CreateOption(SP500EMini, SP500EMini.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 6200m, new DateTime(2025, 09, 19));
-            yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Minute, TickType.Trade, new DateTime(2025, 05, 30), new DateTime(2025, 06, 30), false);
+            yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Minute, TickType.Trade, startDate, endDate, false);
             yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Tick, TickType.Trade, startDate, endDate, false).SetName("SP500EMini_OptionContract,Tick,Trade");
             yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Second, TickType.Trade, startDate, endDate, false).SetName("SP500EMini_OptionContract,Second,Trade");
             yield return new TestCaseData(SP500EMini_OptionContract, Resolution.Hour, TickType.Trade, new DateTime(2025, 06, 18), new DateTime(2025, 07, 1), false);
@@ -103,6 +103,11 @@ public class TastytradeBrokerageHistoryProviderTests
 
             var expiredSP500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2024, 12, 20));
             yield return new TestCaseData(expiredSP500EMini, Resolution.Daily, TickType.Trade, new DateTime(2025, 05, 18), new DateTime(2025, 07, 01), true).SetDescription("Not Supported expired Futures");
+
+            var rut = Symbol.Create("RUT", SecurityType.Index, Market.USA);
+            var rutw = Symbol.CreateOption(rut, "RUTW", rut.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 2250, new DateTime(2025, 07, 31));
+            yield return new(rut, Resolution.Minute, TickType.Trade, startDate, endDate, false);
+            yield return new(rutw, Resolution.Minute, TickType.Trade, startDate, endDate, false);
         }
     }
 
