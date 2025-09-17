@@ -317,4 +317,28 @@ public static class Extensions
 
         return $"{symbol}{periodPostfix}";
     }
+
+    /// <summary>
+    /// Converts a brokerage <see cref="OptionType"/> to its corresponding <see cref="OptionRight"/>.
+    /// </summary>
+    /// <param name="optionType">The brokerage <see cref="OptionType"/> value.</param>
+    /// <returns>The equivalent <see cref="OptionRight"/>.</returns>
+    public static OptionRight GetOptionRight(this OptionType optionType) => optionType switch
+    {
+        OptionType.Put => OptionRight.Put,
+        OptionType.Call => OptionRight.Call,
+        _ => throw new NotSupportedException($"Unsupported OptionType: {optionType}")
+    };
+
+    /// <summary>
+    /// Converts a <see cref="OptionRight"/> to its corresponding brokerage <see cref="OptionType"/>.
+    /// </summary>
+    /// <param name="optionRight">The <see cref="OptionRight"/> value.</param>
+    /// <returns>The equivalent <see cref="OptionType"/>.</returns>
+    public static OptionType GetOptionType(this OptionRight optionRight) => optionRight switch
+    {
+        OptionRight.Put => OptionType.Put,
+        OptionRight.Call => OptionType.Call,
+        _ => throw new NotSupportedException($"Unsupported OptionRight: {optionRight}")
+    };
 }

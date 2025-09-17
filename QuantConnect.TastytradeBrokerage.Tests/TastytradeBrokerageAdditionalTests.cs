@@ -81,6 +81,7 @@ public class TastytradeBrokerageAdditionalTests
     [TestCase("GCZ5", Description = "Gold Dec 25")]
     [TestCase("6BZ5", Description = "British Pound Dec 25")]
     [TestCase("RBM5", Description = "RBOB Gasoline Jun 25")]
+    [TestCase("MNQZ5", Description = "MicroNASDAQ100EMini Dec 25")]
     public void GetInstrumentFuture(string brokerageSymbol)
     {
         var res = _tastytradeApiClient.GetInstrumentFuture(brokerageSymbol);
@@ -127,6 +128,7 @@ public class TastytradeBrokerageAdditionalTests
     [TestCase(Securities.Futures.Indices.SP500EMini)]
     [TestCase(Securities.Futures.Metals.Gold)]
     [TestCase(Securities.Futures.Financials.Y30TreasuryBond)]
+    [TestCase(Securities.Futures.Indices.MicroNASDAQ100EMini)]
     public void GetFutureOptionChains(string ticker)
     {
         var res = _tastytradeApiClient.GetFutureOptionChains(ticker);
