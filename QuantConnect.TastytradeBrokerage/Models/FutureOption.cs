@@ -44,18 +44,9 @@ public sealed class FutureOption : BaseInstrument
     public string OptionRootSymbol { get; set; }
 
     /// <summary>
-    /// Determines whether this option matches the specified expiration date, strike price, and option type.
+    /// Gets the symbol of the underlying future for this option contract (e.g., "MNQZ5").
     /// </summary>
-    /// <param name="expirationDate">The expiration date to match.</param>
-    /// <param name="strike">The strike price to match.</param>
-    /// <param name="optionType">The option type to match.</param>
-    /// <returns><c>true</c> if this option matches all provided criteria; otherwise, <c>false</c>.</returns>
-    public bool IsMatchFor(DateTime expirationDate, decimal strike, OptionType optionType)
-    {
-        return ExpirationDate.Date == expirationDate.Date &&
-               StrikePrice == strike &&
-               OptionType == optionType;
-    }
+    public string UnderlyingSymbol { get; set; }
 
     /// <summary>
     /// Returns a string representation of the <see cref="FutureOption"/> instance,
@@ -66,6 +57,6 @@ public sealed class FutureOption : BaseInstrument
     /// </returns>
     public override string ToString()
     {
-        return $"{Symbol} | OptionRoot: {OptionRootSymbol} | {OptionType} | Exp: {ExpirationDate:yyyy-MM-dd} | Strike: {StrikePrice} | Streamer: {StreamerSymbol}";
+        return $"{Symbol} | UnderlyingSymbol: {UnderlyingSymbol} | OptionRoot: {OptionRootSymbol} | {OptionType} | Exp: {ExpirationDate:yyyy-MM-dd} | Strike: {StrikePrice} | Streamer: {StreamerSymbol}";
     }
 }

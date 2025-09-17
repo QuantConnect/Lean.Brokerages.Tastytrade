@@ -14,14 +14,13 @@
 */
 
 using System;
-using System.Linq;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-using QuantConnect.Securities.FutureOption;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models;
+using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -78,6 +77,18 @@ public class TastytradeBrokerageSymbolMapper
         SecurityType.Future,
         SecurityType.FutureOption
     };
+
+    /// <summary>
+    /// Nested dictionary storing future options by underlying, expiry, strike, and option type.
+    /// Maps to a tuple of (Symbol, StreammSymbol).
+    /// 
+    /// Example:
+    /// <code>
+    /// _futureOptionChainByFuture["MNQZ5"][new DateTime(2025, 09, 22)][24575m][OptionType.Call] 
+    ///     = ("./MNQZ5D4AU5 250922C24575", "./MNQZ5D4AU5");
+    /// </code>
+    /// </summary>
+    private readonly Dictionary<string, Dictionary<DateTime, Dictionary<decimal, Dictionary<OptionType, (string, string)>>>> _futureOptionChainByFuture = [];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TastytradeBrokerageSymbolMapper"/> class.
@@ -252,7 +263,9 @@ public class TastytradeBrokerageSymbolMapper
     /// <list type="bullet">
     ///   <item>
     ///     <description>
-    ///     <c>brokerageSymbol</c>: The symbol used by the brokerage for order placement (e.g., "./GCG6 OGF6  251223P2075").
+    ///       <c>brokerageSymbol</c>: The symbol used by the brokerage for order placement. 
+    ///       It may contain a space (e.g., "./GCG6 OGF6 251223P2075") or be compact without spaces 
+    ///       (e.g., "./MNQZ5D4AU5 250922C24575").
     ///     </description>
     ///   </item>
     ///   <item>
@@ -263,32 +276,63 @@ public class TastytradeBrokerageSymbolMapper
     ///   </item>
     /// </list>
     /// </returns>
-    /// <exception cref="InvalidOperationException">
+    /// <exception cref="KeyNotFoundException">
     /// Thrown if a required mapping (e.g., futures exchange symbol) cannot be found for the given symbol.
     /// </exception>
     private (string brokerageSymbol, string brokerageStreamMarketDataSymbol) GenerateFutureOptionBrokerageSymbols(Symbol symbol)
     {
-        var futureOptionExpiryDate = symbol.ID.Date;
+        var (underlyingFuture, _) = GetBrokerageSymbols(symbol.Underlying);
 
-        var monthCode = SymbolRepresentation.FuturesMonthLookup[FuturesOptionsUnderlyingMapper.GetFutureContractMonthNoRulesApplied(symbol.Underlying.Canonical, futureOptionExpiryDate).Date.Month];
+        if (!_futureOptionChainByFuture.TryGetValue(underlyingFuture, out _))
+        {
+            var futureOptionChain = _tastytradeApiClient.GetFutureOptionChains(symbol.Underlying.ID.Symbol);
 
-        var optionRoot = $"{symbol.ID.Symbol}{monthCode}";
+            foreach (var futureOption in futureOptionChain)
+            {
+                _futureOptionChainByFuture.TryAdd(futureOption.UnderlyingSymbol, []);
+                _futureOptionChainByFuture[futureOption.UnderlyingSymbol].TryAdd(futureOption.ExpirationDate, []);
+                _futureOptionChainByFuture[futureOption.UnderlyingSymbol][futureOption.ExpirationDate].TryAdd(futureOption.StrikePrice, []);
+                _futureOptionChainByFuture[futureOption.UnderlyingSymbol][futureOption.ExpirationDate][futureOption.StrikePrice][futureOption.OptionType] = (futureOption.Symbol, futureOption.StreamerSymbol);
+            }
+        }
 
-        var optionRight = symbol.ID.OptionRight.ToString()[0];
-        var yearSuffix = futureOptionExpiryDate.ToString("yy");
-
-        var (underlyingFuture, _) = GenerateFutureBrokerageSymbols(symbol.Underlying);
-
-        return ($".{underlyingFuture} {optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
-            $"./{optionRoot + yearSuffix}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
+        try
+        {
+            return _futureOptionChainByFuture[underlyingFuture][symbol.ID.Date][symbol.ID.StrikePrice][symbol.ID.OptionRight.GetOptionType()];
+        }
+        catch (KeyNotFoundException)
+        {
+            throw new KeyNotFoundException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(GenerateFutureOptionBrokerageSymbols)}: Brokerage symbol not found for future option {symbol}." +
+                $"(Underlying='{underlyingFuture}', Expiry={symbol.ID.Date:yyyy-MM-dd}, Strike={symbol.ID.StrikePrice}, Type={symbol.ID.OptionRight})");
+        }
     }
 
     /// <summary>
     /// Parses a brokerage-formatted future option symbol string into a <see cref="Symbol"/> object.
     /// </summary>
     /// <param name="brokerageSymbol">
-    /// The future option symbol string in brokerage format, expected in the format: <c>&lt;something&gt; &lt;ticker&gt; yyMMddP/CStrike</c>.
-    /// For example: <c>"TT ZN 250819C126500"</c>.
+    /// The future option symbol string in brokerage format. Supported formats include:
+    /// <list type="bullet">
+    ///   <item>
+    ///     <description>
+    ///       <c>&lt;root&gt; &lt;expiry&gt;[P|C]&lt;strike&gt;</c>, e.g.:
+    ///       <c>"TT ZN 250819C126500"</c>
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <c>./&lt;option-root&gt; &lt;expiry&gt;[P|C]&lt;strike&gt;</c>, e.g.:
+    ///       <c>"./MNQZ5D4AU5 250922C24575"</c>
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <c>./&lt;option-root&gt; &lt;alt-root&gt; &lt;expiry&gt;[P|C]&lt;strike&gt;</c>, e.g.:
+    ///       <c>"./ZBU5 OZBN5 250620C142.5"</c>
+    ///     </description>
+    ///   </item>
+    /// </list>
+    /// The last part always follows the pattern <c>yyMMddP/CStrike</c>.
     /// </param>
     /// <returns>
     /// A <see cref="Symbol"/> object representing the parsed future option, including its underlying symbol,
@@ -302,7 +346,11 @@ public class TastytradeBrokerageSymbolMapper
         var match = Regex.Match(brokerageSymbol, @"^\s*(\S+)\s+(\S+)\s+(\d{6})([PC])(\d+(?:\.\d+)?)$");
 
         if (!match.Success)
-            throw new FormatException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(ParseBrokerageFutureOptionSymbol)}: Input '{brokerageSymbol}' is not in a valid option format (expected 'yyMMddP/CStrike').");
+        {
+            var futureOption = _tastytradeApiClient.GetFutureOption(brokerageSymbol);
+            var underylingFuture = SymbolRepresentation.ParseFutureSymbol(ToFutureLeanTickerFormat(futureOption.UnderlyingSymbol));
+            return Symbol.CreateOption(underylingFuture, underylingFuture.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), futureOption.OptionType.GetOptionRight(), futureOption.StrikePrice, futureOption.ExpirationDate);
+        }
 
         var ticker = ToFutureLeanTickerFormat(match.Groups[1].Value);
         var expiry = DateTime.ParseExact(match.Groups[3].Value, "yyMMdd", CultureInfo.InvariantCulture);
