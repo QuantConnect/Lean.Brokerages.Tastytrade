@@ -172,9 +172,38 @@ public partial class TastytradeBrokerage
                 OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Detected unsupported Lean TimeInForce of '{brokerageOrder.TimeInForce}', ignoring. Using default: TimeInForce.GoodTilCanceled"));
             }
 
-            if (TryCreateLeanOrder(brokerageOrder, orderProperties, out var leanOrder))
+            if (brokerageOrder.Legs.Count == 1)
             {
-                leanOrders.Add(leanOrder);
+                var leg = brokerageOrder.Legs.First();
+                if (TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder))
+                {
+                    leanOrders.Add(leanOrder);
+                }
+            }
+            else
+            {
+                var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(brokerageOrder.Legs.Select(leg => leg.Quantity), brokerageOrder.PriceEffect.ToOrderDirection());
+                var groupOrderManager = new GroupOrderManager(brokerageOrder.Legs.Count, groupQuantity, brokerageOrder.Price);
+
+                var tempLegOrders = new List<LeanOrder>(brokerageOrder.Legs.Count);
+                foreach (var leg in brokerageOrder.Legs)
+                {
+                    if (TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder, groupOrderManager))
+                    {
+                        tempLegOrders.Add(leanOrder);
+                    }
+                    else
+                    {
+                        // If any leg fails to create a Lean order, clear tempLegOrders to prevent partial group orders.
+                        tempLegOrders.Clear();
+                        break;
+                    }
+                }
+
+                if (tempLegOrders.Count > 0)
+                {
+                    leanOrders.AddRange(tempLegOrders);
+                }
             }
         }
 
@@ -195,11 +224,10 @@ public partial class TastytradeBrokerage
     /// <remarks>
     /// Supports market and limit order types only. Emits a warning message for unsupported order types or invalid symbols.
     /// </remarks>
-    private bool TryCreateLeanOrder(BrokerageOrder order, OrderProperties orderProperties, out LeanOrder leanOrder)
+    private bool TryCreateLeanOrder(BrokerageOrder order, Models.Orders.Leg leg, OrderProperties orderProperties, out LeanOrder leanOrder, GroupOrderManager groupOrderManager = null)
     {
         leanOrder = default;
 
-        var leg = order.Legs.FirstOrDefault();
         if (!TryGetLeanSymbol(leg.Symbol, leg.InstrumentType, out var leanSymbol, order.UnderlyingSymbol))
         {
             return false;
@@ -212,6 +240,9 @@ public partial class TastytradeBrokerage
             {
                 case Models.Enum.OrderType.Market:
                     leanOrder = new MarketOrder(leanSymbol, quantity, order.ReceivedAtUtc, properties: orderProperties);
+                    break;
+                case Models.Enum.OrderType.Limit when groupOrderManager != null:
+                    leanOrder = new ComboLimitOrder(leanSymbol, quantity, order.Price, order.ReceivedAtUtc, groupOrderManager, properties: orderProperties);
                     break;
                 case Models.Enum.OrderType.Limit:
                     leanOrder = new LimitOrder(leanSymbol, quantity, order.Price, order.ReceivedAtUtc, properties: orderProperties);
