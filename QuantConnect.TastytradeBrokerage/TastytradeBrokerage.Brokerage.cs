@@ -434,8 +434,14 @@ public partial class TastytradeBrokerage
     /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
     public override bool CancelOrder(LeanOrder order)
     {
+        if (!_groupOrderCacheManager.TryGetGroupCachedOrders(order, out var orders))
+        {
+            return true;
+        }
+
         var canceled = default(bool);
-        var brokerageId = order.BrokerId.LastOrDefault();
+        // For combo orders, the main BrokerId is always kept in the first order of the collection.
+        var brokerageId = orders[0].BrokerId.LastOrDefault();
         _messageHandler.WithLockedStream(() =>
         {
             try
