@@ -512,76 +512,121 @@ public partial class TastytradeBrokerage
     /// </remarks>
     private void OnOrderUpdateReceivedHandler(BrokerageOrder orderUpdate)
     {
+        var leanOrderStatus = default(LeanOrderStatus);
         switch (orderUpdate.Status)
         {
             case BrokerageOrderStatus.Routed:
             case BrokerageOrderStatus.Live:
                 ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
-                break;
+                return;
             case BrokerageOrderStatus.Filled:
-                var leanOrderStatus = LeanOrderStatus.Filled;
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrder))
-                {
-                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
-                    break;
-                }
-
-                var leg = orderUpdate.Legs.FirstOrDefault();
-                var fill = leg.Fills.FirstOrDefault();
-                var orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
-                {
-                    Status = leanOrderStatus,
-                    FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
-                    FillPrice = fill.FillPrice
-                };
-                ProcessOrderEventWithCrossZeroCheck(leanOrder, orderEvent);
+                leanOrderStatus = LeanOrderStatus.Filled;
                 break;
             case BrokerageOrderStatus.Cancelled:
-                // Skip processing this order because it is part of an update in progress,
-                // where the original order ID is being replaced with a new one.
-                if (_pendingOrderCache.TryRemove(orderUpdate.Id, out _))
-                {
-                    break;
-                }
-
                 leanOrderStatus = LeanOrderStatus.Canceled;
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out leanOrder))
-                {
-                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
-                    break;
-                }
-
-                orderEvent = new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
-                {
-                    Status = leanOrderStatus
-                };
-                ProcessOrderEventWithCrossZeroCheck(leanOrder, orderEvent);
                 break;
             case BrokerageOrderStatus.Expired:
                 leanOrderStatus = LeanOrderStatus.Canceled;
-                if (!TryGetLeanOrderByBrokerageId(orderUpdate.Id, leanOrderStatus, out leanOrder))
-                {
-                    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
-                    break;
-                }
-
-                // TODO: Add missed 'message' in OrderEvent "Why does it expire?"
-                orderEvent = new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero)
-                { Status = leanOrderStatus };
-
-                ProcessOrderEventWithCrossZeroCheck(leanOrder, orderEvent);
-
                 break;
+            default:
+                return;
         }
+
+        if (!TryGetLeanOrdersByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrders))
+        {
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
+            return;
+        }
+
+        var tempLeanOrderEvents = new List<OrderEvent>();
+        foreach (var leg in orderUpdate.Legs)
+        {
+            var leanOrder = GetLeanOrderByBrokerageSymbol(leanOrders, leg.Symbol, leg.InstrumentType, orderUpdate.UnderlyingSymbol);
+            if (leanOrder == null)
+            {
+                break;
+            }
+
+            if (leanOrder.Status.IsClosed())
+            {
+                continue;
+            }
+
+            var orderEvent = default(OrderEvent);
+            switch (orderUpdate.Status)
+            {
+                case BrokerageOrderStatus.Filled:
+                    var fill = leg.Fills.FirstOrDefault();
+                    orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
+                    {
+                        Status = leanOrderStatus,
+                        FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
+                        FillPrice = fill.FillPrice
+                    };
+                    break;
+                case BrokerageOrderStatus.Cancelled:
+                    // Skip processing this order because it is part of an update in progress,
+                    // where the original order ID is being replaced with a new one.
+                    if (_pendingOrderCache.TryRemove(orderUpdate.Id, out _))
+                    {
+                        return;
+                    }
+
+                    orderEvent = new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
+                    {
+                        Status = leanOrderStatus
+                    };
+                    break;
+                case BrokerageOrderStatus.Expired:
+                    // TODO: Add missed 'message' in OrderEvent "Why does it expire?"
+                    orderEvent = new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero, $"The order  has expired due to {orderUpdate.TimeInForce} expiration.")
+                    {
+                        Status = leanOrderStatus
+                    };
+                    break;
+            }
+            tempLeanOrderEvents.Add(orderEvent);
+        }
+
+        ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
+    }
+
+    private LeanOrder GetLeanOrderByBrokerageSymbol(List<LeanOrder> leanOrders, string brokerageSymbol, InstrumentType instrumentType, string underlyingSymbol = null)
+    {
+        var leanOrder = default(LeanOrder);
+        if (leanOrders.Count == 1)
+        {
+            // If there is only one order, use it directly
+            leanOrder = leanOrders[0];
+        }
+        else
+        {
+            // If there are multiple orders, find the one that matches the leg's symbol
+            if (!TryGetLeanSymbol(brokerageSymbol, instrumentType, out var leanSymbol, underlyingSymbol))
+            {
+                return null;
+            }
+
+            // Ensure there is an order with the specific symbol in leanOrders.
+            leanOrder = leanOrders.FirstOrDefault(order => order.Symbol == leanSymbol);
+
+            if (leanOrder == null)
+            {
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error,
+                    "InvalidTryGetLeanOrderByBrokerageSymbol", $"Could not find order with symbol '{leanSymbol}' in leanOrders."));
+                return null;
+            }
+        }
+        return leanOrder;
     }
 
     /// <summary>
-    /// Finalizes the submission of a pending order identified by its brokerage ID.
-    /// If the order is found in the pending cache, it removes the entry, optionally emits 
-    /// a <see cref="OrderEvent"/>, and signals any thread waiting on the order's completion.
+    /// Finalizes a pending order submission for the given brokerage ID.
+    /// If found in the pending cache, the order is removed, the waiting thread is released,
+    /// and, if configured, the corresponding <see cref="OrderEvent"/>s are emitted.
     /// </summary>
-    /// <param name="brokerageId">The unique brokerage-assigned order ID.</param>
-    /// <param name="receivedDateTime">The timestamp indicating when the order was acknowledged by the brokerage.</param>
+    /// <param name="brokerageId">The brokerage-assigned order ID.</param>
+    /// <param name="receivedDateTime">The timestamp when the brokerage acknowledged the order.</param>
     private void ProcessPendingOrderSubmission(string brokerageId, DateTime receivedDateTime)
     {
         if (!_pendingOrderCache.IsEmpty && _pendingOrderCache.TryRemove(brokerageId, out var orderManager))
@@ -590,56 +635,63 @@ public partial class TastytradeBrokerage
 
             if (orderManager.IsInvokeOrderEvent)
             {
-                var orderEvent = new OrderEvent(orderManager.LeanOrder, receivedDateTime, OrderFee.Zero)
+                var tempEventOrders = new List<OrderEvent>();
+                foreach (var leanOrder in orderManager.LeanOrders)
                 {
-                    Status = orderManager.InvokeOrderStatus
-                };
-
-                ProcessOrderEventWithCrossZeroCheck(orderManager.LeanOrder, orderEvent);
+                    tempEventOrders.Add(new OrderEvent(leanOrder, receivedDateTime, OrderFee.Zero)
+                    {
+                        Status = orderManager.InvokeOrderStatus
+                    });
+                }
+                ProcessOrderEventWithCrossZeroCheck(orderManager.LeanOrders, tempEventOrders);
             }
         }
     }
 
     /// <summary>
-    /// Processes an incoming order event by first attempting to handle it as a cross-zero order.
-    /// If the event is not related to a cross-zero scenario, it is passed to the standard order handler.
+    /// Processes order events, handling cross-zero logic when exactly one order/event pair is provided.
+    /// For multiple orders or events, processing is delegated to the standard bulk handler.
     /// </summary>
-    /// <param name="leanOrder">The Lean order associated with the event.</param>
-    /// <param name="orderEvent">The specific order event to process.</param>
-    private void ProcessOrderEventWithCrossZeroCheck(LeanOrder leanOrder, OrderEvent orderEvent)
+    /// <param name="orders">The LEAN orders associated with the events.</param>
+    /// <param name="events">The order events to process.</param>
+    private void ProcessOrderEventWithCrossZeroCheck(IReadOnlyList<LeanOrder> orders, List<OrderEvent> events)
     {
-        if (!TryHandleRemainingCrossZeroOrder(leanOrder, orderEvent))
+        if (orders.Count == 1 && events.Count == 1)
         {
-            OnOrderEvent(orderEvent);
+            if (!TryHandleRemainingCrossZeroOrder(orders[0], events[0]))
+            {
+                OnOrderEvent(events[0]);
+            }
+            return;
         }
+
+        OnOrderEvents(events);
     }
 
     /// <summary>
-    /// Attempts to retrieve the corresponding LEAN order for a given brokerage order ID.
+    /// Attempts to retrieve one or more LEAN orders for a given brokerage order ID.
     /// </summary>
     /// <param name="brokerageOrderId">The brokerage-assigned order ID used for lookup.</param>
     /// <param name="supposeOrderStatus">
-    /// The expected status of the order, used to resolve potential CrossZero orders before fallback.
+    /// The expected order status, used to resolve potential CrossZero orders before falling back to standard lookup.
     /// </param>
-    /// <param name="leanOrder">
-    /// When this method returns, contains the resolved <see cref="LeanOrder"/> if found; otherwise, <c>null</c>.
+    /// <param name="leanOrders">
+    /// When this method returns, contains the list of resolved <see cref="LeanOrder"/> instances if found; 
+    /// otherwise, an empty list.
     /// </param>
     /// <returns>
-    /// <c>true</c> if a matching LEAN order was found for the provided brokerage order ID; otherwise, <c>false</c>.
+    /// <c>true</c> if at least one matching LEAN order was found; otherwise, <c>false</c>.
     /// </returns>
-    private bool TryGetLeanOrderByBrokerageId(string brokerageOrderId, LeanOrderStatus supposeOrderStatus, out LeanOrder leanOrder)
+    private bool TryGetLeanOrdersByBrokerageId(string brokerageOrderId, LeanOrderStatus supposeOrderStatus, out List<LeanOrder> leanOrders)
     {
-        if (!TryGetOrRemoveCrossZeroOrder(brokerageOrderId, supposeOrderStatus, out leanOrder))
+        if (TryGetOrRemoveCrossZeroOrder(brokerageOrderId, supposeOrderStatus, out var crossZeroOrder))
         {
-            leanOrder = _orderProvider.GetOrdersByBrokerageId(brokerageOrderId).LastOrDefault();
+            leanOrders = [crossZeroOrder];
+            return true;
         }
 
-        if (leanOrder == null)
-        {
-            return false;
-        }
-
-        return true;
+        leanOrders = _orderProvider.GetOrdersByBrokerageId(brokerageOrderId);
+        return leanOrders.Count > 0;
     }
 
     /// <summary>
