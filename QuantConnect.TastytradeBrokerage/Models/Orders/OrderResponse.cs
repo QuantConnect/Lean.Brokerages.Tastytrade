@@ -68,7 +68,7 @@ public class Order
     /// <summary>
     /// The price impact of the order (positive for credit, negative for debit).
     /// </summary>
-    public PriceEffect PriceEffect { get; init; }
+    public PriceEffect? PriceEffect { get; init; }
 
     /// <summary>
     /// Gets the date and time when the order was received.
