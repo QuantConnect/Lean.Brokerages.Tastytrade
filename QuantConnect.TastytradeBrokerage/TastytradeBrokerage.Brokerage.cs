@@ -187,7 +187,7 @@ public partial class TastytradeBrokerage
             }
             else
             {
-                var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(brokerageOrder.Legs.Select(leg => leg.Quantity), brokerageOrder.PriceEffect.ToOrderDirection());
+                var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(brokerageOrder.Legs.Select(leg => leg.Quantity), brokerageOrder.PriceEffect.Value.ToOrderDirection());
                 var groupOrderManager = new GroupOrderManager(brokerageOrder.Legs.Count, groupQuantity, brokerageOrder.Price);
 
                 var tempLegOrders = new List<LeanOrder>(brokerageOrder.Legs.Count);
