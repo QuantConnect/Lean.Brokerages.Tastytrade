@@ -33,6 +33,8 @@ public partial class TastytradeBrokerageTests : BrokerageTests
 
     protected override SecurityType SecurityType => throw new NotImplementedException("This property must be overridden and should not be used directly.");
 
+    protected override BrokerageName BrokerageName => BrokerageName.Tastytrade;
+
     protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
     {
         return TestSetup.CreateBrokerage(orderProvider, securityProvider);
@@ -73,7 +75,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             var aapl = Symbols.AAPL;
             yield return new OrderTestMetaData(OrderType.Market, aapl);
             yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m);
-            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(new DateTime(2025, 06, 20)) });
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(DateTime.Today.AddDays(10)) });
             yield return new OrderTestMetaData(OrderType.StopMarket, aapl, 2m, 3m);
             yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 4m);
 
@@ -95,6 +97,31 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             //yield return new OrderTestMetaData(OrderType.Market, SP500EMini);
             //yield return new OrderTestMetaData(OrderType.Limit, SP500EMini, 4m, 2m);
         }
+    }
+
+    private static IEnumerable<ComboLimitOrderTestParameters> ComboOrderTestParameters
+    {
+        get
+        {
+            var aapl = Symbols.AAPL;
+            var optionOne = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 255m, new DateTime(2025, 10, 17));
+            var optionTwo = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 260m, new DateTime(2025, 10, 17));
+
+            yield return new ComboLimitOrderTestParameters(Leg.Create(optionOne, 1), Leg.Create(optionTwo, 1), 2m, 2m);
+        }
+    }
+
+
+    [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
+    public override void BullCallSpread(ComboLimitOrderTestParameters parameters)
+    {
+        base.BullCallSpread(parameters);
+    }
+
+    [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
+    public override void BearCallSpread(ComboLimitOrderTestParameters parameters)
+    {
+        base.BearCallSpread(parameters);
     }
 
     [Test, TestCaseSource(nameof(OrderTestParameters)), Explicit("Sandbox environment is unstable: occasional order fill issues")]
