@@ -177,38 +177,34 @@ public partial class TastytradeBrokerage
                 OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Detected unsupported Lean TimeInForce of '{brokerageOrder.TimeInForce}', ignoring. Using default: TimeInForce.GoodTilCanceled"));
             }
 
-            if (brokerageOrder.Legs.Count == 1)
+            var groupOrderManager = default(GroupOrderManager);
+            if (brokerageOrder.Legs.Count > 1)
             {
-                var leg = brokerageOrder.Legs.First();
-                if (TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder))
+                var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(
+                    brokerageOrder.Legs.Select(leg => leg.Quantity),
+                    brokerageOrder.PriceEffect.Value.ToOrderDirection()
+                );
+                groupOrderManager = new GroupOrderManager(brokerageOrder.Legs.Count, groupQuantity, brokerageOrder.Price);
+            }
+
+            var tempLegOrders = new List<LeanOrder>(brokerageOrder.Legs.Count);
+            foreach (var leg in brokerageOrder.Legs)
+            {
+                if (TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder, groupOrderManager))
                 {
-                    leanOrders.Add(leanOrder);
+                    tempLegOrders.Add(leanOrder);
+                }
+                else
+                {
+                    // If any leg fails to create a Lean order, clear tempLegOrders to prevent partial group orders.
+                    tempLegOrders.Clear();
+                    break;
                 }
             }
-            else
+
+            if (tempLegOrders.Count > 0)
             {
-                var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(brokerageOrder.Legs.Select(leg => leg.Quantity), brokerageOrder.PriceEffect.Value.ToOrderDirection());
-                var groupOrderManager = new GroupOrderManager(brokerageOrder.Legs.Count, groupQuantity, brokerageOrder.Price);
-
-                var tempLegOrders = new List<LeanOrder>(brokerageOrder.Legs.Count);
-                foreach (var leg in brokerageOrder.Legs)
-                {
-                    if (TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder, groupOrderManager))
-                    {
-                        tempLegOrders.Add(leanOrder);
-                    }
-                    else
-                    {
-                        // If any leg fails to create a Lean order, clear tempLegOrders to prevent partial group orders.
-                        tempLegOrders.Clear();
-                        break;
-                    }
-                }
-
-                if (tempLegOrders.Count > 0)
-                {
-                    leanOrders.AddRange(tempLegOrders);
-                }
+                leanOrders.AddRange(tempLegOrders);
             }
         }
 
