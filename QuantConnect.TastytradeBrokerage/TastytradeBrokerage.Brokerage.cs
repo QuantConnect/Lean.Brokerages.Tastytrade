@@ -556,7 +556,12 @@ public partial class TastytradeBrokerage
             switch (orderUpdate.Status)
             {
                 case BrokerageOrderStatus.Filled:
-                    var fill = leg.Fills.FirstOrDefault();
+                    if (leg.Fills.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var fill = leg.Fills.First();
                     orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
                     {
                         Status = leanOrderStatus,
