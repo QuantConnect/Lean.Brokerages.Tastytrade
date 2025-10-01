@@ -596,7 +596,7 @@ public partial class TastytradeBrokerage
         ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
     }
 
-    private LeanOrder GetLeanOrderByBrokerageSymbol(List<LeanOrder> leanOrders, string brokerageSymbol, InstrumentType instrumentType, string underlyingSymbol = null)
+    private LeanOrder GetLeanOrderByBrokerageSymbol(List<LeanOrder> leanOrders, string brokerageSymbol, InstrumentType instrumentType, string underlyingSymbol)
     {
         var leanOrder = default(LeanOrder);
         if (leanOrders.Count == 1)
