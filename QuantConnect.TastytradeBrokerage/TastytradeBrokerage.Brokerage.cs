@@ -562,6 +562,13 @@ public partial class TastytradeBrokerage
                     {
                         continue;
                     }
+                    else if (leg.Fills.Count > 1)
+                    {
+                        var userMessage = $"LeanOrder Id={leanOrder.Id} for symbol {leanOrder.Symbol} has multiple fills. This situation is unexpected. Please contact QC support.";
+                        Logging.Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(OnOrderUpdateReceivedHandler)}: {userMessage}. Full order update: {orderUpdate}");
+                        OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, "MultipleLegFills", userMessage));
+                        return;
+                    }
 
                     var fill = leg.Fills.First();
                     orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
