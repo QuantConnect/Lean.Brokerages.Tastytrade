@@ -386,11 +386,14 @@ public partial class TastytradeBrokerage
     /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
     public override bool UpdateOrder(LeanOrder order)
     {
-        var brokerageId = order.BrokerId.LastOrDefault();
-        var orderAction = ResolveOrderAction(order.Direction, order.SecurityType, _securityProvider.GetHoldingsQuantity(order.Symbol));
-        var brokerageOrder = ConvertLeanOrderToBrokerageOrder(order, order.AbsoluteQuantity, orderAction);
+        if (!_groupOrderCacheManager.TryGetGroupCachedOrders(order, out var orders))
+        {
+            return true;
+        }
+        var brokerageId = orders[0].BrokerId.LastOrDefault();
+        var brokerageOrder = ConvertLeanOrderToBrokerageOrder(orders[0], CreateLegs(orders));
         var isUpdatedSuccessfully = true;
-        var pendingUpdatedOrder = new PendingOrderManager(order, LeanOrderStatus.UpdateSubmitted);
+        var pendingUpdatedOrder = new PendingOrderManager(orders, LeanOrderStatus.UpdateSubmitted);
         var newBrokerageId = default(string);
         _messageHandler.WithLockedStream(() =>
         {
@@ -398,7 +401,10 @@ public partial class TastytradeBrokerage
             {
                 newBrokerageId = _tastytradeApiClient.ReplaceOrderById(brokerageId, brokerageOrder);
 
-                OnOrderIdChangedEvent(new() { BrokerId = [newBrokerageId], OrderId = order.Id });
+                foreach (var o in orders)
+                {
+                    OnOrderIdChangedEvent(new() { BrokerId = [newBrokerageId], OrderId = o.Id });
+                }
 
                 // Placeholder entry to indicate this order is being replaced; avoids invoke order not found message when handle WebSocket messages.
                 _pendingOrderCache[brokerageId] = null;
@@ -414,8 +420,8 @@ public partial class TastytradeBrokerage
 
         if (isUpdatedSuccessfully && !pendingUpdatedOrder.AutoResetEvent.WaitOne(TimeSpan.FromSeconds(100)))
         {
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, $"{nameof(TastytradeBrokerage)}.{nameof(UpdateOrder)}: " +
-                $"didn't get response from WebSocket by BrokerageId = {brokerageId} and Lean Order = {order}"));
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, "InvalidUpdateOrder",
+                $"The brokerage didn't get response from WebSocket by BrokerageId = {brokerageId} and Lean Order(s) = {string.Join(',', pendingUpdatedOrder.LeanOrders)}"));
         }
 
         pendingUpdatedOrder?.Dispose();
