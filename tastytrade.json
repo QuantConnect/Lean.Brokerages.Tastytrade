@@ -43,5 +43,6 @@
 		"Future Options"
 	],
 	"brokerage-url": "https://tastytrade.com/",
+	"landing-page-url" => "/brokerages/tastytrade",
 	"documentation": "/docs/v2/cloud-platform/live-trading/brokerages/tastytrade"
 }
