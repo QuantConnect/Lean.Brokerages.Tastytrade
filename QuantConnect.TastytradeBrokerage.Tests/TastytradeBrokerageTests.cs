@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -202,48 +202,11 @@ public partial class TastytradeBrokerageTests : BrokerageTests
     {
         AssertMarketOpen(Symbol, false);
 
-        var orderTestMetaData = new OrderTestMetaData(OrderType.Limit, Symbol, 2m, 4m);
-        var parameters = GetOrderTestParameters(orderTestMetaData);
+        var limitPrice = 4.1m; // Use > $3 to avoid unexpected fills in sandbox
 
-        var order = PlaceOrderWaitForStatus(parameters.CreateLongOrder(GetDefaultQuantity()), parameters.ExpectedStatus) as LimitOrder;
+        var parameters = GetOrderTestParameters(OrderType.Limit, Symbol, limitPrice, limitPrice, null);
 
-        var updateOrderRequest = new UpdateOrderRequest(DateTime.UtcNow, order.Id, new()
-        {
-            LimitPrice = order.LimitPrice - 0.5m,
-        });
-
-        order.ApplyUpdateOrderRequest(updateOrderRequest);
-
-        using var canceledOrderStatusEvent = new AutoResetEvent(false);
-        using var updatedOrderStatusEvent = new AutoResetEvent(false);
-        Brokerage.OrdersStatusChanged += (_, orderEvents) =>
-        {
-            var eventOrderStatus = orderEvents[0].Status;
-
-            order.Status = eventOrderStatus;
-
-            switch (eventOrderStatus)
-            {
-                case OrderStatus.UpdateSubmitted:
-                    updatedOrderStatusEvent.Set();
-                    break;
-                case OrderStatus.Canceled:
-                    canceledOrderStatusEvent.Set();
-                    break;
-            }
-        };
-
-        if (!Brokerage.UpdateOrder(order))
-        {
-            Assert.Fail("Order is updated well.");
-        }
-
-        Assert.IsTrue(updatedOrderStatusEvent.WaitOne(TimeSpan.FromSeconds(10)));
-
-        if (!Brokerage.CancelOrder(order) || !canceledOrderStatusEvent.WaitOne(TimeSpan.FromSeconds(5)))
-        {
-            Assert.Fail("Order is not canceled well.");
-        }
+        LongFromZeroUpdateAndCancel(parameters, 1, -0.5m); // Updated limitPrice should remain above $3 to prevent accidental fills
     }
 
     [Test, Explicit("Sandbox environment is unstable: occasional order fill issues")]
