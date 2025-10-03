@@ -15,13 +15,13 @@
 
 using System;
 using NUnit.Framework;
-using System.Threading;
 using QuantConnect.Tests;
 using QuantConnect.Orders;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using System.Collections.Generic;
 using QuantConnect.Tests.Brokerages;
+using QuantConnect.Securities.Option;
 using QuantConnect.Orders.TimeInForces;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -32,6 +32,8 @@ public partial class TastytradeBrokerageTests : BrokerageTests
     protected override Symbol Symbol => Symbols.AAPL;
 
     protected override SecurityType SecurityType => throw new NotImplementedException("This property must be overridden and should not be used directly.");
+
+    protected override BrokerageName BrokerageName => BrokerageName.Tastytrade;
 
     protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
     {
@@ -73,18 +75,18 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             var aapl = Symbols.AAPL;
             yield return new OrderTestMetaData(OrderType.Market, aapl);
             yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m);
-            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(new DateTime(2025, 06, 20)) });
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 4m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(DateTime.Today.AddDays(10)) });
             yield return new OrderTestMetaData(OrderType.StopMarket, aapl, 2m, 3m);
             yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 4m);
 
-            var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 07, 03));
+            var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 10, 17));
             yield return new OrderTestMetaData(OrderType.Market, option);
             yield return new OrderTestMetaData(OrderType.Limit, option, 2m, 4m);
             yield return new OrderTestMetaData(OrderType.StopMarket, option, 2m, 3m);
             yield return new OrderTestMetaData(OrderType.StopLimit, option, 2m, 4m);
 
             var index = Symbol.Create("SPX", SecurityType.Index, Market.USA);
-            var indexOption = Symbol.CreateOption(index, index.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 6195, new DateTime(2025, 07, 18));
+            var indexOption = Symbol.CreateOption(index, index.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 6195, new DateTime(2025, 10, 17));
             yield return new OrderTestMetaData(OrderType.Market, indexOption);
             yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 4m);
             yield return new OrderTestMetaData(OrderType.StopMarket, indexOption, 2m, 3m);
@@ -95,6 +97,34 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             //yield return new OrderTestMetaData(OrderType.Market, SP500EMini);
             //yield return new OrderTestMetaData(OrderType.Limit, SP500EMini, 4m, 2m);
         }
+    }
+
+    private static IEnumerable<TestCaseData> ComboOrderTestParameters
+    {
+        get
+        {
+            var nvda = Symbol.Create("NVDA", SecurityType.Equity, Market.USA);
+            var nvdaCanonical = Symbol.CreateCanonicalOption(nvda);
+            yield return new TestCaseData(new ComboLimitOrderTestParameters(OptionStrategies.BearCallSpread(nvdaCanonical, 180m, 190m, new DateTime(2025, 10, 17)), 3.1m, 3.1m, 0.5m));
+        }
+    }
+
+    [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
+    public override void CancelComboOrders(ComboLimitOrderTestParameters parameters)
+    {
+        base.CancelComboOrders(parameters);
+    }
+
+    [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
+    public override void LongCombo(ComboLimitOrderTestParameters parameters)
+    {
+        base.LongCombo(parameters);
+    }
+
+    [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
+    public override void ShortCombo(ComboLimitOrderTestParameters parameters)
+    {
+        base.ShortCombo(parameters);
     }
 
     [Test, TestCaseSource(nameof(OrderTestParameters)), Explicit("Sandbox environment is unstable: occasional order fill issues")]
@@ -140,7 +170,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             var aapl = Symbols.AAPL;
             yield return new OrderTestMetaData(OrderType.Market, aapl);
             yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 2.9m);
-            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 2.9m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(new DateTime(2025, 06, 20)) });
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 3.1m, 3.1m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(DateTime.Today.AddDays(30)) });
             yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 2.9m);
 
             var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
@@ -153,6 +183,9 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             yield return new OrderTestMetaData(OrderType.Market, indexOption);
             yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 2.9m);
             yield return new OrderTestMetaData(OrderType.StopLimit, indexOption, 2m, 2.9m);
+
+            var nvda = Symbol.Create("NVDA", SecurityType.Equity, Market.USA);
+            yield return new OrderTestMetaData(OrderType.Limit, nvda, 3.1m, 3.1m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(DateTime.Today.AddDays(30)) });
         }
     }
 
@@ -175,48 +208,11 @@ public partial class TastytradeBrokerageTests : BrokerageTests
     {
         AssertMarketOpen(Symbol, false);
 
-        var orderTestMetaData = new OrderTestMetaData(OrderType.Limit, Symbol, 2m, 4m);
-        var parameters = GetOrderTestParameters(orderTestMetaData);
+        var limitPrice = 4.1m; // Use > $3 to avoid unexpected fills in sandbox
 
-        var order = PlaceOrderWaitForStatus(parameters.CreateLongOrder(GetDefaultQuantity()), parameters.ExpectedStatus) as LimitOrder;
+        var parameters = GetOrderTestParameters(OrderType.Limit, Symbol, limitPrice, limitPrice, null);
 
-        var updateOrderRequest = new UpdateOrderRequest(DateTime.UtcNow, order.Id, new()
-        {
-            LimitPrice = order.LimitPrice - 0.5m,
-        });
-
-        order.ApplyUpdateOrderRequest(updateOrderRequest);
-
-        using var canceledOrderStatusEvent = new AutoResetEvent(false);
-        using var updatedOrderStatusEvent = new AutoResetEvent(false);
-        Brokerage.OrdersStatusChanged += (_, orderEvents) =>
-        {
-            var eventOrderStatus = orderEvents[0].Status;
-
-            order.Status = eventOrderStatus;
-
-            switch (eventOrderStatus)
-            {
-                case OrderStatus.UpdateSubmitted:
-                    updatedOrderStatusEvent.Set();
-                    break;
-                case OrderStatus.Canceled:
-                    canceledOrderStatusEvent.Set();
-                    break;
-            }
-        };
-
-        if (!Brokerage.UpdateOrder(order))
-        {
-            Assert.Fail("Order is updated well.");
-        }
-
-        Assert.IsTrue(updatedOrderStatusEvent.WaitOne(TimeSpan.FromSeconds(10)));
-
-        if (!Brokerage.CancelOrder(order) || !canceledOrderStatusEvent.WaitOne(TimeSpan.FromSeconds(5)))
-        {
-            Assert.Fail("Order is not canceled well.");
-        }
+        LongFromZeroUpdateAndCancel(parameters, 1, -0.5m); // Updated limitPrice should remain above $3 to prevent accidental fills
     }
 
     [Test, Explicit("Sandbox environment is unstable: occasional order fill issues")]
@@ -257,7 +253,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         return orderType switch
         {
             OrderType.Market => new MarketOrderTestParameters(symbol, orderProperties),
-            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
+            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties, priceModificationFactor: 0.5m),
             OrderType.StopMarket => new StopMarketOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
             OrderType.StopLimit => new StopLimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
             _ => throw new NotImplementedException()
