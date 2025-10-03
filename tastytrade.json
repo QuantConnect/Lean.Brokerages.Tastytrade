@@ -44,5 +44,36 @@
 	],
 	"brokerage-url": "https://tastytrade.com/",
 	"landing-page-url": "/brokerages/tastytrade",
-	"documentation": "/docs/v2/cloud-platform/live-trading/brokerages/tastytrade"
+	"documentation": "/docs/v2/cloud-platform/live-trading/brokerages/tastytrade",
+	"module-specification": {
+		"download": {
+			"data-types": [
+				"Trade",
+				"OpenInterest"
+			],
+			"resolutions": [
+				"Tick",
+				"Second",
+				"Minute",
+				"Hour",
+				"Daily"
+			],
+			"security-types": [
+				"Equity",
+				"Option",
+				"Index",
+				"IndexOption",
+				"Future",
+				"FutureOption"
+			],
+			"markets": [
+				"USA",
+				"CME",
+				"NYMEX",
+				"CBOT",
+				"ICE",
+				"CFE"
+			]
+		}
+	}
 }
