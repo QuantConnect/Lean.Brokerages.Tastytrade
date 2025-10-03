@@ -1,4 +1,4 @@
-/*
+﻿/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -79,14 +79,14 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             yield return new OrderTestMetaData(OrderType.StopMarket, aapl, 2m, 3m);
             yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 4m);
 
-            var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 07, 03));
+            var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 10, 17));
             yield return new OrderTestMetaData(OrderType.Market, option);
             yield return new OrderTestMetaData(OrderType.Limit, option, 2m, 4m);
             yield return new OrderTestMetaData(OrderType.StopMarket, option, 2m, 3m);
             yield return new OrderTestMetaData(OrderType.StopLimit, option, 2m, 4m);
 
             var index = Symbol.Create("SPX", SecurityType.Index, Market.USA);
-            var indexOption = Symbol.CreateOption(index, index.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 6195, new DateTime(2025, 07, 18));
+            var indexOption = Symbol.CreateOption(index, index.ID.Market, SecurityType.IndexOption.DefaultOptionStyle(), OptionRight.Call, 6195, new DateTime(2025, 10, 17));
             yield return new OrderTestMetaData(OrderType.Market, indexOption);
             yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 4m);
             yield return new OrderTestMetaData(OrderType.StopMarket, indexOption, 2m, 3m);
