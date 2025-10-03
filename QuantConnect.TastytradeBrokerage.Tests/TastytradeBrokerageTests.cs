@@ -103,8 +103,9 @@ public partial class TastytradeBrokerageTests : BrokerageTests
     {
         get
         {
-            var aaplCanonical = Symbol.CreateCanonicalOption(Symbols.AAPL);
-            yield return new TestCaseData(new ComboLimitOrderTestParameters(OptionStrategies.BearCallSpread(aaplCanonical, 255m, 260m, new DateTime(2025, 10, 17)), 2m, 2m, 2m));
+            var nvda = Symbol.Create("NVDA", SecurityType.Equity, Market.USA);
+            var nvdaCanonical = Symbol.CreateCanonicalOption(nvda);
+            yield return new TestCaseData(new ComboLimitOrderTestParameters(OptionStrategies.BearCallSpread(nvdaCanonical, 180m, 190m, new DateTime(2025, 10, 17)), 3.1m, 3.1m, 0.5m));
         }
     }
 
@@ -169,7 +170,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             var aapl = Symbols.AAPL;
             yield return new OrderTestMetaData(OrderType.Market, aapl);
             yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 2.9m);
-            yield return new OrderTestMetaData(OrderType.Limit, aapl, 2m, 2.9m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(new DateTime(2025, 06, 20)) });
+            yield return new OrderTestMetaData(OrderType.Limit, aapl, 3.1m, 3.1m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(DateTime.Today.AddDays(30)) });
             yield return new OrderTestMetaData(OrderType.StopLimit, aapl, 2m, 2.9m);
 
             var option = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 200m, new DateTime(2025, 06, 20));
@@ -182,6 +183,9 @@ public partial class TastytradeBrokerageTests : BrokerageTests
             yield return new OrderTestMetaData(OrderType.Market, indexOption);
             yield return new OrderTestMetaData(OrderType.Limit, indexOption, 4m, 2.9m);
             yield return new OrderTestMetaData(OrderType.StopLimit, indexOption, 2m, 2.9m);
+
+            var nvda = Symbol.Create("NVDA", SecurityType.Equity, Market.USA);
+            yield return new OrderTestMetaData(OrderType.Limit, nvda, 3.1m, 3.1m, new OrderProperties() { TimeInForce = new GoodTilDateTimeInForce(DateTime.Today.AddDays(30)) });
         }
     }
 
@@ -249,7 +253,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         return orderType switch
         {
             OrderType.Market => new MarketOrderTestParameters(symbol, orderProperties),
-            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
+            OrderType.Limit => new LimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties, priceModificationFactor: 0.5m),
             OrderType.StopMarket => new StopMarketOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
             OrderType.StopLimit => new StopLimitOrderTestParameters(symbol, highLimit, lowLimit, orderProperties),
             _ => throw new NotImplementedException()
