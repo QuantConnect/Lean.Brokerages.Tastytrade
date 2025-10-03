@@ -15,13 +15,13 @@
 
 using System;
 using NUnit.Framework;
-using System.Threading;
 using QuantConnect.Tests;
 using QuantConnect.Orders;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using System.Collections.Generic;
 using QuantConnect.Tests.Brokerages;
+using QuantConnect.Securities.Option;
 using QuantConnect.Orders.TimeInForces;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -99,29 +99,31 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         }
     }
 
-    private static IEnumerable<ComboLimitOrderTestParameters> ComboOrderTestParameters
+    private static IEnumerable<TestCaseData> ComboOrderTestParameters
     {
         get
         {
-            var aapl = Symbols.AAPL;
-            var optionOne = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 255m, new DateTime(2025, 10, 17));
-            var optionTwo = Symbol.CreateOption(aapl, aapl.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 260m, new DateTime(2025, 10, 17));
-
-            yield return new ComboLimitOrderTestParameters(Leg.Create(optionOne, 1), Leg.Create(optionTwo, 1), 2m, 2m);
+            var aaplCanonical = Symbol.CreateCanonicalOption(Symbols.AAPL);
+            yield return new TestCaseData(new ComboLimitOrderTestParameters(OptionStrategies.BearCallSpread(aaplCanonical, 255m, 260m, new DateTime(2025, 10, 17)), 2m, 2m, 2m));
         }
     }
 
-
     [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
-    public override void BullCallSpread(ComboLimitOrderTestParameters parameters)
+    public override void CancelComboOrders(ComboLimitOrderTestParameters parameters)
     {
-        base.BullCallSpread(parameters);
+        base.CancelComboOrders(parameters);
     }
 
     [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
-    public override void BearCallSpread(ComboLimitOrderTestParameters parameters)
+    public override void LongCombo(ComboLimitOrderTestParameters parameters)
     {
-        base.BearCallSpread(parameters);
+        base.LongCombo(parameters);
+    }
+
+    [Test, TestCaseSource(nameof(ComboOrderTestParameters))]
+    public override void ShortCombo(ComboLimitOrderTestParameters parameters)
+    {
+        base.ShortCombo(parameters);
     }
 
     [Test, TestCaseSource(nameof(OrderTestParameters)), Explicit("Sandbox environment is unstable: occasional order fill issues")]
