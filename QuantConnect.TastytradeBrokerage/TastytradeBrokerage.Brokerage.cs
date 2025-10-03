@@ -554,7 +554,6 @@ public partial class TastytradeBrokerage
                 continue;
             }
 
-            var orderEvent = default(OrderEvent);
             switch (orderUpdate.Status)
             {
                 case BrokerageOrderStatus.Filled:
@@ -570,13 +569,17 @@ public partial class TastytradeBrokerage
                         return;
                     }
 
-                    var fill = leg.Fills.First();
-                    orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
+                    foreach (var fill in leg.Fills)
                     {
-                        Status = leanOrderStatus,
-                        FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
-                        FillPrice = fill.FillPrice
-                    };
+                        var orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
+                        {
+                            Status = leanOrderStatus,
+                            FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
+                            FillPrice = fill.FillPrice
+                        };
+
+                        tempLeanOrderEvents.Add(orderEvent);
+                    }
                     break;
                 case BrokerageOrderStatus.Cancelled:
                     // Skip processing this order because it is part of an update in progress,
@@ -586,20 +589,19 @@ public partial class TastytradeBrokerage
                         return;
                     }
 
-                    orderEvent = new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
+                    tempLeanOrderEvents.Add(new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
                     {
                         Status = leanOrderStatus
-                    };
+                    });
                     break;
                 case BrokerageOrderStatus.Expired:
                     // TODO: Add missed 'message' in OrderEvent "Why does it expire?"
-                    orderEvent = new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero, $"The order  has expired due to {orderUpdate.TimeInForce} expiration.")
+                    tempLeanOrderEvents.Add(new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero, $"The order  has expired due to {orderUpdate.TimeInForce} expiration.")
                     {
                         Status = leanOrderStatus
-                    };
+                    });
                     break;
             }
-            tempLeanOrderEvents.Add(orderEvent);
         }
 
         ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
