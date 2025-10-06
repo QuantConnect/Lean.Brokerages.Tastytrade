@@ -74,6 +74,16 @@ public partial class TastytradeBrokerage
     private readonly GroupOrderCacheManager _groupOrderCacheManager = new();
 
     /// <summary>
+    /// Tracks processed fills for each Lean order.
+    /// </summary>
+    /// <remarks>
+    /// The outer dictionary key is the <see cref="Order.Id"/> (Lean order ID).
+    /// The inner dictionary maps each <c>fillId</c> to its corresponding filled quantity (<c>decimal</c>).
+    /// This structure prevents duplicate processing of the same fill and allows tracking of partial fill quantities per order.
+    /// </remarks>
+    private readonly Dictionary<int, Dictionary<string, decimal>> _processedFillIds = [];
+
+    /// <summary>
     /// Gets all holdings for the account
     /// </summary>
     /// <returns>The current holdings from the account</returns>
@@ -557,27 +567,8 @@ public partial class TastytradeBrokerage
             switch (orderUpdate.Status)
             {
                 case BrokerageOrderStatus.Filled:
-                    if (leg.Fills.Count == 0)
+                    if (TryGetFilledEvent(leg, leanOrder, _processedFillIds, out var orderEvent))
                     {
-                        continue;
-                    }
-                    else if (leg.Fills.Count > 1)
-                    {
-                        var userMessage = $"LeanOrder Id={leanOrder.Id} for symbol {leanOrder.Symbol} has multiple fills. This situation is unexpected. Please contact QC support.";
-                        Logging.Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(OnOrderUpdateReceivedHandler)}: {userMessage}. Full order update: {orderUpdate}");
-                        OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, "MultipleLegFills", userMessage));
-                        return;
-                    }
-
-                    foreach (var fill in leg.Fills)
-                    {
-                        var orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
-                        {
-                            Status = leanOrderStatus,
-                            FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
-                            FillPrice = fill.FillPrice
-                        };
-
                         tempLeanOrderEvents.Add(orderEvent);
                     }
                     break;
@@ -605,6 +596,55 @@ public partial class TastytradeBrokerage
         }
 
         ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
+    }
+
+    internal static bool TryGetFilledEvent(Models.Orders.Leg leg, LeanOrder leanOrder, Dictionary<int, Dictionary<string, decimal>> processedFillIds, out OrderEvent orderEvent)
+    {
+        orderEvent = null;
+        if (leg.Fills.Count == 0)
+        {
+            return false;
+        }
+
+        if (!processedFillIds.TryGetValue(leanOrder.Id, out var processedFills))
+        {
+            processedFillIds[leanOrder.Id] = processedFills = [];
+        }
+
+        var previousExecutionAmount = 0m;
+        var leanOrderStatus = LeanOrderStatus.Filled;
+        foreach (var fill in leg.Fills)
+        {
+            if (!processedFills.TryAdd(fill.FillId, fill.Quantity))
+            {
+                previousExecutionAmount = fill.Quantity;
+                continue;
+            }
+
+            if (leg.RemainingQuantity != 0)
+            {
+                leanOrderStatus = LeanOrderStatus.PartiallyFilled;
+            }
+
+            orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
+            {
+                Status = leanOrderStatus,
+                FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity - previousExecutionAmount),
+                FillPrice = fill.FillPrice
+            };
+        }
+
+        if (orderEvent == null)
+        {
+            return false;
+        }
+
+        if (leanOrderStatus == LeanOrderStatus.Filled)
+        {
+            processedFillIds.Remove(leanOrder.Id);
+        }
+
+        return true;
     }
 
     private LeanOrder GetLeanOrderByBrokerageSymbol(List<LeanOrder> leanOrders, string brokerageSymbol, InstrumentType instrumentType, string underlyingSymbol)

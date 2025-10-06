@@ -167,6 +167,10 @@ public class Leg
 public class Fill
 {
     /// <summary>
+    /// Unique identifier of the fill from the brokerage.
+    /// </summary>
+    public string FillId { get; set; }
+    /// <summary>
     /// Gets the price at which the quantity was filled.
     /// </summary>
     public decimal FillPrice { get; set; }
@@ -186,6 +190,6 @@ public class Fill
     /// </summary>
     public override string ToString()
     {
-        return $"Qty: {Quantity} @ {FillPrice} on {FilledAt:yyyy-MM-dd HH:mm:ss}";
+        return $"FillId({FillId}): Qty: {Quantity} @ {FillPrice} on {FilledAt:yyyy-MM-dd HH:mm:ss}";
     }
 }
