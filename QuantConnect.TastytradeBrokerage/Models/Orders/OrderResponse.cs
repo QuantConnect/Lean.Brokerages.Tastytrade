@@ -150,7 +150,7 @@ public class Leg
     /// <summary>
     /// Gets the fills associated with this leg.
     /// </summary>
-    public IReadOnlyCollection<Fill> Fills { get; set; }
+    public IReadOnlyList<Fill> Fills { get; set; }
 
     /// <summary>
     /// Returns a string that represents the current leg.

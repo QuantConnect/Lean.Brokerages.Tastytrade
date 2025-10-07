@@ -612,17 +612,19 @@ public partial class TastytradeBrokerage
         }
 
         orderEvents = [];
-        var accumulate = 0m;
         var leanOrderStatus = LeanOrderStatus.PartiallyFilled;
-        foreach (var fill in leg.Fills)
+        for (int i = 0; i < leg.Fills.Count; i++)
         {
-            accumulate += fill.Quantity;
+            var fill = leg.Fills[i];
+
+            // Skip duplicate fills (Tastytrade resends all fills per leg)
             if (!processedFills.Add(fill.FillId))
             {
                 continue;
             }
 
-            if (leg.Quantity - accumulate == 0)
+            // Only the final fill that completes the leg should set LeanOrderStatus.Filled
+            if (i == leg.Fills.Count - 1 && leg.RemainingQuantity == 0)
             {
                 leanOrderStatus = LeanOrderStatus.Filled;
             }
