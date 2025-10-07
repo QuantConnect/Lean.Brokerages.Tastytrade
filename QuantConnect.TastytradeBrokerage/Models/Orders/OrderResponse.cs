@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -66,6 +66,14 @@ public class Order
     public decimal Price { get; set; }
 
     /// <summary>
+    /// The price impact of the order (positive for credit, negative for debit).
+    /// </summary>
+    /// <remarks>
+    /// Not set for <see cref="OrderType.Market"/> orders.
+    /// </remarks>
+    public PriceEffect? PriceEffect { get; init; }
+
+    /// <summary>
     /// Gets the date and time when the order was received.
     /// </summary>
     public DateTimeOffset ReceivedAt { get; set; }
@@ -105,7 +113,7 @@ public class Order
     /// </summary>
     public override string ToString()
     {
-        return $"Order ID: {Id}, Type: {OrderType}, Price: {Price}, ReceivedAt: {ReceivedAt:yyyy-MM-dd HH:mm:ss}, Status: {Status}, TIF: {TimeInForce}, Underlying: {UnderlyingSymbol}, Legs: [{string.Join("; ", Legs)}]";
+        return $"Order ID: {Id}, Type: {OrderType}, Price: {Price}, Price Effect: {PriceEffect}, ReceivedAt: {ReceivedAt:yyyy-MM-dd HH:mm:ss}, Status: {Status}, TIF: {TimeInForce}, Underlying: {UnderlyingSymbol}, Legs: [{string.Join("; ", Legs)}]";
     }
 }
 
@@ -142,7 +150,7 @@ public class Leg
     /// <summary>
     /// Gets the fills associated with this leg.
     /// </summary>
-    public IReadOnlyCollection<Fill> Fills { get; set; }
+    public IReadOnlyList<Fill> Fills { get; set; }
 
     /// <summary>
     /// Returns a string that represents the current leg.
@@ -158,6 +166,10 @@ public class Leg
 /// </summary>
 public class Fill
 {
+    /// <summary>
+    /// Unique identifier of the fill from the brokerage.
+    /// </summary>
+    public string FillId { get; set; }
     /// <summary>
     /// Gets the price at which the quantity was filled.
     /// </summary>
@@ -178,6 +190,6 @@ public class Fill
     /// </summary>
     public override string ToString()
     {
-        return $"Qty: {Quantity} @ {FillPrice} on {FilledAt:yyyy-MM-dd HH:mm:ss}";
+        return $"FillId({FillId}): Qty: {Quantity} @ {FillPrice} on {FilledAt:yyyy-MM-dd HH:mm:ss}";
     }
 }

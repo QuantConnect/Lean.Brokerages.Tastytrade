@@ -16,6 +16,7 @@
 using System;
 using System.Threading;
 using QuantConnect.Orders;
+using System.Collections.Generic;
 
 namespace QuantConnect.Brokerages.Tastytrade.Services;
 
@@ -25,9 +26,9 @@ namespace QuantConnect.Brokerages.Tastytrade.Services;
 public class PendingOrderManager : IDisposable
 {
     /// <summary>
-    /// Gets the Lean order being managed.
+    /// Gets the Lean orders being managed.
     /// </summary>
-    public Order LeanOrder { get; }
+    public IReadOnlyList<Order> LeanOrders { get; }
 
     /// <summary>
     /// Gets the target order status that should trigger an action (e.g., signaling).
@@ -48,11 +49,11 @@ public class PendingOrderManager : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="PendingOrderManager"/> class.
     /// </summary>
-    /// <param name="leanOrder">The Lean order to manage.</param>
+    /// <param name="leanOrders">The Lean orders to manage.</param>
     /// <param name="invokeOrderStatus">The order status that, when triggered, will be used to signal processing completion or continuation.</param>
-    public PendingOrderManager(Order leanOrder, OrderStatus invokeOrderStatus)
+    public PendingOrderManager(IReadOnlyList<Order> leanOrders, OrderStatus invokeOrderStatus)
     {
-        LeanOrder = leanOrder;
+        LeanOrders = leanOrders;
         InvokeOrderStatus = invokeOrderStatus;
     }
 

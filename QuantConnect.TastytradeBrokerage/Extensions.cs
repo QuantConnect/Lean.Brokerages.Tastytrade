@@ -191,6 +191,24 @@ public static class Extensions
     };
 
     /// <summary>
+    /// Maps a <see cref="PriceEffect"/> to the corresponding <see cref="OrderDirection"/>.
+    /// </summary>
+    /// <param name="priceEffect">The net price effect (debit = pay, credit = receive).</param>
+    /// <returns>
+    /// <see cref="OrderDirection.Buy"/> when <paramref name="priceEffect"/> is <see cref="PriceEffect.Debit"/>;  
+    /// <see cref="OrderDirection.Sell"/> when <paramref name="priceEffect"/> is <see cref="PriceEffect.Credit"/>.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="priceEffect"/> is not a supported value.
+    /// </exception>
+    public static OrderDirection ToOrderDirection(this PriceEffect priceEffect) => priceEffect switch
+    {
+        PriceEffect.Debit => OrderDirection.Buy,
+        PriceEffect.Credit => OrderDirection.Sell,
+        _ => throw new NotSupportedException($"The price effect '{priceEffect}' is not supported.")
+    };
+
+    /// <summary>
     /// Encodes special characters in a symbol to make it URL-safe.
     /// Specifically replaces slashes (/) with their URL-encoded form (%2f).
     /// </summary>
