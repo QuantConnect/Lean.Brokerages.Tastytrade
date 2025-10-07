@@ -74,14 +74,14 @@ public partial class TastytradeBrokerage
     private readonly GroupOrderCacheManager _groupOrderCacheManager = new();
 
     /// <summary>
-    /// Tracks processed fills for each Lean order.
+    /// Tracks processed fills for each Lean order to prevent duplicates.
     /// </summary>
     /// <remarks>
-    /// The outer dictionary key is the <see cref="Order.Id"/> (Lean order ID).
-    /// The inner dictionary maps each <c>fillId</c> to its corresponding filled quantity (<c>decimal</c>).
-    /// This structure prevents duplicate processing of the same fill and allows tracking of partial fill quantities per order.
+    /// The outer dictionary uses the <see cref="Order.Id"/> as the key (Lean order ID).
+    /// Each value is a <see cref="HashSet{string}"/> containing the IDs of fills already processed for that order.
+    /// This allows tracking of partial fills while ensuring that the same fill is not processed multiple times.
     /// </remarks>
-    private readonly Dictionary<int, Dictionary<string, decimal>> _processedFillIds = [];
+    private readonly Dictionary<int, HashSet<string>> _processedFillIds = [];
 
     /// <summary>
     /// Gets all holdings for the account
@@ -567,9 +567,9 @@ public partial class TastytradeBrokerage
             switch (orderUpdate.Status)
             {
                 case BrokerageOrderStatus.Filled:
-                    if (TryGetFilledEvent(leg, leanOrder, _processedFillIds, out var orderEvent))
+                    if (TryGetFilledEvent(leg, leanOrder, _processedFillIds, out var orderEvents))
                     {
-                        tempLeanOrderEvents.Add(orderEvent);
+                        tempLeanOrderEvents.AddRange(orderEvents);
                     }
                     break;
                 case BrokerageOrderStatus.Cancelled:
@@ -598,9 +598,9 @@ public partial class TastytradeBrokerage
         ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
     }
 
-    internal static bool TryGetFilledEvent(Models.Orders.Leg leg, LeanOrder leanOrder, Dictionary<int, Dictionary<string, decimal>> processedFillIds, out OrderEvent orderEvent)
+    internal static bool TryGetFilledEvent(Models.Orders.Leg leg, LeanOrder leanOrder, Dictionary<int, HashSet<string>> processedFillIds, out List<OrderEvent> orderEvents)
     {
-        orderEvent = null;
+        orderEvents = null;
         if (leg.Fills.Count == 0)
         {
             return false;
@@ -611,30 +611,31 @@ public partial class TastytradeBrokerage
             processedFillIds[leanOrder.Id] = processedFills = [];
         }
 
-        var previousExecutionAmount = 0m;
-        var leanOrderStatus = LeanOrderStatus.Filled;
+        orderEvents = [];
+        var accumulate = 0m;
+        var leanOrderStatus = LeanOrderStatus.PartiallyFilled;
         foreach (var fill in leg.Fills)
         {
-            if (!processedFills.TryAdd(fill.FillId, fill.Quantity))
+            accumulate += fill.Quantity;
+            if (!processedFills.Add(fill.FillId))
             {
-                previousExecutionAmount = fill.Quantity;
                 continue;
             }
 
-            if (leg.RemainingQuantity != 0)
+            if (leg.Quantity - accumulate == 0)
             {
-                leanOrderStatus = LeanOrderStatus.PartiallyFilled;
+                leanOrderStatus = LeanOrderStatus.Filled;
             }
 
-            orderEvent = new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
+            orderEvents.Add(new OrderEvent(leanOrder, fill.FilledAt, OrderFee.Zero)
             {
                 Status = leanOrderStatus,
-                FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity - previousExecutionAmount),
+                FillQuantity = leg.Action.ToSignedQuantity(fill.Quantity),
                 FillPrice = fill.FillPrice
-            };
+            });
         }
 
-        if (orderEvent == null)
+        if (orderEvents.Count == 0)
         {
             return false;
         }

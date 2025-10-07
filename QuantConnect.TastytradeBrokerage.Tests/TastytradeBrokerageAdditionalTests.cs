@@ -173,8 +173,8 @@ public class TastytradeBrokerageAdditionalTests
     {
         get
         {
-            #region Filled
-            var filled = @"{
+            #region Filled Buy
+            var filledBuy = @"{
         ""action"": ""Buy to Open"",
         ""instrument-type"": ""Equity Option"",
         ""quantity"": 5,
@@ -206,12 +206,51 @@ public class TastytradeBrokerageAdditionalTests
                 ""fill-id"": ""2_TW::TEST_A1::20251006.82-TEST_FILL"",
                 ""fill-price"": ""2.01"",
                 ""filled-at"": ""2025-10-06T17:12:45.157+00:00"",
+                ""quantity"": 2
+            }
+        ]
+    }".DeserializeKebabCase<Leg>();
+
+
+            yield return new TestCaseData(new ActualLeg[1] { new ActualLeg(true, 0, filledBuy) },
+                new ExpectedResult[1][]
+                {
+                    [
+                        new (1, OrderStatus.PartiallyFilled),
+                        new (2, OrderStatus.PartiallyFilled),
+                        new (2, OrderStatus.Filled)
+                    ]
+                }).SetName("Buy: PartiallyFilled(1) => PartiallyFilled(2) => Filled(2)");
+
+            #endregion
+
+            #region Filled Sell
+            var filledSell = @"{
+        ""action"": ""Sell to Open"",
+        ""instrument-type"": ""Equity Option"",
+        ""quantity"": 5,
+        ""remaining-quantity"": 0,
+        ""symbol"": ""NVDA  251017C00190000"",
+        ""fills"": [
+            {
+                ""destination-venue"": ""TEST_A"",
+                ""ext-exec-id"": ""79"",
+                ""ext-group-fill-id"": ""0"",
+                ""fill-id"": ""2_TW::TEST_A1::20251006.80-TEST_FILL"",
+                ""fill-price"": ""2.01"",
+                ""filled-at"": ""2025-10-06T17:12:45.157+00:00"",
                 ""quantity"": 5
             }
         ]
     }".DeserializeKebabCase<Leg>();
 
-            yield return new TestCaseData(new Leg[1] { filled }, new ExpectedResult[1] { new ExpectedResult(true, 5, OrderStatus.Filled, 0) });
+            yield return new TestCaseData(new ActualLeg[1] { new ActualLeg(true, 0, filledSell) },
+                new ExpectedResult[1][]
+                {
+                    [
+                        new (-5, OrderStatus.Filled)
+                    ]
+                }).SetName("Sell: Filled(-5)");
 
             #endregion
 
@@ -221,7 +260,7 @@ public class TastytradeBrokerageAdditionalTests
         ""action"": ""Buy to Open"",
         ""instrument-type"": ""Equity Option"",
         ""quantity"": 5,
-        ""remaining-quantity"": 3,
+        ""remaining-quantity"": 2,
         ""symbol"": ""NVDA  251017C00190000"",
         ""fills"": [
             {
@@ -245,11 +284,18 @@ public class TastytradeBrokerageAdditionalTests
         ]
     }".DeserializeKebabCase<Leg>();
 
-            yield return new TestCaseData(new Leg[1] { partialFilled }, new ExpectedResult[1] { new(true, 2, OrderStatus.PartiallyFilled, 2) });
+            yield return new TestCaseData(new ActualLeg[1] { new(true, 2, partialFilled) },
+                new ExpectedResult[1][]
+                {
+                    [
+                        new (1, OrderStatus.PartiallyFilled),
+                        new (2, OrderStatus.PartiallyFilled)
+                    ]
+                }).SetName("PartialFilled: PartialFilled(1) => PartialFilled(2)");
 
             #endregion
 
-            #region PartialFilled then Filled
+            #region Several legs: PartiallyFilled(1) => PartiallyFilled(2) => Filled(2)
 
             var leg1 = @"{
         ""action"": ""Buy to Open"",
@@ -278,8 +324,6 @@ public class TastytradeBrokerageAdditionalTests
             }
         ]
     }".DeserializeKebabCase<Leg>();
-
-            var expectedResult1 = new ExpectedResult(true, 2, OrderStatus.PartiallyFilled, 2);
 
             var leg2 = @"{
         ""action"": ""Buy to Open"",
@@ -313,19 +357,28 @@ public class TastytradeBrokerageAdditionalTests
                 ""fill-id"": ""2_TW::TEST_A1::20251006.82-TEST_FILL"",
                 ""fill-price"": ""2.01"",
                 ""filled-at"": ""2025-10-06T17:12:45.157+00:00"",
-                ""quantity"": 5
+                ""quantity"": 2
             }
         ]
     }".DeserializeKebabCase<Leg>();
 
-            var expectedResult2 = new ExpectedResult(true, 3, OrderStatus.Filled, 0);
+            var expectedResult2 = new ExpectedResult(3, OrderStatus.Filled);
 
-
-            yield return new TestCaseData(new Leg[2] { leg1, leg2 }, new ExpectedResult[2] { expectedResult1, expectedResult2 });
+            yield return new TestCaseData(new ActualLeg[2] { new(true, 2, leg1), new(true, 0, leg2) },
+    new ExpectedResult[2][]
+    {
+                    [
+                        new (1, OrderStatus.PartiallyFilled),
+                        new (2, OrderStatus.PartiallyFilled)
+                    ],
+                    [
+                        new (2, OrderStatus.Filled)
+                    ]
+    }).SetName("Several legs: PartiallyFilled(1) => PartiallyFilled(2) => Filled(2)");
 
             #endregion
 
-            #region PartialFilled, Empty, Filled
+            #region Several legs: PartiallyFilled(1) => PartiallyFilled(2) => Empty Response => PartiallyFilled(1) => Filled(1)
 
             var leg_1 = @"{
         ""action"": ""Buy to Open"",
@@ -355,8 +408,6 @@ public class TastytradeBrokerageAdditionalTests
         ]
     }".DeserializeKebabCase<Leg>();
 
-            var expectedResult_1 = new ExpectedResult(true, 2, OrderStatus.PartiallyFilled, 2);
-
             var leg_2 = @"{
         ""action"": ""Buy to Open"",
         ""instrument-type"": ""Equity Option"",
@@ -366,8 +417,6 @@ public class TastytradeBrokerageAdditionalTests
         ""fills"": [
         ]
     }".DeserializeKebabCase<Leg>();
-
-            var expectedResult_2 = new ExpectedResult(false, default, default, 2);
 
             var leg_3 = @"{
         ""action"": ""Buy to Open"",
@@ -401,7 +450,7 @@ public class TastytradeBrokerageAdditionalTests
                 ""fill-id"": ""2_TW::TEST_A1::20251006.82-TEST_FILL"",
                 ""fill-price"": ""2.01"",
                 ""filled-at"": ""2025-10-06T17:12:45.157+00:00"",
-                ""quantity"": 3
+                ""quantity"": 1
             },
             {
                 ""destination-venue"": ""TEST_A"",
@@ -410,35 +459,42 @@ public class TastytradeBrokerageAdditionalTests
                 ""fill-id"": ""2_TW::TEST_A1::20251006.83-TEST_FILL"",
                 ""fill-price"": ""2.01"",
                 ""filled-at"": ""2025-10-06T17:12:45.157+00:00"",
-                ""quantity"": 4
-            },
-            {
-                ""destination-venue"": ""TEST_A"",
-                ""ext-exec-id"": ""79"",
-                ""ext-group-fill-id"": ""0"",
-                ""fill-id"": ""2_TW::TEST_A1::20251006.84-TEST_FILL"",
-                ""fill-price"": ""2.01"",
-                ""filled-at"": ""2025-10-06T17:12:45.157+00:00"",
-                ""quantity"": 5
+                ""quantity"": 1
             }
         ]
     }".DeserializeKebabCase<Leg>();
 
-            var expectedResult_3 = new ExpectedResult(true, 3, OrderStatus.Filled, 0);
+            var expectedResult_3 = new ExpectedResult(3, OrderStatus.Filled);
 
-            yield return new TestCaseData(new Leg[3] { leg_1, leg_2, leg_3 }, new ExpectedResult[3] { expectedResult_1, expectedResult_2, expectedResult_3 });
+            yield return new TestCaseData(new ActualLeg[3] { new(true, 2, leg_1), new(false, 2, leg_2), new(true, 0, leg_3) },
+new ExpectedResult[3][]
+{
+                    [
+                        new (1, OrderStatus.PartiallyFilled),
+                        new (2, OrderStatus.PartiallyFilled)
+                    ],
+                    [
+
+                    ],
+                    [
+                        new (1, OrderStatus.PartiallyFilled),
+                        new (1, OrderStatus.Filled)
+                    ]
+}).SetName("Several legs: PartiallyFilled(1) => PartiallyFilled(2) => Empty Response => PartiallyFilled(1) => Filled(1)");
 
             #endregion
 
         }
     }
 
-    public record ExpectedResult(bool IsInvokeEvent, decimal FilledQuantity, OrderStatus OrderStatus, int ExpectedCacheCount);
+    public record ExpectedResult(decimal FilledQuantity, OrderStatus OrderStatus);
+
+    public record ActualLeg(bool IsInvokeEvent, int ExpectedCacheCount, Leg Legs);
 
     [Test, TestCaseSource(nameof(LegTestData))]
-    public void HandleFilledEvent(Leg[] legs, ExpectedResult[] expectedResults)
+    public void HandleFilledEvent(ActualLeg[] legs, ExpectedResult[][] expectedResults)
     {
-        var processedFillIds = new Dictionary<int, Dictionary<string, decimal>>();
+        var processedFillIds = new Dictionary<int, HashSet<string>>();
 
         var nvda = Symbol.Create("NVDA", SecurityType.Equity, Market.USA);
         var nvdaOptionContract = Symbol.CreateOption(nvda, nvda.ID.Market, SecurityType.Option.DefaultOptionStyle(), OptionRight.Call, 190m, new(2025, 10, 17));
@@ -448,22 +504,26 @@ public class TastytradeBrokerageAdditionalTests
 
         for (int i = 0; i < legs.Length; i++)
         {
-            var expectedResult = expectedResults[i];
             var leg = legs[i];
+            Assert.AreEqual(leg.IsInvokeEvent, TastytradeBrokerage.TryGetFilledEvent(leg.Legs, leanOrder, processedFillIds, out var orderEvents));
 
-            Assert.AreEqual(expectedResult.IsInvokeEvent, TastytradeBrokerage.TryGetFilledEvent(leg, leanOrder, processedFillIds, out var orderEvent));
-            if (expectedResult.IsInvokeEvent)
+            if (leg.IsInvokeEvent)
             {
-                Assert.AreEqual(expectedResult.FilledQuantity, orderEvent.FillQuantity);
-                Assert.AreEqual(expectedResult.OrderStatus, orderEvent.Status);
+                for (int j = 0; j < orderEvents.Count; j++)
+                {
+                    var expectedResult = expectedResults[i][j];
+                    var orderEvent = orderEvents[j];
+                    Assert.AreEqual(expectedResult.FilledQuantity, orderEvent.FillQuantity);
+                    Assert.AreEqual(expectedResult.OrderStatus, orderEvent.Status);
+                }
 
-                if (expectedResult.ExpectedCacheCount == 0)
+                if (leg.ExpectedCacheCount == 0)
                 {
                     Assert.IsEmpty(processedFillIds);
                 }
                 else
                 {
-                    Assert.AreEqual(expectedResult.ExpectedCacheCount, processedFillIds[leanOrder.Id].Values.Count);
+                    Assert.AreEqual(leg.ExpectedCacheCount, processedFillIds[leanOrder.Id].Count);
                 }
             }
         }
