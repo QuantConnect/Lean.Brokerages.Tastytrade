@@ -222,21 +222,6 @@ public sealed class TastytradeApiClient
     }
 
     /// <summary>
-    /// Retrieves the details of a specific future option from the brokerage API.
-    /// </summary>
-    /// <param name="futureOptionSymbol">
-    /// The brokerage-formatted future option symbol to query. 
-    /// The symbol should be in the format expected by the brokerage (e.g., "./MNQZ5D4AU5 250922C24575").
-    /// </param>
-    /// <returns>
-    /// A <see cref="FutureOption"/> object containing details about the requested future option.
-    /// </returns>
-    public FutureOption GetFutureOption(string futureOptionSymbol)
-    {
-        return SendRequest<FutureOption>(HttpMethod.Get, $"/instruments/future-options/{futureOptionSymbol.UrlEncodeSymbol()}").Data;
-    }
-
-    /// <summary>
     /// Retrieves the list of equity instruments (option underlyings) available for a given ticker.
     /// </summary>
     /// <param name="ticker">The symbol of the underlying asset (e.g., <c>AAPL</c>, <c>SPX</c>).</param>
