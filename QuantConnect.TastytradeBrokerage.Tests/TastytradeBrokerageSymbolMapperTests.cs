@@ -33,8 +33,8 @@ public class TastytradeBrokerageSymbolMapperTests
 
     private TastyTradeBrokerageSymbolMapperStub _symbolMapperStub;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
+    [SetUp]
+    public void SetUp()
     {
         _symbolMapper = new(TestSetup.CreateTastytradeApiClient());
         _symbolMapperStub = new(_symbolMapper);
@@ -78,13 +78,13 @@ public class TastytradeBrokerageSymbolMapperTests
 
             yield return new("BTC/USD", InstrumentType.Cryptocurrency, "", default);
 
-            var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 9, 19));
-            var treasuryBondFutures_OptionContract = Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 142.5m, new DateTime(2025, 06, 20));
-            yield return new("./ZBU5 OZBN5 250620C142.5", InstrumentType.FutureOption, default, treasuryBondFutures_OptionContract);
+            var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 12, 22));
+            var treasuryBondFutures_OptionContract = Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 150m, new DateTime(2025, 11, 21));
+            yield return new("./ZBZ5 OZBZ5 251121P150", InstrumentType.FutureOption, default, treasuryBondFutures_OptionContract);
 
             var microNasdaq100EMiniFuture = Symbol.CreateFuture(Futures.Indices.MicroNASDAQ100EMini, Market.CME, new(2025, 12, 19));
-            var microNasdaq100EMiniFutureOptionContract = Symbol.CreateOption(microNasdaq100EMiniFuture, microNasdaq100EMiniFuture.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 24575m, new(2025, 09, 22));
-            yield return new("./MNQZ5D4AU5 250922C24575", InstrumentType.FutureOption, default, microNasdaq100EMiniFutureOptionContract);
+            var microNasdaq100EMiniFutureOptionContract = Symbol.CreateOption(microNasdaq100EMiniFuture, microNasdaq100EMiniFuture.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 11000m, new(2025, 12, 19));
+            yield return new("./MNQZ5MNQZ5 251219P11000", InstrumentType.FutureOption, default, microNasdaq100EMiniFutureOptionContract);
         }
     }
 
@@ -179,8 +179,8 @@ public class TastytradeBrokerageSymbolMapperTests
             yield return new TestCaseData(euroDollar, "/GEM0", "/GEM30:XCME");
 
             var microNasdaq100EMiniFuture = Symbol.CreateFuture(Futures.Indices.MicroNASDAQ100EMini, Market.CME, new(2025, 12, 19));
-            var microNasdaq100EMiniFutureOptionContract = Symbol.CreateOption(microNasdaq100EMiniFuture, microNasdaq100EMiniFuture.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 24575m, new(2025, 09, 22));
-            yield return new TestCaseData(microNasdaq100EMiniFutureOptionContract, "./MNQZ5D4AU5 250922C24575", "./D4AU25C24575:XCME");
+            var microNasdaq100EMiniFutureOptionContract = Symbol.CreateOption(microNasdaq100EMiniFuture, microNasdaq100EMiniFuture.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 11000m, new(2025, 12, 19));
+            yield return new TestCaseData(microNasdaq100EMiniFutureOptionContract, "./MNQZ5MNQZ5 251219P11000", "./MNQZ25P11000:XCME");
         }
     }
 
@@ -254,6 +254,43 @@ public class TastytradeBrokerageSymbolMapperTests
 
         var convertedBrokerageSymbol = _symbolMapper.GetBrokerageSymbols(leanSymbol);
         Assert.AreEqual(brokerageSymbol, convertedBrokerageSymbol.brokerageSymbol);
+    }
+
+    private static IEnumerable<TestCaseData> NotSupportFutureOptionTypes
+    {
+        get
+        {
+            yield return new TestCaseData("./MNQZ5D2CV5 251008C22400").SetDescription(Futures.Indices.MicroNASDAQ100EMini + "ExpirationType: Weekly");
+            yield return new TestCaseData("./MNQZ5MQEV5 251031C5000").SetDescription(Futures.Indices.MicroNASDAQ100EMini + "ExpirationType: End-Of-Month");
+            yield return new TestCaseData("./ZBZ5 ZB2V5 251010P102.5").SetDescription(Futures.Financials.Y30TreasuryBond + "ExpirationType: Weekly");
+        }
+    }
+
+    [TestCaseSource(nameof(NotSupportFutureOptionTypes))]
+    public void ConvertNotSupportFutureOptionShouldThrowException(string brokerageFutureOptionSymbol)
+    {
+        var messageRaised = false;
+
+        EventHandler<BrokerageMessageEvent> handler = (sender, e) =>
+        {
+            Assert.AreEqual("ConvertSymbol", e.Code, "Unexpected message code.");
+            Assert.AreEqual(BrokerageMessageType.Warning, e.Type, "Expected a warning message type.");
+            messageRaised = true;
+        };
+
+        _symbolMapperStub.Message += handler;
+
+        try
+        {
+            var success = _symbolMapperStub.TryGetLeanSymbol(brokerageFutureOptionSymbol, InstrumentType.FutureOption, out _);
+
+            Assert.IsFalse(success, $"Expected conversion to fail for unsupported symbol '{brokerageFutureOptionSymbol}'.");
+            Assert.IsTrue(messageRaised, "Expected a warning message to be raised but none was received.");
+        }
+        finally
+        {
+            _symbolMapperStub.Message -= handler;
+        }
     }
 
     /// <summary>
