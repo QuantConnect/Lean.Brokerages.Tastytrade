@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -279,7 +279,7 @@ public class TastytradeBrokerageSymbolMapper
 
         var (underlyingFuture, _) = GenerateFutureBrokerageSymbols(symbol.Underlying);
 
-        return ($".{underlyingFuture} {optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
+        return ($".{underlyingFuture,-6}{optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
             $"./{optionRoot + yearSuffix}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
     }
 
