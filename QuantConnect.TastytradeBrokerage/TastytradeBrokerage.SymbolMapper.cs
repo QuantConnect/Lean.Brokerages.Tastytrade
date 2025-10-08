@@ -325,7 +325,7 @@ public class TastytradeBrokerageSymbolMapper
 
         try
         {
-            var underylingSymbol = FuturesOptionsUnderlyingMapper.GetUnderlyingFutureFromFutureOption(futureOptionTicker, market, expiry, DateTime.Now);
+            var underylingSymbol = FuturesOptionsUnderlyingMapper.GetUnderlyingFutureFromFutureOption(futureOptionTicker, market, expiry, DateTime.UtcNow);
             return Symbol.CreateOption(underylingSymbol, underylingSymbol.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), right, strike, expiry);
         }
         catch (Exception ex)
