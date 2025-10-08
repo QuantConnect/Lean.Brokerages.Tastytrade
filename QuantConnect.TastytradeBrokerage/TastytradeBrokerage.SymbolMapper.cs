@@ -307,22 +307,15 @@ public class TastytradeBrokerageSymbolMapper
     /// </exception>
     private Symbol ParseBrokerageFutureOptionSymbol(string brokerageSymbol)
     {
-        // Ensure space after first 7 chars for parsing.
-        // Examples: "./MNQZ5MNQZ5 251219P11000" or "./ZBU5 OZBN5 250620C142.5"
-        if (!char.IsWhiteSpace(brokerageSymbol[6]))
-        {
-            brokerageSymbol = brokerageSymbol.Insert(7, " ");
-        }
-
-        var match = Regex.Match(brokerageSymbol, @"^\s*(\S+)\s+(\S+)\s+(\d{6})([PC])(\d+(?:\.\d+)?)$");
+        var match = Regex.Match(brokerageSymbol, @"^\.\/(?<futureSymbol>.{5})\s?(?<futureOptionSymbol>.{5})\s(?<expiry>\d{6})(?<right>[PC])(?<strike>\d+(?:\.\d+)?)$");
 
         if (!match.Success)
             throw new FormatException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(ParseBrokerageFutureOptionSymbol)}: Input '{brokerageSymbol}' is not in a valid option format (expected 'yyMMddP/CStrike').");
 
-        var futureOptionTicker = SymbolRepresentation.ParseFutureTicker(ToFutureLeanTickerFormat(match.Groups[2].Value)).Underlying;
-        var expiry = DateTime.ParseExact(match.Groups[3].Value, "yyMMdd", CultureInfo.InvariantCulture);
-        var right = match.Groups[4].Value[0] == 'C' ? OptionRight.Call : OptionRight.Put;
-        var strike = Convert.ToDecimal(match.Groups[5].Value);
+        var futureOptionTicker = SymbolRepresentation.ParseFutureTicker(ToFutureLeanTickerFormat(match.Groups["futureOptionSymbol"].Value)).Underlying;
+        var expiry = DateTime.ParseExact(match.Groups["expiry"].Value, "yyMMdd", CultureInfo.InvariantCulture);
+        var right = match.Groups["right"].Value[0] == 'C' ? OptionRight.Call : OptionRight.Put;
+        var strike = Convert.ToDecimal(match.Groups["strike"].Value);
 
         var futureTicker = FuturesOptionsSymbolMappings.MapFromOption(futureOptionTicker);
         if (!_symbolPropertiesDatabase.TryGetMarket(futureTicker, SecurityType.Future, out var market))
