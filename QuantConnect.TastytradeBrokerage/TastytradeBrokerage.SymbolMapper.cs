@@ -16,9 +16,11 @@
 using System;
 using System.Linq;
 using System.Globalization;
+using QuantConnect.Securities;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using QuantConnect.Securities.Future;
 using QuantConnect.Securities.FutureOption;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models;
@@ -34,6 +36,11 @@ public class TastytradeBrokerageSymbolMapper
     /// The Tastytrade API client used to query instrument and market data.
     /// </summary>
     private readonly TastytradeApiClient _tastytradeApiClient;
+
+    /// <summary>
+    /// Provides access to specific properties for various symbols.
+    /// </summary>
+    private readonly SymbolPropertiesDatabase _symbolPropertiesDatabase;
 
     /// <summary>
     /// A cache mapping Lean symbols to their corresponding brokerage and stream symbols.
@@ -86,6 +93,7 @@ public class TastytradeBrokerageSymbolMapper
     public TastytradeBrokerageSymbolMapper(TastytradeApiClient tastytradeApiClient)
     {
         _tastytradeApiClient = tastytradeApiClient;
+        _symbolPropertiesDatabase = SymbolPropertiesDatabase.FromDataFolder();
     }
 
     /// <summary>
@@ -279,7 +287,7 @@ public class TastytradeBrokerageSymbolMapper
 
         var (underlyingFuture, _) = GenerateFutureBrokerageSymbols(symbol.Underlying);
 
-        return ($".{underlyingFuture} {optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
+        return ($".{underlyingFuture,-6}{optionRoot + yearSuffix.Last(),-6}{futureOptionExpiryDate.ToStringInvariant(DateFormat.SixCharacter)}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}",
             $"./{optionRoot + yearSuffix}{optionRight}{symbol.ID.StrikePrice.ToTrimmedStringInvariant()}:{_futureLeanMarketToStreamExchange[symbol.ID.Market]}");
     }
 
@@ -287,8 +295,8 @@ public class TastytradeBrokerageSymbolMapper
     /// Parses a brokerage-formatted future option symbol string into a <see cref="Symbol"/> object.
     /// </summary>
     /// <param name="brokerageSymbol">
-    /// The future option symbol string in brokerage format, expected in the format: <c>&lt;something&gt; &lt;ticker&gt; yyMMddP/CStrike</c>.
-    /// For example: <c>"TT ZN 250819C126500"</c>.
+    /// The future option symbol string in brokerage format, expected in the format: <c>&lt;FutureUnderlyingSymbol&gt; &lt;FutureOptionSymbol&gt; yyMMddP/CStrike</c>.
+    /// For example: <c>"TT ZN 250819C126500"</c>, without space: <c>"./MNQZ5MNQZ5 251219P11000"</c>  
     /// </param>
     /// <returns>
     /// A <see cref="Symbol"/> object representing the parsed future option, including its underlying symbol,
@@ -299,18 +307,31 @@ public class TastytradeBrokerageSymbolMapper
     /// </exception>
     private Symbol ParseBrokerageFutureOptionSymbol(string brokerageSymbol)
     {
-        var match = Regex.Match(brokerageSymbol, @"^\s*(\S+)\s+(\S+)\s+(\d{6})([PC])(\d+(?:\.\d+)?)$");
+        var match = Regex.Match(brokerageSymbol, @"^\.\/(?<futureSymbol>.{5})\s?(?<futureOptionSymbol>.{5})\s(?<expiry>\d{6})(?<right>[PC])(?<strike>\d+(?:\.\d+)?)$");
 
         if (!match.Success)
             throw new FormatException($"{nameof(TastytradeBrokerageSymbolMapper)}.{nameof(ParseBrokerageFutureOptionSymbol)}: Input '{brokerageSymbol}' is not in a valid option format (expected 'yyMMddP/CStrike').");
 
-        var ticker = ToFutureLeanTickerFormat(match.Groups[1].Value);
-        var expiry = DateTime.ParseExact(match.Groups[3].Value, "yyMMdd", CultureInfo.InvariantCulture);
-        var right = match.Groups[4].Value[0] == 'C' ? OptionRight.Call : OptionRight.Put;
-        var strike = Convert.ToDecimal(match.Groups[5].Value);
+        var futureOptionTicker = SymbolRepresentation.ParseFutureTicker(ToFutureLeanTickerFormat(match.Groups["futureOptionSymbol"].Value)).Underlying;
+        var expiry = DateTime.ParseExact(match.Groups["expiry"].Value, "yyMMdd", CultureInfo.InvariantCulture);
+        var right = match.Groups["right"].Value[0] == 'C' ? OptionRight.Call : OptionRight.Put;
+        var strike = Convert.ToDecimal(match.Groups["strike"].Value);
 
-        var underylingSymbol = SymbolRepresentation.ParseFutureSymbol(ticker);
-        return Symbol.CreateOption(underylingSymbol, underylingSymbol.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), right, strike, expiry);
+        var futureTicker = FuturesOptionsSymbolMappings.MapFromOption(futureOptionTicker);
+        if (!_symbolPropertiesDatabase.TryGetMarket(futureTicker, SecurityType.Future, out var market))
+        {
+            throw new NotSupportedException($"No market found for future ticker '{futureTicker}' (derived from brokerage future option symbol '{brokerageSymbol}').");
+        }
+
+        try
+        {
+            var underylingSymbol = FuturesOptionsUnderlyingMapper.GetUnderlyingFutureFromFutureOption(futureOptionTicker, market, expiry, DateTime.UtcNow);
+            return Symbol.CreateOption(underylingSymbol, underylingSymbol.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), right, strike, expiry);
+        }
+        catch (Exception ex)
+        {
+            throw new NotSupportedException($"Failed to create Lean FutureOption Symbol from '{brokerageSymbol}'.", ex);
+        }
     }
 
     /// <summary>
