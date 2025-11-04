@@ -222,20 +222,10 @@ public static class Extensions
     /// </exception>
     public static PriceEffect GetPriceEffect(this Order order)
     {
-        var quantity = default(decimal);
-        switch (order)
+        var quantity = order.Quantity;
+        if (order is ComboLimitOrder clo)
         {
-            case LimitOrder lo:
-                quantity = lo.Quantity;
-                break;
-            case ComboLimitOrder clo:
-                quantity = clo.GroupOrderManager.LimitPrice * clo.GroupOrderManager.Quantity;
-                break;
-            case StopLimitOrder slo:
-                quantity = slo.Quantity;
-                break;
-            default:
-                throw new NotSupportedException($"Cannot determine PriceEffect: order type '{order.GetType().Name}' is not supported.");
+            quantity = clo.GroupOrderManager.LimitPrice * clo.GroupOrderManager.Quantity;
         }
 
         switch (quantity)
