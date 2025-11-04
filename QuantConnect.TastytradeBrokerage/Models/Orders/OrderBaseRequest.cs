@@ -110,9 +110,13 @@ public abstract class OrderBaseRequest
     /// <param name="legs">
     /// A collection of <see cref="LegAttributes"/> defining the individual legs of the order (e.g., quantity, symbol, action).
     /// </param>
-    /// <param name="quantity">
-    /// The signed total quantity of the order. Positive values indicate buy-side intent (typically resulting in a <see cref="PriceEffect.Debit"/>),
-    /// negative values indicate sell-side intent (typically resulting in a <see cref="PriceEffect.Credit"/>).
+    /// <param name="priceEffect">
+    /// Indicates whether the order will debit or credit funds — typically
+    /// <see cref="PriceEffect.Debit"/> for buy-side orders and <see cref="PriceEffect.Credit"/> for sell-side orders.
+    /// </param>
+    /// <param name="price">
+    /// The absolute price associated with the order (e.g., limit, stop, or trigger price).
+    /// Negative values are automatically converted to their absolute value for consistency.
     /// </param>
     /// <exception cref="NotSupportedException">
     /// Thrown when <paramref name="leanOrderDirection"/> is not a supported direction (Buy/Sell).
@@ -120,15 +124,12 @@ public abstract class OrderBaseRequest
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="timeInForce"/> is <see cref="TimeInForce.GoodTilDate"/> and <paramref name="expiryDateTime"/> is null.
     /// </exception>
-    protected OrderBaseRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal quantity)
+    protected OrderBaseRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, PriceEffect priceEffect, decimal price)
         : this(timeInForce, expiryDateTime, legs)
     {
-        PriceEffect = quantity switch
-        {
-            > 0 => Enum.PriceEffect.Debit,
-            < 0 => Enum.PriceEffect.Credit,
-            _ => throw new NotSupportedException($"The order quantity '{quantity}' is not supported for conversion to PriceEffect.")
-        };
+        // Ensure positive price for TastyTrade API
+        Price = Math.Abs(price);
+        PriceEffect = priceEffect;
     }
 
     /// <summary>

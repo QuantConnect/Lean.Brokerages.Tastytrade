@@ -209,6 +209,47 @@ public static class Extensions
     };
 
     /// <summary>
+    /// Determines the <see cref="PriceEffect"/> (debit or credit) for a given <see cref="Order"/>
+    /// based on its signed quantity or equivalent value.
+    /// </summary>
+    /// <param name="order">The order instance to evaluate.</param>
+    /// <returns>
+    /// <see cref="PriceEffect.Debit"/> if the order represents a buy-side intent (positive quantity),
+    /// <see cref="PriceEffect.Credit"/> if it represents a sell-side intent (negative quantity).
+    /// </returns>
+    /// <exception cref="NotSupportedException">
+    /// Thrown when the order type or its quantity is not supported for conversion to <see cref="PriceEffect"/>.
+    /// </exception>
+    public static PriceEffect GetPriceEffect(this Order order)
+    {
+        var quantity = default(decimal);
+        switch (order)
+        {
+            case LimitOrder lo:
+                quantity = lo.Quantity;
+                break;
+            case ComboLimitOrder clo:
+                quantity = clo.GroupOrderManager.LimitPrice * clo.GroupOrderManager.Quantity;
+                break;
+            case StopLimitOrder slo:
+                quantity = slo.Quantity;
+                break;
+            default:
+                throw new NotSupportedException($"Cannot determine PriceEffect: order type '{order.GetType().Name}' is not supported.");
+        }
+
+        switch (quantity)
+        {
+            case > 0:
+                return PriceEffect.Debit;
+            case < 0:
+                return PriceEffect.Credit;
+            default:
+                throw new NotSupportedException($"Cannot determine PriceEffect: order quantity is zero (order type '{order.GetType().Name}').");
+        }
+    }
+
+    /// <summary>
     /// Encodes special characters in a symbol to make it URL-safe.
     /// Specifically replaces slashes (/) with their URL-encoded form (%2f).
     /// </summary>
