@@ -253,13 +253,15 @@ public sealed class TastytradeApiClient
                 requestMessage.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
             }
 
+            var response = default(string);
             try
             {
                 var responseMessage = _httpClient.Send(requestMessage);
 
-                responseMessage.EnsureSuccessStatusCode(requestMessage, jsonBody);
+                // Reads response content safely; returns empty string if response or content is null.
+                response = responseMessage.ReadContentAsString();
 
-                var response = responseMessage.ReadContentAsString();
+                responseMessage.EnsureSuccessStatusCode(requestMessage, jsonBody);
 
                 if (logResponse || Log.DebuggingEnabled)
                 {
@@ -270,7 +272,7 @@ public sealed class TastytradeApiClient
             }
             catch (Exception ex)
             {
-                throw new Exception($"{nameof(TastytradeApiClient)}.{nameof(SendRequest)}: Unexpected error while sending request - {ex.Message}", ex);
+                throw new Exception($"{nameof(TastytradeApiClient)}.{nameof(SendRequest)}: Unexpected error while sending request - {ex.Message}. Response: {response}.", ex);
             }
         }
     }

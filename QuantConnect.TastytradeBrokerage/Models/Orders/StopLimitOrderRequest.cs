@@ -38,11 +38,13 @@ public class StopLimitOrderRequest : OrderBaseRequest
     /// <param name="legs">The order legs to execute.</param>
     /// <param name="price">The limit price for the order.</param>
     /// <param name="stopPrice">The stop trigger price for the order.</param>
-    /// <param name="leanOrderDirection">Direction of the order (Buy/Sell).</param>
-    public StopLimitOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal price, decimal stopPrice, LeanOrderDirection leanOrderDirection)
-    : base(timeInForce, expiryDateTime, legs, leanOrderDirection)
+    /// <param name="priceEffect">
+    /// Indicates whether the order will debit or credit funds — typically
+    /// <see cref="PriceEffect.Debit"/> for buy-side orders and <see cref="PriceEffect.Credit"/> for sell-side orders.
+    /// </param>
+    public StopLimitOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal price, decimal stopPrice, PriceEffect priceEffect)
+    : base(timeInForce, expiryDateTime, legs, priceEffect, price)
     {
-        Price = price;
         StopPrice = stopPrice;
     }
 }

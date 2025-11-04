@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -37,10 +37,12 @@ public class LimitOrderRequest : OrderBaseRequest
     /// <param name="expiryDateTime">Expiration date if <paramref name="timeInForce"/> is GTC.</param>
     /// <param name="legs">The order legs to execute.</param>
     /// <param name="price">The limit price for the order.</param>
-    /// <param name="leanOrderDirection">Direction of the order (Buy/Sell).</param>
-    public LimitOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal price, LeanOrderDirection leanOrderDirection)
-        : base(timeInForce, expiryDateTime, legs, leanOrderDirection)
+    /// <param name="priceEffect">
+    /// Indicates whether the order will debit or credit funds — typically
+    /// <see cref="PriceEffect.Debit"/> for buy-side orders and <see cref="PriceEffect.Credit"/> for sell-side orders.
+    /// </param>
+    public LimitOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal price, PriceEffect priceEffect)
+        : base(timeInForce, expiryDateTime, legs, priceEffect, price)
     {
-        Price = price;
     }
 }

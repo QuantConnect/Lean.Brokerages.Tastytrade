@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -105,7 +105,7 @@ public partial class TastytradeBrokerageTests : BrokerageTests
         {
             var nvda = Symbol.Create("NVDA", SecurityType.Equity, Market.USA);
             var nvdaCanonical = Symbol.CreateCanonicalOption(nvda);
-            yield return new TestCaseData(new ComboLimitOrderTestParameters(OptionStrategies.BearCallSpread(nvdaCanonical, 180m, 190m, new DateTime(2025, 10, 17)), 3.1m, 3.1m, 0.5m));
+            yield return new TestCaseData(new ComboLimitOrderTestParameters(OptionStrategies.BearCallSpread(nvdaCanonical, 210m, 220m, new DateTime(2025, 11, 21)), 3.1m, 3.1m, 1.1m));
         }
     }
 

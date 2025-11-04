@@ -513,18 +513,18 @@ public class TastytradeJsonConverterTests
         Assert.AreEqual(expectedLegAttributes, actualLegAttributes);
     }
 
-    [TestCase(OrderType.Market, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.Day, null, null, null, null)]
-    [TestCase(OrderType.Market, InstrumentType.EquityOption, OrderAction.Sell, TimeInForce.Day, null, null, null, null)]
-    [TestCase(OrderType.Limit, InstrumentType.Future, OrderAction.BuyToOpen, TimeInForce.GoodTillCancel, null, 100, null, Orders.OrderDirection.Buy)]
-    [TestCase(OrderType.Limit, InstrumentType.FutureOption, OrderAction.SellToClose, TimeInForce.GoodTillCancel, null, 200, null, Orders.OrderDirection.Sell)]
-    [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.GoodTilDate, "2025/05/30", null, 210, null)]
-    [TestCase(OrderType.Stop, InstrumentType.EquityOption, OrderAction.SellToOpen, TimeInForce.GoodTillCancel, null, null, 190, null)]
-    [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.Buy, TimeInForce.Day, null, null, 190, null)]
-    [TestCase(OrderType.StopLimit, InstrumentType.Equity, OrderAction.Buy, TimeInForce.GoodTilDate, "2025/05/30", 180, 190, Orders.OrderDirection.Buy)]
-    [TestCase(OrderType.StopLimit, InstrumentType.EquityOption, OrderAction.SellToOpen, TimeInForce.Day, null, 200, 190, Orders.OrderDirection.Sell)]
-    public void SerializeVariousOrderTypeRequestMessage(OrderType orderType, InstrumentType instrumentType, OrderAction legOrderAction, TimeInForce timeInForce, DateTime? expiryDateTime, decimal? limitPrice, decimal? stopPrice, Orders.OrderDirection? leanOrderDirection)
+    [TestCase(OrderType.Market, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.Day, null, null, null, 1, null)]
+    [TestCase(OrderType.Market, InstrumentType.EquityOption, OrderAction.Sell, TimeInForce.Day, null, null, null, 1, null)]
+    [TestCase(OrderType.Limit, InstrumentType.Future, OrderAction.BuyToOpen, TimeInForce.GoodTillCancel, null, 100, null, 1, PriceEffect.Debit)]
+    [TestCase(OrderType.Limit, InstrumentType.FutureOption, OrderAction.SellToClose, TimeInForce.GoodTillCancel, null, 200, null, -1, PriceEffect.Credit)]
+    [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.BuyToOpen, TimeInForce.GoodTilDate, "2025/05/30", null, 210, 1, null)]
+    [TestCase(OrderType.Stop, InstrumentType.EquityOption, OrderAction.SellToOpen, TimeInForce.GoodTillCancel, null, null, 190, 1, null)]
+    [TestCase(OrderType.Stop, InstrumentType.Equity, OrderAction.Buy, TimeInForce.Day, null, null, 190, 1, null)]
+    [TestCase(OrderType.StopLimit, InstrumentType.Equity, OrderAction.Buy, TimeInForce.GoodTilDate, "2025/05/30", 180, 190, 1, PriceEffect.Debit)]
+    [TestCase(OrderType.StopLimit, InstrumentType.EquityOption, OrderAction.SellToOpen, TimeInForce.Day, null, 200, 190, -1, PriceEffect.Credit)]
+    public void SerializeVariousOrderTypeRequestMessage(OrderType orderType, InstrumentType instrumentType, OrderAction legOrderAction, TimeInForce timeInForce, DateTime? expiryDateTime, decimal? limitPrice, decimal? stopPrice, decimal quantity, PriceEffect? expectedPriceEffect)
     {
-        var legAttributes = new List<LegAttributes> { new LegAttributes(legOrderAction, instrumentType, 1m, "AAPL  230818C00197500") };
+        var legAttributes = new List<LegAttributes> { new LegAttributes(legOrderAction, instrumentType, quantity, "AAPL  230818C00197500") };
 
         var order = default(OrderBaseRequest);
         switch (orderType)
@@ -533,17 +533,59 @@ public class TastytradeJsonConverterTests
                 order = new MarketOrderRequest(legAttributes);
                 break;
             case OrderType.Limit:
-                order = new LimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, leanOrderDirection.Value);
+                var lo = new Orders.LimitOrder(default, quantity, limitPrice.Value, default);
+                order = new LimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, lo.GetPriceEffect());
                 break;
             case OrderType.Stop:
                 order = new StopMarketOrderRequest(timeInForce, expiryDateTime, legAttributes, stopPrice.Value, instrumentType);
                 break;
             case OrderType.StopLimit:
-                order = new StopLimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, stopPrice.Value, leanOrderDirection.Value);
+                var slo = new Orders.StopLimitOrder(default, quantity, default, default, default);
+                order = new StopLimitOrderRequest(timeInForce, expiryDateTime, legAttributes, limitPrice.Value, stopPrice.Value, slo.GetPriceEffect());
                 break;
             default:
                 throw new NotSupportedException();
         }
+
+        if (expectedPriceEffect != null)
+        {
+            Assert.AreEqual(expectedPriceEffect.Value, order.PriceEffect.Value);
+        }
+
+        var orderJson = order.ToJson();
+
+        AssertIsNotNullAndIsNotEmpty(orderJson);
+    }
+
+    [TestCase(true, 0.65, PriceEffect.Debit)]
+    [TestCase(false, -0.65, PriceEffect.Credit)]
+    public void SerializeComboLimitOrderTypeRequestMessage(bool isLong, decimal limitPrice, PriceEffect expectedPriceEffect)
+    {
+        var buyToOpen = new LegAttributes(OrderAction.BuyToOpen, InstrumentType.EquityOption, 1m, "AAPL  251107C00275000");
+        var sellToOpen = new LegAttributes(OrderAction.SellToOpen, InstrumentType.EquityOption, 1m, "AAPL  251107C00270000");
+
+        var legs = default(List<LegAttributes>);
+        var groupOrderManager = default(Orders.GroupOrderManager);
+        if (isLong)
+        {
+            // Vertical: Long
+            legs = [buyToOpen, sellToOpen];
+            groupOrderManager = new Orders.GroupOrderManager(legs.Count, quantity: 1, limitPrice);
+        }
+        else
+        {
+            // Vertical: Short
+            legs = [sellToOpen, buyToOpen];
+            groupOrderManager = new Orders.GroupOrderManager(legs.Count, quantity: 1, limitPrice);
+        }
+
+        var clo = new Orders.ComboLimitOrder(default, 1, limitPrice, default, groupOrderManager);
+
+        var order = new LimitOrderRequest(TimeInForce.GoodTillCancel, default, legs, groupOrderManager.LimitPrice, clo.GetPriceEffect());
+
+        Assert.AreEqual(expectedPriceEffect, order.PriceEffect);
+        Assert.True(order.Price.HasValue);
+        Assert.False(decimal.IsNegative(order.Price.Value));
 
         var orderJson = order.ToJson();
 
