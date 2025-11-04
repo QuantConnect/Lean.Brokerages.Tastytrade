@@ -37,9 +37,12 @@ public class LimitOrderRequest : OrderBaseRequest
     /// <param name="expiryDateTime">Expiration date if <paramref name="timeInForce"/> is GTC.</param>
     /// <param name="legs">The order legs to execute.</param>
     /// <param name="price">The limit price for the order.</param>
-    /// <param name="leanOrderDirection">Direction of the order (Buy/Sell).</param>
-    public LimitOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal price, LeanOrderDirection leanOrderDirection)
-        : base(timeInForce, expiryDateTime, legs, leanOrderDirection)
+    /// <param name="quantity">
+    /// The signed quantity for the order: positive for buy (debit) and negative for sell (credit).
+    /// The sign of this value may be used to determine payment direction or <see cref="PriceEffect"/>.
+    /// </param>
+    public LimitOrderRequest(TimeInForce timeInForce, DateTime? expiryDateTime, IReadOnlyCollection<LegAttributes> legs, decimal price, decimal quantity)
+        : base(timeInForce, expiryDateTime, legs, quantity)
     {
         Price = price;
     }

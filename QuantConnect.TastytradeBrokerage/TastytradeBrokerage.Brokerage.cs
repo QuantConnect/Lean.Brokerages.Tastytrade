@@ -776,16 +776,16 @@ public partial class TastytradeBrokerage
                 brokerageOrder = new MarketOrderRequest(legs);
                 break;
             case LimitOrder lo:
-                brokerageOrder = new LimitOrderRequest(timeInForce, expiryDateTime, legs, lo.LimitPrice, order.Direction);
+                brokerageOrder = new LimitOrderRequest(timeInForce, expiryDateTime, legs, lo.LimitPrice, order.Quantity);
                 break;
             case ComboLimitOrder clo:
-                brokerageOrder = new LimitOrderRequest(timeInForce, expiryDateTime, legs, clo.GroupOrderManager.LimitPrice, clo.GroupOrderManager.Direction);
+                brokerageOrder = new LimitOrderRequest(timeInForce, expiryDateTime, legs, clo.GroupOrderManager.LimitPrice, clo.GroupOrderManager.LimitPrice * clo.GroupOrderManager.Quantity);
                 break;
             case StopMarketOrder smo:
                 brokerageOrder = new StopMarketOrderRequest(timeInForce, expiryDateTime, legs, smo.StopPrice, legs[0].InstrumentType);
                 break;
             case StopLimitOrder slo:
-                brokerageOrder = new StopLimitOrderRequest(timeInForce, expiryDateTime, legs, slo.LimitPrice, slo.StopPrice, order.Direction);
+                brokerageOrder = new StopLimitOrderRequest(timeInForce, expiryDateTime, legs, slo.LimitPrice, slo.StopPrice, order.Quantity);
                 break;
             default:
                 throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ConvertLeanOrderToBrokerageOrder)}: The order type '{order.GetType().Name}' is not supported for brokerage conversion.");
