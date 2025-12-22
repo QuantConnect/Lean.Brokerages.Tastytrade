@@ -15,7 +15,6 @@
 
 using System;
 using System.IO;
-using RestSharp;
 using System.Net;
 using System.Text;
 using System.Linq;
@@ -36,6 +35,7 @@ using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
 using QuantConnect.Brokerages.LevelOneOrderBook;
+using System.Net.Http;
 
 namespace QuantConnect.Brokerages.Tastytrade;
 
@@ -316,8 +316,8 @@ public partial class TastytradeBrokerage : Brokerage
             {
                 information.Add("organizationId", organizationId);
             }
-            var request = new RestRequest("modules/license/read", Method.POST) { RequestFormat = DataFormat.Json };
-            request.AddParameter("application/json", JsonConvert.SerializeObject(information), ParameterType.RequestBody);
+            // Create HTTP request
+            using var request = ApiUtils.CreateJsonPostRequest("modules/license/read", information);
             _leanApiClient.TryRequest(request, out ModulesReadLicenseRead result);
             if (!result.Success)
             {
