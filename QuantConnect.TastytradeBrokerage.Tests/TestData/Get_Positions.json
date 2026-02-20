@@ -1,25 +1,50 @@
 {
     "data": {
         "items": [
-            {
-                "account-number": "5WX06827",
-                "instrument-type": "Equity",
-                "symbol": "AAPL",
-                "underlying-symbol": "AAPL",
-                "quantity": 1,
-                "average-open-price": "1.0",
-                "close-price": "0.0",
-                "cost-effect": "Credit",
-                "is-frozen": false,
-                "is-suppressed": false,
-                "multiplier": 1,
-                "quantity-direction": "Long",
-                "restricted-quantity": 0,
-                "realized-day-gain": "0.0",
-                "realized-today": "0.0",
-                "created-at": "2025-05-28T13:38:50.850+00:00",
-                "updated-at": "2025-05-28T13:38:50.850+00:00"
-            }
+          {
+            "account-number": "5WX06827",
+            "instrument-type": "Equity",
+            "symbol": "AAPL",
+            "underlying-symbol": "AAPL",
+            "quantity": 1,
+            "average-open-price": "1.0",
+            "close-price": "0.0",
+            "cost-effect": "Credit",
+            "is-frozen": false,
+            "is-suppressed": false,
+            "multiplier": 1,
+            "quantity-direction": "Long",
+            "restricted-quantity": 0,
+            "realized-day-gain": "0.0",
+            "realized-today": "0.0",
+            "created-at": "2025-05-28T13:38:50.850+00:00",
+            "updated-at": "2025-05-28T13:38:50.850+00:00"
+          },
+          {
+            "account-number": "5WI28167",
+            "average-daily-market-close-price": "49.39",
+            "average-open-price": "52.73",
+            "average-yearly-market-close-price": "52.73",
+            "close-price": "49.39",
+            "cost-effect": "Credit",
+            "created-at": "2026-01-23T10:30:25.032+00:00",
+            "instrument-type": "Equity",
+            "is-frozen": false,
+            "is-suppressed": false,
+            "multiplier": "1.0",
+            "quantity": 742,
+            "quantity-direction": "Long",
+            "realized-day-gain": "0.0",
+            "realized-day-gain-date": "2026-01-23",
+            "realized-day-gain-effect": "None",
+            "realized-today": "0.0",
+            "realized-today-date": "2026-01-23",
+            "realized-today-effect": "None",
+            "restricted-quantity": 0,
+            "symbol": "TQQQ",
+            "underlying-symbol": "TQQQ",
+            "updated-at": "2026-01-23T10:30:26.593+00:00"
+          }
         ]
     },
     "context": "/accounts/5WT00000/positions"

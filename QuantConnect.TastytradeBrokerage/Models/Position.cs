@@ -82,7 +82,7 @@ public class Position
     /// Indicates the notional multiplier of the position based on what is delivered if the position gets exercised/assigned.
     /// </summary>
     /// <example>equity options usually have a multiplier of `100`, meaning the option contract delivers 100 shares upon exercise.</example>
-    public int Multiplier { get; set; }
+    public decimal Multiplier { get; set; }
 
     /// <summary>
     /// A tastytrade-specific value to categorize the cost of the position.
