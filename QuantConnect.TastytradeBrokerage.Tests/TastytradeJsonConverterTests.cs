@@ -1037,14 +1037,11 @@ public class TastytradeJsonConverterTests
     ""success"": true
 }";
 
-        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<LeanAccessTokenMetaDataResponse>();
+        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<AccessTokenMetaDataResponse>();
 
         Assert.IsNotNull(leanAccessTokenResponse);
         Assert.AreEqual("zxcvb123", leanAccessTokenResponse.AccessToken);
         Assert.AreEqual(TokenType.Bearer, leanAccessTokenResponse.TokenType);
-
-        var expectedDateTime = DateTime.UtcNow.AddSeconds(900).AddSeconds(-70); //  The 70 second buffer to test time expiration
-        Assert.Less(expectedDateTime, leanAccessTokenResponse.Expiration);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

@@ -201,8 +201,8 @@ public partial class TastytradeBrokerage : Brokerage
         if (!string.IsNullOrEmpty(refreshToken))
         {
             Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
-            _tastytradeApiClient = new(baseUrl, Name, accountNumber, refreshToken, _leanApiClient,
-                (apiClient, request) => CreateOAuthTokenHandler(apiClient, request, TimeSpan.FromMinutes(15)));
+            var oAuthTokenHandler = CreateOAuthTokenHandler(_leanApiClient, new(Name, accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
+            _tastytradeApiClient = new(baseUrl, oAuthTokenHandler, accountNumber);
         }
         else
         {
