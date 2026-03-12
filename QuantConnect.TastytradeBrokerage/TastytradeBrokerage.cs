@@ -202,7 +202,7 @@ public partial class TastytradeBrokerage : Brokerage
         {
             Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
             _tastytradeApiClient = new(baseUrl, Name, accountNumber, refreshToken, _leanApiClient,
-                (apiClient, request) => CreateOAuthTokenHandler(apiClient, request));
+                (apiClient, request) => CreateOAuthTokenHandler(apiClient, request, TimeSpan.FromMinutes(15)));
         }
         else
         {
