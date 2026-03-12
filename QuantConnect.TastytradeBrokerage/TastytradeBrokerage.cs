@@ -34,6 +34,7 @@ using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Orders;
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.LevelOneOrderBook;
 using System.Net.Http;
 
@@ -200,7 +201,8 @@ public partial class TastytradeBrokerage : Brokerage
         if (!string.IsNullOrEmpty(refreshToken))
         {
             Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
-            _tastytradeApiClient = new(baseUrl, Name, accountNumber, refreshToken, _leanApiClient);
+            _tastytradeApiClient = new(baseUrl, Name, accountNumber, refreshToken, _leanApiClient,
+                (apiClient, request) => CreateOAuthTokenHandler(apiClient, request));
         }
         else
         {

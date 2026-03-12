@@ -14,6 +14,7 @@
 */
 
 using System;
+using System;
 using System.Web;
 using System.Text;
 using System.Net.Http;
@@ -61,8 +62,16 @@ public sealed class TastytradeApiClient
     /// <param name="accountNumber">The account number linked to the request.</param>
     /// <param name="refreshToken">The refresh token used to obtain a new access token.</param>
     /// <param name="leanApiClient">The Lean API client instance.</param>
-    public TastytradeApiClient(string baseUrl, string brokerageName, string accountNumber, string refreshToken, ApiConnection leanApiClient)
-        : this(baseUrl, new OAuthTokenHandler<LeanAccessTokenMetaDataRequest, LeanAccessTokenMetaDataResponse>(leanApiClient, new(brokerageName, refreshToken, accountNumber)), accountNumber)
+    /// <param name="tokenHandlerFactory">
+    /// A factory used to create the <see cref="OAuthTokenHandler"/>.
+    /// Pass <c>CreateOAuthTokenHandler</c> from a <see cref="Brokerage"/> subclass to automatically
+    /// wire the handler for graceful Lean shutdown on authentication failure.
+    /// </param>
+    public TastytradeApiClient(string baseUrl, string brokerageName, string accountNumber, string refreshToken, ApiConnection leanApiClient,
+        Func<ApiConnection, LeanAccessTokenMetaDataRequest, OAuthTokenHandler> tokenHandlerFactory)
+        : this(baseUrl,
+            tokenHandlerFactory(leanApiClient, new LeanAccessTokenMetaDataRequest(brokerageName, accountNumber, refreshToken: refreshToken)),
+            accountNumber)
     {
     }
 
