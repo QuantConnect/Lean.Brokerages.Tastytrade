@@ -52,7 +52,7 @@ public sealed class TastytradeApiClient
     /// <summary>
     /// Provides access tokens for authenticating API requests.
     /// </summary>
-    public readonly TokenHandler TokenProvider;
+    public readonly LeanTokenHandler<LeanTokenCredentials> TokenProvider;
 
     /// <summary>
     /// <summary>
@@ -73,7 +73,7 @@ public sealed class TastytradeApiClient
     /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
     /// <param name="tokenHandler">The token handler used to authenticate API requests.</param>
     /// <param name="accountNumber">The account number associated with the Tastytrade account.</param>
-    public TastytradeApiClient(string baseUrl, TokenHandler tokenHandler, string accountNumber)
+    public TastytradeApiClient(string baseUrl, LeanTokenHandler<LeanTokenCredentials> tokenHandler, string accountNumber)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _httpClient = new HttpClient(tokenHandler);

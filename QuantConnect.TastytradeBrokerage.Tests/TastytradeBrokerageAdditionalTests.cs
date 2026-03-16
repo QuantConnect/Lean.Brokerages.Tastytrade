@@ -150,7 +150,7 @@ public class TastytradeBrokerageAdditionalTests
             throw new ArgumentException("Invalid api user id or token, cannot authenticate subscription.");
         }
 
-        var oAuthTokenHandler = new OAuthTokenHandler(leanApiClient, new("Tastytrade", accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
+        var oAuthTokenHandler = new LeanOAuthTokenHandler(leanApiClient, new("Tastytrade", accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
         var leanTokenHandler = new TastytradeApiClient(baseUrl, oAuthTokenHandler, accountNumber);
 
         var tokenCredentials = leanTokenHandler.TokenProvider.GetAccessToken(CancellationToken.None);

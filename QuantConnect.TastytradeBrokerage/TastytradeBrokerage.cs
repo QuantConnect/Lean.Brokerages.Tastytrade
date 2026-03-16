@@ -201,7 +201,8 @@ public partial class TastytradeBrokerage : Brokerage
         if (!string.IsNullOrEmpty(refreshToken))
         {
             Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
-            var oAuthTokenHandler = CreateOAuthTokenHandler(_leanApiClient, new(Name, accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
+            // the token lifetime is 15 minutes docs: https://developer.tastytrade.com/oauth/
+            var oAuthTokenHandler = CreateOAuthTokenHandler<LeanTokenCredentials>(_leanApiClient, new(Name, accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
             _tastytradeApiClient = new(baseUrl, oAuthTokenHandler, accountNumber);
         }
         else

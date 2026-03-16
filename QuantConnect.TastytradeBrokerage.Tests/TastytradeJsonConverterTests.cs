@@ -1021,9 +1021,9 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeLeanAccessTokenMetaDataRequest()
     {
-        var leanAccessTokenJson = new LeanAccessTokenMetaDataRequest("Tastytrade", "zxcvb123", "7DZ64577").ToJson();
+        var leanAccessTokenJson = new OAuthTokenRequest("Tastytrade", "7DZ64577", refreshToken: "zxcvb123").ToJson();
 
-        Assert.AreEqual("{\"refreshToken\":\"zxcvb123\",\"brokerage\":\"tastytrade\",\"accountId\":\"7DZ64577\"}", leanAccessTokenJson);
+        Assert.AreEqual("{\"brokerage\":\"tastytrade\",\"accountId\":\"7DZ64577\",\"refreshToken\":\"zxcvb123\"}", leanAccessTokenJson);
     }
 
     [Test]

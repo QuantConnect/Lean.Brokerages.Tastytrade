@@ -27,7 +27,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Api;
 /// <summary>
 /// Handles automatic session token management for HTTP requests, including creation, refreshing, and disposal of sessions.
 /// </summary>
-public sealed class SessionTokenHandler : TokenHandler
+public sealed class SessionTokenHandler : LeanTokenHandler<LeanTokenCredentials>
 {
     /// <summary>
     /// Full URL used for session-related API requests (e.g., "https://tasty.com/sessions").
@@ -83,7 +83,7 @@ public sealed class SessionTokenHandler : TokenHandler
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A valid session token string.</returns>
-    public override TokenCredentials GetAccessToken(CancellationToken cancellationToken)
+    public override LeanTokenCredentials GetAccessToken(CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_sessionToken))
         {
