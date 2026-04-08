@@ -1021,9 +1021,9 @@ public class TastytradeJsonConverterTests
     [Test]
     public void SerializeLeanAccessTokenMetaDataRequest()
     {
-        var leanAccessTokenJson = new LeanAccessTokenMetaDataRequest("Tastytrade", "zxcvb123", "7DZ64577").ToJson();
+        var leanAccessTokenJson = new OAuthTokenRequest("Tastytrade", "7DZ64577", refreshToken: "zxcvb123").ToJson();
 
-        Assert.AreEqual("{\"refreshToken\":\"zxcvb123\",\"brokerage\":\"tastytrade\",\"accountId\":\"7DZ64577\"}", leanAccessTokenJson);
+        Assert.AreEqual("{\"brokerage\":\"tastytrade\",\"accountId\":\"7DZ64577\",\"refreshToken\":\"zxcvb123\"}", leanAccessTokenJson);
     }
 
     [Test]
@@ -1037,14 +1037,11 @@ public class TastytradeJsonConverterTests
     ""success"": true
 }";
 
-        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<LeanAccessTokenMetaDataResponse>();
+        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<LeanTokenCredentials>();
 
         Assert.IsNotNull(leanAccessTokenResponse);
         Assert.AreEqual("zxcvb123", leanAccessTokenResponse.AccessToken);
         Assert.AreEqual(TokenType.Bearer, leanAccessTokenResponse.TokenType);
-
-        var expectedDateTime = DateTime.UtcNow.AddSeconds(900).AddSeconds(-70); //  The 70 second buffer to test time expiration
-        Assert.Less(expectedDateTime, leanAccessTokenResponse.Expiration);
     }
 
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)

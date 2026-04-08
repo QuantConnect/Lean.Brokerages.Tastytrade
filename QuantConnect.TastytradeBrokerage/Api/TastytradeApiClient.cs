@@ -14,6 +14,7 @@
 */
 
 using System;
+using System;
 using System.Web;
 using System.Text;
 using System.Net.Http;
@@ -51,20 +52,7 @@ public sealed class TastytradeApiClient
     /// <summary>
     /// Provides access tokens for authenticating API requests.
     /// </summary>
-    public readonly TokenHandler TokenProvider;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TastytradeApiClient"/> class using Lean token-based authentication.
-    /// </summary>
-    /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
-    /// <param name="brokerageName">The name of the brokerage associated with the token.</param>
-    /// <param name="accountNumber">The account number linked to the request.</param>
-    /// <param name="refreshToken">The refresh token used to obtain a new access token.</param>
-    /// <param name="leanApiClient">The Lean API client instance.</param>
-    public TastytradeApiClient(string baseUrl, string brokerageName, string accountNumber, string refreshToken, ApiConnection leanApiClient)
-        : this(baseUrl, new OAuthTokenHandler<LeanAccessTokenMetaDataRequest, LeanAccessTokenMetaDataResponse>(leanApiClient, new(brokerageName, refreshToken, accountNumber)), accountNumber)
-    {
-    }
+    public readonly LeanTokenHandler<LeanTokenCredentials> TokenProvider;
 
     /// <summary>
     /// <summary>
@@ -85,7 +73,7 @@ public sealed class TastytradeApiClient
     /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
     /// <param name="tokenHandler">The token handler used to authenticate API requests.</param>
     /// <param name="accountNumber">The account number associated with the Tastytrade account.</param>
-    private TastytradeApiClient(string baseUrl, TokenHandler tokenHandler, string accountNumber)
+    public TastytradeApiClient(string baseUrl, LeanTokenHandler<LeanTokenCredentials> tokenHandler, string accountNumber)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _httpClient = new HttpClient(tokenHandler);
