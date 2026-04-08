@@ -1037,7 +1037,7 @@ public class TastytradeJsonConverterTests
     ""success"": true
 }";
 
-        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<AccessTokenMetaDataResponse>();
+        var leanAccessTokenResponse = jsonContent.DeserializeCamelCase<LeanTokenCredentials>();
 
         Assert.IsNotNull(leanAccessTokenResponse);
         Assert.AreEqual("zxcvb123", leanAccessTokenResponse.AccessToken);
