@@ -43,7 +43,7 @@ public partial class TastytradeBrokerage
     /// <summary>
     /// Represents a type capable of fetching the holdings for the specified symbol
     /// </summary>
-    private ISecurityProvider _securityProvider;
+    protected ISecurityProvider _securityProvider;
 
     /// <summary>
     /// Symbols that Tastytrade doesn't support ("No security definition has been found for the request")
@@ -814,11 +814,17 @@ public partial class TastytradeBrokerage
     /// <summary>
     /// Resolves the appropriate <see cref="OrderAction"/> based on security type and calculated <see cref="OrderPosition"/>.
     /// </summary>
-    /// <param name="securityType">The type of security (e.g., Equity, Option, Crypto).</param>
+    /// <remarks>
+    /// Per Tastytrade's order-submission docs, <see cref="OrderAction.Buy"/> / <see cref="OrderAction.Sell"/>
+    /// "only apply to single leg outright futures trades"; every other supported asset class must use the
+    /// 4-action opening/closing form (<see cref="OrderAction.BuyToOpen"/>, etc.).
+    /// </remarks>
+    /// <param name="securityType">The type of security (e.g., Equity, Option, Future, FutureOption).</param>
     /// <param name="orderPosition">The logical order position (e.g., BuyToOpen, SellToClose).</param>
     /// <returns>The resolved <see cref="OrderAction"/> matching the security and order context.</returns>
     /// <exception cref="NotSupportedException">
-    /// Thrown if the <paramref name="orderPosition"/> is not valid for the specified <paramref name="securityType"/>.
+    /// Thrown if <paramref name="securityType"/> is not supported by the brokerage, or if
+    /// <paramref name="orderPosition"/> is not valid for the specified security type.
     /// </exception>
     private static OrderAction ResolveOrderAction(SecurityType securityType, OrderPosition orderPosition)
     {
@@ -827,6 +833,7 @@ public partial class TastytradeBrokerage
             case SecurityType.Equity:
             case SecurityType.Option:
             case SecurityType.IndexOption:
+            case SecurityType.FutureOption:
                 return orderPosition switch
                 {
                     OrderPosition.BuyToOpen => OrderAction.BuyToOpen,
@@ -835,13 +842,15 @@ public partial class TastytradeBrokerage
                     OrderPosition.SellToClose => OrderAction.SellToClose,
                     _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order position '{orderPosition}' is not supported.")
                 };
-            default:
+            case SecurityType.Future:
                 return orderPosition switch
                 {
-                    OrderPosition.BuyToOpen or OrderPosition.SellToClose => OrderAction.Buy,
-                    OrderPosition.BuyToClose or OrderPosition.SellToOpen => OrderAction.Sell,
-                    _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order direction '{orderPosition}' is not supported.")
+                    OrderPosition.BuyToOpen or OrderPosition.BuyToClose => OrderAction.Buy,
+                    OrderPosition.SellToOpen or OrderPosition.SellToClose => OrderAction.Sell,
+                    _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order position '{orderPosition}' is not supported.")
                 };
+            default:
+                throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: Security type '{securityType}' is not supported.");
         }
     }
 
@@ -880,7 +889,7 @@ public partial class TastytradeBrokerage
     /// <returns>
     /// A list of <see cref="LegAttributes"/> representing each order with brokerage-specific details.
     /// </returns>
-    private List<LegAttributes> CreateLegs(in List<LeanOrder> orders)
+    internal List<LegAttributes> CreateLegs(in List<LeanOrder> orders)
     {
         var legs = new List<LegAttributes>(orders.Count);
         foreach (var order in orders)
