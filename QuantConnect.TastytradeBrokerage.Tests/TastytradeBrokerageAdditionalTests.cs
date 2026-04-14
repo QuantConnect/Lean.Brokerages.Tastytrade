@@ -199,6 +199,31 @@ public class TastytradeBrokerageAdditionalTests
         Assert.AreEqual(2m, legs[0].Quantity);
     }
 
+    /// <summary>
+    /// Future options must use the Tastytrade 4-action form (BuyToOpen/SellToOpen/BuyToClose/SellToClose),
+    /// not the short Buy/Sell outright form: per the Tastytrade docs, the short form
+    /// "only applies to single leg outright futures trades." Closing a short FutureOption
+    /// position with a Buy market order must emit <see cref="OrderAction.BuyToClose"/>.
+    /// </summary>
+    [Test]
+    public void CreateLegsForFlatteningShortFutureOptionUsesBuyToCloseAction()
+    {
+        var sp500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2026, 06, 19));
+        var sp500EMiniCall = Symbol.CreateOption(sp500EMini, sp500EMini.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 6200m, new DateTime(2026, 06, 19));
+
+        var securityProvider = new SecurityProvider([], BrokerageName.Tastytrade, new());
+        securityProvider.GetSecurity(sp500EMiniCall).Holdings.SetHoldings(averagePrice: 50m, quantity: -1m);
+
+        using var brokerage = new TestTastytradeBrokerage(securityProvider);
+
+        var buyToClose = new MarketOrder(sp500EMiniCall, 1m, DateTime.UtcNow, tag: "FOP flatten");
+        var legs = brokerage.CreateLegs(new List<Order> { buyToClose });
+
+        Assert.AreEqual(1, legs.Count);
+        Assert.AreEqual(OrderAction.BuyToClose, legs[0].Action);
+        Assert.AreEqual(1m, legs[0].Quantity);
+    }
+
     private static IEnumerable<TestCaseData> LegTestData
     {
         get
