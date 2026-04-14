@@ -19,12 +19,15 @@ using QuantConnect.Api;
 using System.Threading;
 using QuantConnect.Util;
 using QuantConnect.Orders;
+using QuantConnect.Securities;
 using QuantConnect.Interfaces;
 using QuantConnect.Configuration;
 using System.Collections.Generic;
+using QuantConnect.Tests.Brokerages;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Authentication;
 using Leg = QuantConnect.Brokerages.Tastytrade.Models.Orders.Leg;
+using OrderAction = QuantConnect.Brokerages.Tastytrade.Models.Enum.OrderAction;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -170,6 +173,30 @@ public class TastytradeBrokerageAdditionalTests
     {
         var actualSymbolPeriodType = resolution.GetSymbolWithPeriodPostfix(brokerageSymbol);
         Assert.AreEqual(expectedSymbolPeriodType, actualSymbolPeriodType);
+    }
+
+    /// <summary>
+    /// Reproduces the reported futures liquidation bug (short ES, flatten by Buy) as a pure unit test:
+    /// builds the outgoing leg the plugin would send to Tastytrade for a Buy market order issued while
+    /// holding a short futures position, and asserts the leg action is <see cref="OrderAction.Buy"/>.
+    /// Before the fix the plugin produced <see cref="OrderAction.Sell"/> — doubling the short.
+    /// </summary>
+    [Test]
+    public void CreateLegsForFlatteningShortFutureUsesBuyAction()
+    {
+        var sp500EMini = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2026, 06, 19));
+
+        var securityProvider = new SecurityProvider([], BrokerageName.Tastytrade, new());
+        securityProvider.GetSecurity(sp500EMini).Holdings.SetHoldings(averagePrice: 6606.75m, quantity: -2m);
+
+        using var brokerage = new TestTastytradeBrokerage(securityProvider);
+
+        var buyToFlatten = new MarketOrder(sp500EMini, 2m, DateTime.UtcNow, tag: "ES EOD flatten");
+        var legs = brokerage.CreateLegs(new List<Order> { buyToFlatten });
+
+        Assert.AreEqual(1, legs.Count);
+        Assert.AreEqual(OrderAction.Buy, legs[0].Action);
+        Assert.AreEqual(2m, legs[0].Quantity);
     }
 
     private static IEnumerable<TestCaseData> LegTestData
@@ -493,6 +520,20 @@ new ExpectedResult[3][]
     public record ExpectedResult(decimal FilledQuantity, OrderStatus OrderStatus);
 
     public record ActualLeg(bool IsInvokeEvent, int ExpectedCacheCount, Leg Legs);
+
+    /// <summary>
+    /// Test-only <see cref="TastytradeBrokerage"/> subclass that injects a user-supplied
+    /// <see cref="ISecurityProvider"/> and a symbol mapper without requiring any network
+    /// authentication, so unit tests can exercise order-leg construction directly.
+    /// </summary>
+    private sealed class TestTastytradeBrokerage : TastytradeBrokerage
+    {
+        public TestTastytradeBrokerage(ISecurityProvider securityProvider)
+        {
+            _securityProvider = securityProvider;
+            _symbolMapper = new TastytradeBrokerageSymbolMapper(null);
+        }
+    }
 
     [Test, TestCaseSource(nameof(LegTestData))]
     public void HandleFilledEvent(ActualLeg[] legs, ExpectedResult[][] expectedResults)

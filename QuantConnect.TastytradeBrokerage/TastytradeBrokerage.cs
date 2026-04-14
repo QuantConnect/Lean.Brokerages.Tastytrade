@@ -74,7 +74,7 @@ public partial class TastytradeBrokerage : Brokerage
     /// <summary>
     /// Provides the mapping between Lean symbols and brokerage specific symbols.
     /// </summary>
-    private protected TastytradeBrokerageSymbolMapper _symbolMapper;
+    protected TastytradeBrokerageSymbolMapper _symbolMapper;
 
     /// <summary>
     /// Represents the Lean API connection.

@@ -43,7 +43,7 @@ public partial class TastytradeBrokerage
     /// <summary>
     /// Represents a type capable of fetching the holdings for the specified symbol
     /// </summary>
-    private ISecurityProvider _securityProvider;
+    protected ISecurityProvider _securityProvider;
 
     /// <summary>
     /// Symbols that Tastytrade doesn't support ("No security definition has been found for the request")
@@ -838,8 +838,8 @@ public partial class TastytradeBrokerage
             default:
                 return orderPosition switch
                 {
-                    OrderPosition.BuyToOpen or OrderPosition.SellToClose => OrderAction.Buy,
-                    OrderPosition.BuyToClose or OrderPosition.SellToOpen => OrderAction.Sell,
+                    OrderPosition.BuyToOpen or OrderPosition.BuyToClose => OrderAction.Buy,
+                    OrderPosition.SellToOpen or OrderPosition.SellToClose => OrderAction.Sell,
                     _ => throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(ResolveOrderAction)}: The specified order direction '{orderPosition}' is not supported.")
                 };
         }
@@ -880,7 +880,7 @@ public partial class TastytradeBrokerage
     /// <returns>
     /// A list of <see cref="LegAttributes"/> representing each order with brokerage-specific details.
     /// </returns>
-    private List<LegAttributes> CreateLegs(in List<LeanOrder> orders)
+    internal List<LegAttributes> CreateLegs(in List<LeanOrder> orders)
     {
         var legs = new List<LegAttributes>(orders.Count);
         foreach (var order in orders)
