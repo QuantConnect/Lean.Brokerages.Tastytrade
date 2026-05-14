@@ -94,6 +94,12 @@ public partial class TastytradeBrokerage : Brokerage
         && _clientWrapperByWebSocketType[WebSocketType.MarketData]?.IsOpen == true;
 
     /// <summary>
+    /// Indicates whether the brokerage supports concurrent processing of incoming messages,
+    /// allowing reads to occur in parallel with writes guarded by <see cref="BrokerageConcurrentMessageHandler{T}.WithLockedStream"/>.
+    /// </summary>
+    public override bool ConcurrencyEnabled => true;
+
+    /// <summary>
     /// Parameterless constructor for brokerage.
     /// </summary>
     /// <remarks>
@@ -234,7 +240,7 @@ public partial class TastytradeBrokerage : Brokerage
         }
         _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler, OnMessage);
 
-        _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler);
+        _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler, ConcurrencyEnabled);
     }
 
     /// <summary>
