@@ -118,8 +118,8 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     }
 
     /// <summary>
-    /// Sends a feed request over the market data WebSocket, tolerating a closed or
-    /// faulted connection.
+    /// Sends a feed request over the market data WebSocket, skipping the send
+    /// while the connection is closed.
     /// </summary>
     /// <remarks>
     /// Subscription state is tracked locally (see <see cref="LevelOneServiceManager"/>)
@@ -143,25 +143,16 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// </remarks>
     /// <param name="request">The serialized feed request to send.</param>
     /// <param name="operation">The calling operation name, for logging.</param>
-    /// <returns>Always <c>true</c>; delivery failures are logged and healed on reconnect.</returns>
+    /// <returns>Always <c>true</c>; skipped requests are re-sent on reconnect.</returns>
     private bool TrySendMarketDataRequest(string request, string operation)
     {
         var webSocket = _clientWrapperByWebSocketType[WebSocketType.MarketData];
-        try
+        if (webSocket?.IsOpen != true)
         {
-            if (webSocket?.IsOpen != true)
-            {
-                Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(TrySendMarketDataRequest)}.{operation}: market data WebSocket is not connected; skipping send. Subscriptions will be re-synchronized on reconnect.");
-                return true;
-            }
-
-            webSocket.Send(request);
+            Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(TrySendMarketDataRequest)}.{operation}: market data WebSocket is not connected; skipping send. Subscriptions will be re-synchronized on reconnect.");
+            return true;
         }
-        catch (Exception ex)
-        {
-            Log.Error($"{nameof(TastytradeBrokerage)}.{nameof(TrySendMarketDataRequest)}.{operation}: failed to send request; subscriptions will be re-synchronized on reconnect. Error: {ex.Message}");
-        }
-
+        webSocket.Send(request);
         return true;
     }
 
