@@ -16,8 +16,10 @@
 using System;
 using QuantConnect.Data;
 using QuantConnect.Packets;
+using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using System.Collections.Generic;
+using QuantConnect.Brokerages.LevelOneOrderBook;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
 
@@ -101,8 +103,8 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
     private bool Subscribe(IEnumerable<Symbol> symbols)
     {
-        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedSubscription(symbols, _symbolMapper).ToJson());
-        return true;
+        var request = new FeedSubscription(symbols, _symbolMapper).ToJson();
+        return TrySendMarketDataRequest(request, nameof(Subscribe));
     }
 
     /// <summary>
@@ -111,7 +113,46 @@ public partial class TastytradeBrokerage : IDataQueueHandler
     /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
     private bool Unsubscribe(IEnumerable<Symbol> symbols)
     {
-        _clientWrapperByWebSocketType[WebSocketType.MarketData].Send(new FeedUnSubscription(symbols, _symbolMapper).ToJson());
+        var request = new FeedUnSubscription(symbols, _symbolMapper).ToJson();
+        return TrySendMarketDataRequest(request, nameof(Unsubscribe));
+    }
+
+    /// <summary>
+    /// Sends a feed request over the market data WebSocket, skipping the send
+    /// while the connection is closed.
+    /// </summary>
+    /// <remarks>
+    /// Subscription state is tracked locally (see <see cref="LevelOneServiceManager"/>)
+    /// and re-synchronized with the broker on every (re)connect by
+    /// <see cref="OnReSubscriptionProcess"/>, so a request that cannot be delivered
+    /// while the connection is down is safe to skip: the broker-side feed state died
+    /// with the connection, and the next successful connect rebuilds it from the local
+    /// tracking. For the same reason this method reports success to its callers —
+    /// returning <c>false</c> from the subscribe path would drop the symbol from
+    /// <see cref="DataQueueHandlerSubscriptionManager"/> tracking and permanently
+    /// exclude it from re-subscription.
+    ///
+    /// Without this guard, sending on a socket closed by the broker (e.g. Tastytrade's
+    /// nightly maintenance window) throws from the subscription callbacks and
+    /// propagates through <see cref="DataQueueHandlerSubscriptionManager"/> into the
+    /// engine's live data feed, terminating the algorithm. Observed in live trading on
+    /// both paths: 'The remote party closed the WebSocket connection without completing
+    /// the close handshake' via <c>LevelOneServiceManager.UnsubscribeCallbackWrapper</c>
+    /// during universe churn, and via <c>DataQueueHandlerManager.Subscribe</c> on the
+    /// next trading day's subscriptions.
+    /// </remarks>
+    /// <param name="request">The serialized feed request to send.</param>
+    /// <param name="operation">The calling operation name, for logging.</param>
+    /// <returns>Always <c>true</c>; skipped requests are re-sent on reconnect.</returns>
+    private bool TrySendMarketDataRequest(string request, string operation)
+    {
+        var webSocket = _clientWrapperByWebSocketType[WebSocketType.MarketData];
+        if (webSocket?.IsOpen != true)
+        {
+            Log.Trace($"{nameof(TastytradeBrokerage)}.{nameof(TrySendMarketDataRequest)}.{operation}: market data WebSocket is not connected; skipping send. Subscriptions will be re-synchronized on reconnect.");
+            return true;
+        }
+        webSocket.Send(request);
         return true;
     }
 

@@ -50,6 +50,32 @@ public class TastytradeBrokerageAdditionalTests
         Assert.IsInstanceOf<TastytradeBrokerage>(brokerage);
     }
 
+    /// <summary>
+    /// Reproduces the live outage where a subscription request coincided with the broker
+    /// closing the market data WebSocket (e.g. Tastytrade's nightly maintenance window):
+    /// the subscribe/unsubscribe feed requests were sent on a dead socket, threw, and the
+    /// exception propagated through <see cref="Data.DataQueueHandlerSubscriptionManager"/>
+    /// into the engine's live data feed, terminating the algorithm. Subscription requests
+    /// must tolerate an unavailable connection — subscription state is tracked locally and
+    /// re-synchronized with the broker on every (re)connect.
+    /// </summary>
+    [Test]
+    public void SubscribeAndUnsubscribeDoNotThrowWhileMarketDataSocketIsNotConnected()
+    {
+        using var brokerage = TestSetup.CreateBrokerage(null, null);
+        Assert.IsFalse(brokerage.IsConnected);
+
+        var config = new Data.SubscriptionDataConfig(typeof(Data.Market.TradeBar), global::QuantConnect.Tests.Symbols.AAPL,
+            Resolution.Minute, TimeZones.NewYork, TimeZones.NewYork, false, false, false);
+
+        IEnumerator<Data.BaseData> enumerator = null;
+        Assert.DoesNotThrow(() => enumerator = brokerage.Subscribe(config, (_, _) => { }));
+        Assert.IsNotNull(enumerator);
+        Assert.DoesNotThrow(() => brokerage.Unsubscribe(config));
+
+        enumerator.Dispose();
+    }
+
     [Test]
     public void GetAccountBalances()
     {
