@@ -41,5 +41,35 @@ public enum TimeInForce
     /// Order will work until filled or a given date. Orders must also include 'gtc-date' parameter for GTD orders.
     /// </summary>
     [EnumMember(Value = "GTD")]
-    GoodTilDate = 2
+    GoodTilDate = 2,
+
+    /// <summary>
+    /// Order will work during the extended trading hours session until filled or the session closes.
+    /// </summary>
+    [EnumMember(Value = "Ext")]
+    DayExtendedHours = 3,
+
+    /// <summary>
+    /// Order will work during the extended and overnight trading sessions until filled or the session closes.
+    /// </summary>
+    [EnumMember(Value = "Ext Overnight")]
+    DayExtendedHoursOvernight = 4,
+
+    /// <summary>
+    /// Order will work during extended trading hours until filled or the customer cancels.
+    /// </summary>
+    [EnumMember(Value = "GTC Ext")]
+    GoodTillCancelExtendedHours = 5,
+
+    /// <summary>
+    /// Order will work during the extended and overnight trading sessions until filled or the customer cancels.
+    /// </summary>
+    [EnumMember(Value = "GTC Ext Overnight")]
+    GoodTillCancelExtendedHoursOvernight = 6,
+
+    /// <summary>
+    /// Order will be filled immediately, in whole or in part, and any remaining quantity is cancelled.
+    /// </summary>
+    [EnumMember(Value = "IOC")]
+    ImmediateOrCancel = 7
 }

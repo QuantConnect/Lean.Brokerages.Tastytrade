@@ -1044,6 +1044,35 @@ public class TastytradeJsonConverterTests
         Assert.AreEqual(TokenType.Bearer, leanAccessTokenResponse.TokenType);
     }
 
+    [TestCase("Day", TimeInForce.Day)]
+    [TestCase("GTC", TimeInForce.GoodTillCancel)]
+    [TestCase("GTD", TimeInForce.GoodTilDate)]
+    [TestCase("Ext", TimeInForce.DayExtendedHours)]
+    [TestCase("Ext Overnight", TimeInForce.DayExtendedHoursOvernight)]
+    [TestCase("GTC Ext", TimeInForce.GoodTillCancelExtendedHours)]
+    [TestCase("GTC Ext Overnight", TimeInForce.GoodTillCancelExtendedHoursOvernight)]
+    [TestCase("IOC", TimeInForce.ImmediateOrCancel)]
+    public void DeserializeOrderWithVariousTimeInForce(string brokerageTimeInForce, TimeInForce expectedTimeInForce)
+    {
+        var jsonContent = $@"{{
+    ""id"": 503728284,
+    ""account-number"": ""5WY38570"",
+    ""time-in-force"": ""{brokerageTimeInForce}"",
+    ""order-type"": ""Limit"",
+    ""price"": ""4.0"",
+    ""price-effect"": ""Debit"",
+    ""status"": ""Live"",
+    ""underlying-symbol"": ""AAPL"",
+    ""received-at"": ""2026-09-09T12:52:55.000+00:00"",
+    ""legs"": []
+}}";
+
+        var order = jsonContent.DeserializeKebabCase<Order>();
+
+        Assert.AreEqual(expectedTimeInForce, order.TimeInForce);
+        Assert.AreEqual("503728284", order.Id);
+    }
+
     private static void AssertIsNotNullAndIsNotEmpty(params string[] expected)
     {
         foreach (var item in expected)
