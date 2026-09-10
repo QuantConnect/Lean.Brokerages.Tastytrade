@@ -114,14 +114,15 @@ public static class Extensions
     {
         switch (timeInForce)
         {
+            // Lean has no extended-hours time in force, so the sessions collapse to the closest Lean duration.
             case BrokerageTimeInForce.GoodTillCancel:
             case BrokerageTimeInForce.GoodTillCancelExtendedHours:
+            case BrokerageTimeInForce.GoodTillCancelExtendedHoursOvernight:
                 orderProperties.TimeInForce = Orders.TimeInForce.GoodTilCanceled;
                 return true;
-            // Lean has no extended-hours time in force, the session is the closest equivalent of a single day.
             case BrokerageTimeInForce.Day:
             case BrokerageTimeInForce.DayExtendedHours:
-            case BrokerageTimeInForce.OvernightExtendedHours:
+            case BrokerageTimeInForce.DayExtendedHoursOvernight:
                 orderProperties.TimeInForce = Orders.TimeInForce.Day;
                 return true;
             case BrokerageTimeInForce.GoodTilDate:

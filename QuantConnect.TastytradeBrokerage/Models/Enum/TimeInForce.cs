@@ -14,8 +14,8 @@
 */
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System.Runtime.Serialization;
-using QuantConnect.Brokerages.Tastytrade.Serialization;
 
 namespace QuantConnect.Brokerages.Tastytrade.Models.Enum;
 
@@ -23,15 +23,9 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Enum;
 /// Represents the duration of an order in the Tastytrade trading system.
 /// </summary>
 /// <remarks>Time in force means "How long do I want this order to live before it expires?"</remarks>
-[JsonConverter(typeof(TolerantStringEnumConverter))]
+[JsonConverter(typeof(StringEnumConverter))]
 public enum TimeInForce
 {
-    /// <summary>
-    /// A duration returned by the brokerage that this library does not support yet.
-    /// </summary>
-    /// <remarks>The unrecognized value is logged verbatim by <see cref="TolerantStringEnumConverter"/>.</remarks>
-    Unknown = -1,
-
     /// <summary>
     /// Order will work until filled or the market closes.
     /// </summary>
@@ -56,20 +50,26 @@ public enum TimeInForce
     DayExtendedHours = 3,
 
     /// <summary>
+    /// Order will work during the extended and overnight trading sessions until filled or the session closes.
+    /// </summary>
+    [EnumMember(Value = "Ext Overnight")]
+    DayExtendedHoursOvernight = 4,
+
+    /// <summary>
     /// Order will work during extended trading hours until filled or the customer cancels.
     /// </summary>
     [EnumMember(Value = "GTC Ext")]
-    GoodTillCancelExtendedHours = 4,
+    GoodTillCancelExtendedHours = 5,
 
     /// <summary>
-    /// Order will work during the overnight trading session until filled or the session closes.
+    /// Order will work during the extended and overnight trading sessions until filled or the customer cancels.
     /// </summary>
-    [EnumMember(Value = "Ext Overnight")]
-    OvernightExtendedHours = 5,
+    [EnumMember(Value = "GTC Ext Overnight")]
+    GoodTillCancelExtendedHoursOvernight = 6,
 
     /// <summary>
     /// Order will be filled immediately, in whole or in part, and any remaining quantity is cancelled.
     /// </summary>
     [EnumMember(Value = "IOC")]
-    ImmediateOrCancel = 6
+    ImmediateOrCancel = 7
 }
