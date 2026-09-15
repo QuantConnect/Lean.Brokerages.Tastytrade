@@ -43,15 +43,22 @@ public abstract class BaseWebSocketClientWrapper : WebSocketClientWrapper
     public readonly System.Threading.AutoResetEvent AuthenticatedResetEvent = new(false);
 
     /// <summary>
+    /// Occurs when the socket drops (<see cref="BrokerageMessageType.Disconnect"/>), with the reason.
+    /// </summary>
+    private event Action<object, BrokerageMessageType, string> ConnectionStatusChanged;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="BaseWebSocketClientWrapper"/> class,
-    /// configuring the API client and the keep-alive timer interval.
+    /// configuring the API client, the connection status handler and the keep-alive timer interval.
     /// </summary>
     /// <param name="tastytradeApiClient">The Tastytrade API client used for authentication and data requests.</param>
+    /// <param name="connectionStatusChangedHandler">The handler invoked when the socket drops.</param>
     /// <param name="keepAliveIntervalSeconds">The interval in seconds at which keep-alive messages will be sent. Default is 20 seconds.</param>
-    protected BaseWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, int keepAliveIntervalSeconds = 20)
+    protected BaseWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action<object, BrokerageMessageType, string> connectionStatusChangedHandler, int keepAliveIntervalSeconds = 20)
     {
         _tastyTradeApiClient = tastytradeApiClient;
         _keepAliveIntervalSeconds = keepAliveIntervalSeconds;
+        ConnectionStatusChanged += connectionStatusChangedHandler;
     }
 
     /// <summary>
@@ -83,6 +90,16 @@ public abstract class BaseWebSocketClientWrapper : WebSocketClientWrapper
     {
         CleanUpTimer();
         base.OnError(e);
+        OnDisconnected($"Connection with Tastytrade lost ({GetType().Name}). {e.Message}");
+    }
+
+    /// <summary>
+    /// Reports the dropped socket. Lean lets one Disconnect through per outage, so every reconnect attempt that fails may report.
+    /// </summary>
+    /// <param name="reason">Why the socket dropped.</param>
+    protected void OnDisconnected(string reason)
+    {
+        ConnectionStatusChanged?.Invoke(this, BrokerageMessageType.Disconnect, reason);
     }
 
     /// <summary>

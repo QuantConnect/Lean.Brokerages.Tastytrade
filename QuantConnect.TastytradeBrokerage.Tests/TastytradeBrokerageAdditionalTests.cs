@@ -98,7 +98,7 @@ public class TastytradeBrokerageAdditionalTests
             }
             // Log.Trace drops a line identical to the previous one; every idle KEEPALIVE line is identical.
             Log.Trace($"IdleSoak: received after {gap.TotalSeconds:F1}s: {((WebSocketClientWrapper.TextMessage)message.Data).Message}", overrideMessageFloodProtection: true);
-        }, _ => { });
+        }, _ => { }, (_, messageType, reason) => Log.Trace($"IdleSoak: {messageType}: {reason}"));
         webSocket.Open += (_, _) =>
         {
             var count = Interlocked.Increment(ref openCount);

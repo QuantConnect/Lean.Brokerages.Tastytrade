@@ -46,6 +46,11 @@ public partial class TastytradeBrokerage
     /// </summary>
     private LevelOneServiceManager _levelOneServiceManager;
 
+    /// <summary>
+    /// The sockets that reported a drop and have not reported themselves usable again yet.
+    /// </summary>
+    private readonly HashSet<object> _disconnectedWebSockets = new();
+
     private const int ConnectionTimeout = 30000;
 
     /// <summary>
@@ -87,6 +92,37 @@ public partial class TastytradeBrokerage
             if (webSocket?.IsOpen == true)
             {
                 webSocket.Close();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Says the brokerage is disconnected when a socket drops and connected again once every dropped socket is usable again.
+    /// Lean keeps one connection state per brokerage, so it lets one Disconnect and one Reconnect through per outage.
+    /// </summary>
+    /// <param name="sender">The socket that reported it.</param>
+    /// <param name="messageType"><see cref="BrokerageMessageType.Disconnect"/> or <see cref="BrokerageMessageType.Reconnect"/>.</param>
+    /// <param name="reason">What happened to the socket.</param>
+    protected void OnConnectionStatusChanged(object sender, BrokerageMessageType messageType, string reason)
+    {
+        lock (_disconnectedWebSockets)
+        {
+            switch (messageType)
+            {
+                case BrokerageMessageType.Disconnect:
+                    _disconnectedWebSockets.Add(sender);
+                    OnMessage(BrokerageMessageEvent.Disconnected(reason));
+                    break;
+                case BrokerageMessageType.Reconnect:
+                    _disconnectedWebSockets.Remove(sender);
+                    // A Reconnect while the other socket is still down would end Lean's disconnect timer early.
+                    if (_disconnectedWebSockets.Count == 0)
+                    {
+                        OnMessage(BrokerageMessageEvent.Reconnected(reason));
+                    }
+                    break;
+                default:
+                    throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(OnConnectionStatusChanged)}: Unsupported message type {messageType}.");
             }
         }
     }
@@ -134,8 +170,10 @@ public partial class TastytradeBrokerage
                         _clientWrapperByWebSocketType[WebSocketType.MarketData].AuthenticatedResetEvent.Set();
                     }
                     break;
-                case EventType.Setup:
                 case EventType.FeedConfig:
+                    OnConnectionStatusChanged(_clientWrapperByWebSocketType[WebSocketType.MarketData], BrokerageMessageType.Reconnect, "Market data connection with Tastytrade restored.");
+                    break;
+                case EventType.Setup:
                 case EventType.ChannelOpened:
                 case EventType.KeepAlive:
                     break;
@@ -184,6 +222,7 @@ public partial class TastytradeBrokerage
                             if (connectResponse.Status == Status.Ok)
                             {
                                 _clientWrapperByWebSocketType[WebSocketType.Account].AuthenticatedResetEvent.Set();
+                                OnConnectionStatusChanged(_clientWrapperByWebSocketType[WebSocketType.Account], BrokerageMessageType.Reconnect, "Account connection with Tastytrade restored.");
                             }
                             else
                             {

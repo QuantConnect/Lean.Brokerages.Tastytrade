@@ -38,8 +38,10 @@ public class AccountWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </summary>
     /// <param name="tastytradeApiClient">The API client used to obtain session tokens for authenticated communication.</param>
     /// <param name="accountUpdatesWsUrl"></param>
-    public AccountWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, string accountUpdatesWsUrl, EventHandler<WebSocketMessage> accountUpdateMessageHandler)
-        : base(tastytradeApiClient)
+    /// <param name="accountUpdateMessageHandler">The event handler for processing incoming account messages received from the WebSocket.</param>
+    /// <param name="connectionStatusChangedHandler">The handler invoked when the socket drops.</param>
+    public AccountWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, string accountUpdatesWsUrl, EventHandler<WebSocketMessage> accountUpdateMessageHandler, Action<object, BrokerageMessageType, string> connectionStatusChangedHandler)
+        : base(tastytradeApiClient, connectionStatusChangedHandler)
     {
         Initialize(accountUpdatesWsUrl);
         Open += SendConnectMessage;

@@ -72,8 +72,9 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="reSubscriptionHandler">An event handler for re-subscribing to data streams when needed.</param>
     /// <param name="marketDataMessageHandler">The event handler for processing incoming market data messages received from the WebSocket.</param>
     /// <param name="brokerageMessageEvent">A callback to report brokerage-level events, such as connection errors or data delay warnings.</param>
-    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler, Action<BrokerageMessageEvent> brokerageMessageEvent)
-        : base(tastytradeApiClient)
+    /// <param name="connectionStatusChangedHandler">The handler invoked when the socket drops or stays silent past the DxLink limit.</param>
+    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler, Action<BrokerageMessageEvent> brokerageMessageEvent, Action<object, BrokerageMessageType, string> connectionStatusChangedHandler)
+        : base(tastytradeApiClient, connectionStatusChangedHandler)
     {
         Open += SetupMarketDataConfiguration;
         Message += marketDataMessageHandler;
@@ -145,7 +146,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
         var silence = DateTime.UtcNow - _lastMessageReceivedUtc;
         if (silence > SilenceTimeout)
         {
-            Log.Error($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(SendMessageByTimerElapsed)}: no message received for {silence.TotalSeconds:F0}s. Reconnecting...");
+            OnDisconnected($"Market data connection with Tastytrade lost. No message received for {silence.TotalSeconds:F0}s.");
             Close();
             Connect();
             return;
