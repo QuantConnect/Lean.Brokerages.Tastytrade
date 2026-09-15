@@ -78,15 +78,11 @@ public class TastytradeBrokerageAdditionalTests
         enumerator.Dispose();
     }
 
-    /// <summary>
-    /// Live soak: holds an idle DxLink connection and logs every inbound message with the gap since the previous one.
-    /// The longest silence shows how often DxLink sends KEEPALIVE when idle (30s observed), which is what the
-    /// 60s silence limit in <see cref="MarketDataWebSocketClientWrapper"/> relies on.
-    /// </summary>
     [Test, Explicit("Requires valid Tastytrade credentials and holds a live DxLink connection idle for 5 minutes.")]
     public void MarketDataWebSocketWhenIdleForFiveMinutesStaysConnected()
     {
         // Arrange
+        using var connectionLost = new ManualResetEventSlim(false);
         var openCount = 0;
         var errorCount = 0;
         var lastMessageUtc = DateTime.UtcNow;
@@ -103,15 +99,28 @@ public class TastytradeBrokerageAdditionalTests
             // Log.Trace drops a line identical to the previous one; every idle KEEPALIVE line is identical.
             Log.Trace($"IdleSoak: received after {gap.TotalSeconds:F1}s: {((WebSocketClientWrapper.TextMessage)message.Data).Message}", overrideMessageFloodProtection: true);
         }, _ => { });
-        webSocket.Open += (_, _) => Log.Trace($"IdleSoak: open #{Interlocked.Increment(ref openCount)}");
-        webSocket.Error += (_, e) => Log.Trace($"IdleSoak: error #{Interlocked.Increment(ref errorCount)}: {e.Message}");
+        webSocket.Open += (_, _) =>
+        {
+            var count = Interlocked.Increment(ref openCount);
+            Log.Trace($"IdleSoak: open #{count}");
+            if (count > 1)
+            {
+                connectionLost.Set();
+            }
+        };
+        webSocket.Error += (_, e) =>
+        {
+            Log.Trace($"IdleSoak: error #{Interlocked.Increment(ref errorCount)}: {e.Message}");
+            connectionLost.Set();
+        };
         webSocket.Closed += (_, _) => Log.Trace("IdleSoak: closed");
 
         try
         {
             // Act
             webSocket.Connect();
-            Thread.Sleep(TimeSpan.FromMinutes(5));
+            // Returns early on an error or a second open; otherwise the full 5 minutes pass with the socket idle.
+            connectionLost.Wait(TimeSpan.FromMinutes(5));
 
             // Assert
             // The silence after the last message counts too; a server that goes quiet for good never produces another gap.
