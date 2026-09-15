@@ -244,7 +244,6 @@ public partial class TastytradeBrokerage : Brokerage
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler, ConcurrencyEnabled);
 
         DeploymentDetailsHelper.Add("tastytrade-account-number", accountNumber);
-        DeploymentDetailsHelper.Add("tastytrade-username", username);
     }
 
     /// <summary>
