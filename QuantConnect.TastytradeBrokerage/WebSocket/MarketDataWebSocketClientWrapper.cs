@@ -54,6 +54,17 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     private bool _delayedDataNotified;
 
     /// <summary>
+    /// UTC time of the last message received from DxLink. Reset on every open, before the handshake is sent.
+    /// </summary>
+    private DateTime _lastMessageReceivedUtc;
+
+    /// <summary>
+    /// The longest silence DxLink may keep before the connection is treated as lost.
+    /// It is the <see cref="SetupConnectionRequest.AcceptKeepaliveTimeout"/> the client promises in SETUP.
+    /// </summary>
+    private static readonly TimeSpan SilenceTimeout = TimeSpan.FromSeconds(new SetupConnectionRequest().AcceptKeepaliveTimeout);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MarketDataWebSocketClientWrapper"/> class.
     /// Automatically subscribes to notifications and initializes the WebSocket using a fresh token and DxLink URL.
     /// </summary>
@@ -105,7 +116,17 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     }
 
     /// <summary>
-    /// Handles the timer's elapsed event by sending a keep-alive message to maintain the WebSocket connection.
+    /// Event invocator for the <see cref="WebSocketClientWrapper.Message"/> event
+    /// </summary>
+    protected override void OnMessage(WebSocketMessage e)
+    {
+        _lastMessageReceivedUtc = DateTime.UtcNow;
+        base.OnMessage(e);
+    }
+
+    /// <summary>
+    /// Handles the timer's elapsed event: reconnects when DxLink stopped sending messages,
+    /// otherwise sends a keep-alive message to maintain the WebSocket connection.
     /// </summary>
     /// <param name="_">The source of the timer event.</param>
     /// <param name="__">The event data containing information about the timer interval.</param>
@@ -121,6 +142,17 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             return;
         }
 
+        var silence = DateTime.UtcNow - _lastMessageReceivedUtc;
+        if (silence > SilenceTimeout)
+        {
+            // The receive loop has no timeout, so this tick is the only place a silent socket is noticed.
+            // Close cancels the pending receive; Connect raises Open again, which replays the handshake and the re-subscription.
+            Log.Error($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(SendMessageByTimerElapsed)}: no message received for {silence.TotalSeconds:F0}s. Reconnecting...");
+            Close();
+            Connect();
+            return;
+        }
+
         Send(new KeepAliveRequest().ToJson());
     }
 
@@ -132,6 +164,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="e">The event data.</param>
     private void SetupMarketDataConfiguration(object sender, EventArgs e)
     {
+        _lastMessageReceivedUtc = DateTime.UtcNow;
         var token = GetApiQuoteTokenAndDxLinkUrl().Token;
 
         // 1. SETUP
