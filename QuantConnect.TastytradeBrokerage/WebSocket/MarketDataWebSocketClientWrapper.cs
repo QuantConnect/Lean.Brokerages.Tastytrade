@@ -54,6 +54,17 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     private bool _delayedDataNotified;
 
     /// <summary>
+    /// UTC time of the last message received from DxLink. Reset on every open, before the handshake is sent.
+    /// </summary>
+    private DateTime _lastMessageReceivedUtc;
+
+    /// <summary>
+    /// The longest silence DxLink may keep before the connection is treated as lost.
+    /// It is the <see cref="SetupConnectionRequest.AcceptKeepaliveTimeout"/> the client promises in SETUP.
+    /// </summary>
+    private static readonly TimeSpan SilenceTimeout = TimeSpan.FromSeconds(new SetupConnectionRequest().AcceptKeepaliveTimeout);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MarketDataWebSocketClientWrapper"/> class.
     /// Automatically subscribes to notifications and initializes the WebSocket using a fresh token and DxLink URL.
     /// </summary>
@@ -61,8 +72,9 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="reSubscriptionHandler">An event handler for re-subscribing to data streams when needed.</param>
     /// <param name="marketDataMessageHandler">The event handler for processing incoming market data messages received from the WebSocket.</param>
     /// <param name="brokerageMessageEvent">A callback to report brokerage-level events, such as connection errors or data delay warnings.</param>
-    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler, Action<BrokerageMessageEvent> brokerageMessageEvent)
-        : base(tastytradeApiClient)
+    /// <param name="connectionStatusChangedHandler">The handler invoked when the socket drops or stays silent past the DxLink limit.</param>
+    public MarketDataWebSocketClientWrapper(TastytradeApiClient tastytradeApiClient, Action reSubscriptionHandler, EventHandler<WebSocketMessage> marketDataMessageHandler, Action<BrokerageMessageEvent> brokerageMessageEvent, Action<object, BrokerageMessageType, string> connectionStatusChangedHandler)
+        : base(tastytradeApiClient, connectionStatusChangedHandler)
     {
         Open += SetupMarketDataConfiguration;
         Message += marketDataMessageHandler;
@@ -105,7 +117,17 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     }
 
     /// <summary>
-    /// Handles the timer's elapsed event by sending a keep-alive message to maintain the WebSocket connection.
+    /// Event invocator for the <see cref="WebSocketClientWrapper.Message"/> event
+    /// </summary>
+    protected override void OnMessage(WebSocketMessage e)
+    {
+        _lastMessageReceivedUtc = DateTime.UtcNow;
+        base.OnMessage(e);
+    }
+
+    /// <summary>
+    /// Handles the timer's elapsed event: reconnects when DxLink stopped sending messages,
+    /// otherwise sends a keep-alive message to maintain the WebSocket connection.
     /// </summary>
     /// <param name="_">The source of the timer event.</param>
     /// <param name="__">The event data containing information about the timer interval.</param>
@@ -121,6 +143,15 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             return;
         }
 
+        var silence = DateTime.UtcNow - _lastMessageReceivedUtc;
+        if (silence > SilenceTimeout)
+        {
+            OnDisconnected($"Market data connection with Tastytrade lost. No message received for {silence.TotalSeconds:F0}s.");
+            Close();
+            Connect();
+            return;
+        }
+
         Send(new KeepAliveRequest().ToJson());
     }
 
@@ -132,6 +163,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="e">The event data.</param>
     private void SetupMarketDataConfiguration(object sender, EventArgs e)
     {
+        _lastMessageReceivedUtc = DateTime.UtcNow;
         var token = GetApiQuoteTokenAndDxLinkUrl().Token;
 
         // 1. SETUP

@@ -24,7 +24,9 @@ using QuantConnect.Interfaces;
 using QuantConnect.Configuration;
 using System.Collections.Generic;
 using QuantConnect.Tests.Brokerages;
+using QuantConnect.Logging;
 using QuantConnect.Brokerages.Tastytrade.Api;
+using QuantConnect.Brokerages.Tastytrade.WebSocket;
 using QuantConnect.Brokerages.Authentication;
 using Leg = QuantConnect.Brokerages.Tastytrade.Models.Orders.Leg;
 using OrderAction = QuantConnect.Brokerages.Tastytrade.Models.Enum.OrderAction;
@@ -74,6 +76,69 @@ public class TastytradeBrokerageAdditionalTests
         Assert.DoesNotThrow(() => brokerage.Unsubscribe(config));
 
         enumerator.Dispose();
+    }
+
+    [Test, Explicit("Requires valid Tastytrade credentials and holds a live DxLink connection idle for 5 minutes.")]
+    public void MarketDataWebSocketWhenIdleForFiveMinutesStaysConnected()
+    {
+        // Arrange
+        using var connectionLost = new ManualResetEventSlim(false);
+        var openCount = 0;
+        var errorCount = 0;
+        var lastMessageUtc = DateTime.UtcNow;
+        var longestGap = TimeSpan.Zero;
+        var webSocket = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, () => Log.Trace("IdleSoak: re-subscription requested"), (_, message) =>
+        {
+            var now = DateTime.UtcNow;
+            var gap = now - lastMessageUtc;
+            lastMessageUtc = now;
+            if (gap > longestGap)
+            {
+                longestGap = gap;
+            }
+            // Log.Trace drops a line identical to the previous one; every idle KEEPALIVE line is identical.
+            Log.Trace($"IdleSoak: received after {gap.TotalSeconds:F1}s: {((WebSocketClientWrapper.TextMessage)message.Data).Message}", overrideMessageFloodProtection: true);
+        }, _ => { }, (_, messageType, reason) => Log.Trace($"IdleSoak: {messageType}: {reason}"));
+        webSocket.Open += (_, _) =>
+        {
+            var count = Interlocked.Increment(ref openCount);
+            Log.Trace($"IdleSoak: open #{count}");
+            if (count > 1)
+            {
+                connectionLost.Set();
+            }
+        };
+        webSocket.Error += (_, e) =>
+        {
+            Log.Trace($"IdleSoak: error #{Interlocked.Increment(ref errorCount)}: {e.Message}");
+            connectionLost.Set();
+        };
+        webSocket.Closed += (_, _) => Log.Trace("IdleSoak: closed");
+
+        try
+        {
+            // Act
+            webSocket.Connect();
+            // Returns early on an error or a second open; otherwise the full 5 minutes pass with the socket idle.
+            connectionLost.Wait(TimeSpan.FromMinutes(5));
+
+            // Assert
+            // The silence after the last message counts too; a server that goes quiet for good never produces another gap.
+            var trailingSilence = DateTime.UtcNow - lastMessageUtc;
+            if (trailingSilence > longestGap)
+            {
+                longestGap = trailingSilence;
+            }
+            Log.Trace($"IdleSoak: opens={openCount}, errors={errorCount}, longest silence={longestGap.TotalSeconds:F1}s, last message {trailingSilence.TotalSeconds:F1}s ago");
+            Assert.That(webSocket.IsOpen, Is.True);
+            Assert.That(openCount, Is.EqualTo(1), "The socket was opened again, so it was aborted at least once.");
+            Assert.That(errorCount, Is.Zero);
+            Assert.That(longestGap, Is.LessThan(TimeSpan.FromSeconds(60)), "DxLink stayed silent longer than the 60s the client promises in SETUP.");
+        }
+        finally
+        {
+            webSocket.Close();
+        }
     }
 
     [Test]
