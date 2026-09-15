@@ -25,6 +25,7 @@ using QuantConnect.Data;
 using QuantConnect.Logging;
 using Newtonsoft.Json.Linq;
 using QuantConnect.Interfaces;
+using QuantConnect.Lean.Engine.Results;
 using QuantConnect.Securities;
 using QuantConnect.Configuration;
 using System.Collections.Generic;
@@ -241,6 +242,8 @@ public partial class TastytradeBrokerage : Brokerage
         _clientWrapperByWebSocketType[WebSocketType.MarketData] = new MarketDataWebSocketClientWrapper(_tastytradeApiClient, OnReSubscriptionProcess, OnMarketDataMessageHandler, OnMessage);
 
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler, ConcurrencyEnabled);
+
+        DeploymentDetailsHelper.Add("tastytrade-account-number", accountNumber);
     }
 
     /// <summary>
