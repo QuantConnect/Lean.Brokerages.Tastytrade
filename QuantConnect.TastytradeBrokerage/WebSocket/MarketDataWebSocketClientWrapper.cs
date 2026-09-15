@@ -145,8 +145,6 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
         var silence = DateTime.UtcNow - _lastMessageReceivedUtc;
         if (silence > SilenceTimeout)
         {
-            // The receive loop has no timeout, so this tick is the only place a silent socket is noticed.
-            // Close cancels the pending receive; Connect raises Open again, which replays the handshake and the re-subscription.
             Log.Error($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(SendMessageByTimerElapsed)}: no message received for {silence.TotalSeconds:F0}s. Reconnecting...");
             Close();
             Connect();
