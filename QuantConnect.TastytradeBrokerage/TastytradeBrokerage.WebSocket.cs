@@ -179,14 +179,14 @@ public partial class TastytradeBrokerage
                     break;
                 case EventType.Error:
                     var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
-                    throw new Exception($"{nameof(TastytradeBrokerage)}.{nameof(OnMarketDataMessageHandler)}.Error: {errorResponse}");
+                    throw new Exception(errorResponse.ToString());
                 default:
-                    throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(OnMarketDataMessageHandler)}.Response.Message: {textMessage.Message}");
+                    throw new NotSupportedException($"Response.Message: {textMessage.Message}");
             }
         }
         else
         {
-            throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(OnMarketDataMessageHandler)}: Unsupported WebSocket message type: '{webSocketMessage.Data?.GetType().Name ?? "null"}'.");
+            throw new NotSupportedException($"Unsupported WebSocket message type: '{webSocketMessage.Data?.GetType().Name ?? "null"}'.");
         }
     }
 
@@ -235,18 +235,18 @@ public partial class TastytradeBrokerage
                             if (response.Status != Status.Ok)
                             {
                                 throw new InvalidOperationException(
-                                    $"{nameof(TastytradeBrokerage)}.{nameof(OnAccountUpdateMessageHandler)}: Received heartbeat with unexpected status '{response.Status}'. Message: {textMessage.Message}");
+                                    $"Received heartbeat with unexpected status '{response.Status}'. Message: {textMessage.Message}");
                             }
                             break;
                         default:
-                            throw new NotImplementedException($"{nameof(TastytradeBrokerage)}.{nameof(OnAccountUpdateMessageHandler)}: The action '{response.Action}' in EventType.Unknown is not implemented. Message: {textMessage.Message}");
+                            throw new NotImplementedException($"The action '{response.Action}' in EventType.Unknown is not implemented. Message: {textMessage.Message}");
                     }
                     break;
             }
         }
         else
         {
-            throw new NotSupportedException($"{nameof(TastytradeBrokerage)}.{nameof(OnAccountUpdateMessageHandler)}: Unsupported WebSocket message type: '{webSocketMessage.Data?.GetType().Name ?? "null"}'.");
+            throw new NotSupportedException($"Unsupported WebSocket message type: '{webSocketMessage.Data?.GetType().Name ?? "null"}'.");
         }
     }
 
