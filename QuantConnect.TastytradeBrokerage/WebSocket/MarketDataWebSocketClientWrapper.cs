@@ -15,6 +15,7 @@
 
 using System;
 using System.Timers;
+using System.Threading;
 using QuantConnect.Logging;
 using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Brokerages.Tastytrade.Models.Stream.MarketData;
@@ -54,15 +55,16 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     private bool _delayedDataNotified;
 
     /// <summary>
-    /// UTC time of the last message received from DxLink. Reset on every open, before the handshake is sent.
+    /// UTC ticks of the last message received from DxLink. Reset on every open, before the handshake is sent.
+    /// Written on the receive thread and read on the keep-alive timer thread, so every access goes through <see cref="Interlocked"/>.
     /// </summary>
-    private DateTime _lastMessageReceivedUtc;
+    private long _lastMessageReceivedUtcTicks;
 
     /// <summary>
-    /// The longest silence DxLink may keep before the connection is treated as lost.
+    /// The longest silence DxLink may keep before the connection is treated as lost, in ticks.
     /// It is the <see cref="SetupConnectionRequest.AcceptKeepaliveTimeout"/> the client promises in SETUP.
     /// </summary>
-    private static readonly TimeSpan SilenceTimeout = TimeSpan.FromSeconds(new SetupConnectionRequest().AcceptKeepaliveTimeout);
+    private static readonly long SilenceTimeoutTicks = TimeSpan.FromSeconds(new SetupConnectionRequest().AcceptKeepaliveTimeout).Ticks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MarketDataWebSocketClientWrapper"/> class.
@@ -121,7 +123,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// </summary>
     protected override void OnMessage(WebSocketMessage e)
     {
-        _lastMessageReceivedUtc = DateTime.UtcNow;
+        Interlocked.Exchange(ref _lastMessageReceivedUtcTicks, DateTime.UtcNow.Ticks);
         base.OnMessage(e);
     }
 
@@ -143,10 +145,10 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
             return;
         }
 
-        var silence = DateTime.UtcNow - _lastMessageReceivedUtc;
-        if (silence > SilenceTimeout)
+        var silenceTicks = DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastMessageReceivedUtcTicks);
+        if (silenceTicks > SilenceTimeoutTicks)
         {
-            OnDisconnected($"Market data connection with Tastytrade lost. No message received for {silence.TotalSeconds:F0}s.");
+            OnDisconnected($"Market data connection with Tastytrade lost. No message received for {silenceTicks / TimeSpan.TicksPerSecond}s.");
             Close();
             Connect();
             return;
@@ -163,7 +165,7 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     /// <param name="e">The event data.</param>
     private void SetupMarketDataConfiguration(object sender, EventArgs e)
     {
-        _lastMessageReceivedUtc = DateTime.UtcNow;
+        Interlocked.Exchange(ref _lastMessageReceivedUtcTicks, DateTime.UtcNow.Ticks);
         var token = GetApiQuoteTokenAndDxLinkUrl().Token;
 
         // 1. SETUP
