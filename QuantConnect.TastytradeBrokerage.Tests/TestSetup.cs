@@ -22,6 +22,8 @@ using QuantConnect.Securities;
 using QuantConnect.Configuration;
 using QuantConnect.Tests.Engine.DataFeeds;
 using QuantConnect.Brokerages.Tastytrade.Api;
+using QuantConnect.Api;
+using QuantConnect.Brokerages.Authentication;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -34,8 +36,17 @@ public class TestSetup
         var username = Config.Get("tastytrade-username");
         var password = Config.Get("tastytrade-password");
         var accountNumber = Config.Get("tastytrade-account-number");
+        var refreshToken = Config.Get("tastytrade-refresh-token");
 
-        return new TastytradeApiClient(apiUrl, username, password, accountNumber);
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return new TastytradeApiClient(apiUrl, username, password, accountNumber);
+        }
+
+        // Same Lean OAuth path the brokerage takes in Initialize: "Tastytrade" is the name it passes to Lean, the token lives 15 minutes.
+        var leanApiClient = new ApiConnection(Globals.UserId, Globals.UserToken);
+        var tokenHandler = new LeanOAuthTokenHandler<LeanTokenCredentials>(leanApiClient, new OAuthTokenRequest("Tastytrade", accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
+        return new TastytradeApiClient(apiUrl, tokenHandler, accountNumber);
     }
 
     public static TastytradeBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
