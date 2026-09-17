@@ -539,31 +539,28 @@ public partial class TastytradeBrokerage
     /// </description>
     /// </item>
     /// </list>
-    /// An update for an order Lean does not know notifies the algorithm about it, see <see cref="TryHandleBrokerageSideOrder"/>.
+    /// An order placed outside the algorithm is handled first, see <see cref="TryHandleBrokerageSideOrder"/>.
+    /// If no matching Lean order is found for the update, a warning message is logged.
     /// </remarks>
     private void OnOrderUpdateReceivedHandler(BrokerageOrder orderUpdate)
     {
+        // Every order Lean sends carries Lean's own source, any other order was placed outside the algorithm.
+        if (orderUpdate.Source != OrderBaseRequest.LeanSource && !TryHandleBrokerageSideOrder(orderUpdate))
+        {
+            return;
+        }
+
         var leanOrderStatus = default(LeanOrderStatus);
         switch (orderUpdate.Status)
         {
             case BrokerageOrderStatus.Routed:
             case BrokerageOrderStatus.Live:
-                // Releases the PlaceOrder or UpdateOrder call that waits for this update.
-                if (TryProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc))
-                {
-                    return;
-                }
-                break;
+                ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
+                return;
             case BrokerageOrderStatus.Filled:
                 leanOrderStatus = LeanOrderStatus.Filled;
                 break;
             case BrokerageOrderStatus.Cancelled:
-                // Skip processing this order because it is part of an update in progress,
-                // where the original order ID is being replaced with a new one.
-                if (_pendingOrderCache.TryRemove(orderUpdate.Id, out _))
-                {
-                    return;
-                }
                 leanOrderStatus = LeanOrderStatus.Canceled;
                 break;
             case BrokerageOrderStatus.Expired:
@@ -573,11 +570,14 @@ public partial class TastytradeBrokerage
                 return;
         }
 
-        if (!TryGetLeanOrdersByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrders)
-            && !TryHandleBrokerageSideOrder(orderUpdate, out leanOrders))
+        if (!TryGetLeanOrdersByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrders))
         {
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Order not found: {orderUpdate.Id}. Order detail: {orderUpdate}"));
             return;
         }
+
+        // Tastytrade replaces an edited order with a new id; if Lean already tracks that id, following it would give two Lean orders the same fills.
+        var isReplacedOutsideLean = orderUpdate.ReplacingOrderId != null && _orderProvider.GetOrdersByBrokerageId(orderUpdate.ReplacingOrderId).Count == 0;
 
         var tempLeanOrderEvents = new List<OrderEvent>();
         foreach (var leg in orderUpdate.Legs)
@@ -602,6 +602,24 @@ public partial class TastytradeBrokerage
                     }
                     break;
                 case BrokerageOrderStatus.Cancelled:
+                    // Skip processing this order because it is part of an update in progress,
+                    // where the original order ID is being replaced with a new one.
+                    if (_pendingOrderCache.TryRemove(orderUpdate.Id, out _))
+                    {
+                        return;
+                    }
+
+                    if (isReplacedOutsideLean)
+                    {
+                        // The Lean order stays open and follows the new id; Lean keeps its old price and quantity, only the fills are exact.
+                        OnOrderIdChangedEvent(new() { BrokerId = [orderUpdate.ReplacingOrderId], OrderId = leanOrder.Id });
+                        tempLeanOrderEvents.Add(new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero, "Order was updated outside Lean")
+                        {
+                            Status = LeanOrderStatus.UpdateSubmitted
+                        });
+                        break;
+                    }
+
                     tempLeanOrderEvents.Add(new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
                     {
                         Status = leanOrderStatus
@@ -617,33 +635,38 @@ public partial class TastytradeBrokerage
             }
         }
 
-        if (tempLeanOrderEvents.Count > 0)
-        {
-            ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
-        }
+        ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
     }
 
     /// <summary>
-    /// Notifies the brokerage message handler of the algorithm about an order placed outside the algorithm, once per order.
-    /// When the handler accepts it, Lean assigns the order id, the order is reported as submitted
-    /// and its later updates are handled like the updates of any other Lean order.
+    /// Handles an update of an order placed outside the algorithm. The first update notifies the brokerage message handler
+    /// of the algorithm, once per order. When the handler accepts the order, Lean assigns the order id and the order is
+    /// reported as submitted; from then on its updates are handled like the updates of any other Lean order.
     /// </summary>
-    /// <param name="brokerageOrder">The order update Lean has no order for.</param>
-    /// <param name="leanOrders">
-    /// When this method returns, contains the accepted Lean orders, one per leg; otherwise, <c>null</c>.
-    /// </param>
+    /// <param name="brokerageOrder">The update of an order Lean did not send.</param>
     /// <returns>
-    /// <c>true</c> if the algorithm accepted the order; otherwise, <c>false</c>.
+    /// <c>true</c> if Lean tracks the order; otherwise, <c>false</c>.
     /// </returns>
-    private bool TryHandleBrokerageSideOrder(BrokerageOrder brokerageOrder, out List<LeanOrder> leanOrders)
+    private bool TryHandleBrokerageSideOrder(BrokerageOrder brokerageOrder)
     {
-        leanOrders = null;
-        if (!_processedBrokerageSideOrderIds.Add(brokerageOrder.Id) || !TryConvertToLeanOrders(brokerageOrder, out var convertedOrders))
+        if (_orderProvider.GetOrdersByBrokerageId(brokerageOrder.Id).Count > 0)
+        {
+            return true;
+        }
+
+        // The order update handler closes a Lean order on these updates only; an order first seen as rejected would stay open in Lean.
+        if (brokerageOrder.Status is not (BrokerageOrderStatus.Routed or BrokerageOrderStatus.Live or BrokerageOrderStatus.Filled
+            or BrokerageOrderStatus.Cancelled or BrokerageOrderStatus.Expired))
         {
             return false;
         }
 
-        foreach (var leanOrder in convertedOrders)
+        if (!_processedBrokerageSideOrderIds.Add(brokerageOrder.Id) || !TryConvertToLeanOrders(brokerageOrder, out var leanOrders))
+        {
+            return false;
+        }
+
+        foreach (var leanOrder in leanOrders)
         {
             OnNewBrokerageOrderNotification(new NewBrokerageOrderNotificationEventArgs(leanOrder));
             if (leanOrder.Id == 0)
@@ -652,8 +675,8 @@ public partial class TastytradeBrokerage
             }
         }
 
-        var submittedEvents = new List<OrderEvent>(convertedOrders.Count);
-        foreach (var leanOrder in convertedOrders)
+        var submittedEvents = new List<OrderEvent>(leanOrders.Count);
+        foreach (var leanOrder in leanOrders)
         {
             submittedEvents.Add(new OrderEvent(leanOrder, brokerageOrder.ReceivedAtUtc, OrderFee.Zero, "Order was submitted outside Lean")
             {
@@ -662,7 +685,6 @@ public partial class TastytradeBrokerage
         }
         OnOrderEvents(submittedEvents);
 
-        leanOrders = convertedOrders;
         return true;
     }
 
@@ -748,16 +770,13 @@ public partial class TastytradeBrokerage
     }
 
     /// <summary>
-    /// Attempts to finalize a pending order submission for the given brokerage ID.
+    /// Finalizes a pending order submission for the given brokerage ID.
     /// If found in the pending cache, the order is removed, the waiting thread is released,
     /// and, if configured, the corresponding <see cref="OrderEvent"/>s are emitted.
     /// </summary>
     /// <param name="brokerageId">The brokerage-assigned order ID.</param>
     /// <param name="receivedDateTime">The timestamp when the brokerage acknowledged the order.</param>
-    /// <returns>
-    /// <c>true</c> if the brokerage ID was waiting in the pending cache; otherwise, <c>false</c>.
-    /// </returns>
-    private bool TryProcessPendingOrderSubmission(string brokerageId, DateTime receivedDateTime)
+    private void ProcessPendingOrderSubmission(string brokerageId, DateTime receivedDateTime)
     {
         if (!_pendingOrderCache.IsEmpty && _pendingOrderCache.TryRemove(brokerageId, out var orderManager))
         {
@@ -775,11 +794,7 @@ public partial class TastytradeBrokerage
                 }
                 ProcessOrderEventWithCrossZeroCheck(orderManager.LeanOrders, tempEventOrders);
             }
-
-            return true;
         }
-
-        return false;
     }
 
     /// <summary>

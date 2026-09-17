@@ -188,6 +188,25 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
     }
 
     /// <summary>
+    /// Logs the new brokerage id of an order and puts it on the order, the way Lean's transaction handler does,
+    /// so the next update of the new id finds the Lean order.
+    /// </summary>
+    /// <param name="e">The new brokerage id reported by the brokerage.</param>
+    protected override void OnOrderIdChangedEvent(BrokerageOrderIdChangedEvent e)
+    {
+        LogStep($"brokerage id of order {e.OrderId} changed to {string.Join(", ", e.BrokerId)}");
+
+        var order = OrderProvider?.GetOrderById(e.OrderId);
+        if (order != null)
+        {
+            order.BrokerId.Clear();
+            order.BrokerId.AddRange(e.BrokerId);
+        }
+
+        base.OnOrderIdChangedEvent(e);
+    }
+
+    /// <summary>
     /// Writes one line between two marker lines. Search the log for <c>&gt;&gt;&gt;&gt;</c> to read only these lines.
     /// </summary>
     /// <param name="message">What the brokerage is doing.</param>

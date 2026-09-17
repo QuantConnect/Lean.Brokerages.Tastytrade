@@ -28,6 +28,11 @@ namespace QuantConnect.Brokerages.Tastytrade.Models.Orders;
 public abstract class OrderBaseRequest
 {
     /// <summary>
+    /// The source of every order Lean sends. Tastytrade returns it on each update of that order.
+    /// </summary>
+    public const string LeanSource = "QuantConnect";
+
+    /// <summary>
     /// Gets the time in force (e.g., Day, GTC) for the order.
     /// </summary>
     public TimeInForce TimeInForce { get; protected set; }
@@ -67,7 +72,7 @@ public abstract class OrderBaseRequest
     /// <summary>
     /// It allows Tastytrade team to better identify all QuantConnect orders coming through for the best service when need and reporting tools.
     /// </summary>
-    public string Source => "QuantConnect";
+    public string Source => LeanSource;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OrderBaseRequest"/> class without specifying a price effect.
