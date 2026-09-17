@@ -25,7 +25,7 @@ namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
 /// <summary>
 /// Orders placed in the account outside the algorithm reach the account stream like any other order.
-/// The brokerage offers each of them once to the algorithm through <see cref="Brokerage.NewBrokerageOrderNotification"/>.
+/// The brokerage notifies the algorithm about each of them once through <see cref="Brokerage.NewBrokerageOrderNotification"/>.
 /// </summary>
 [TestFixture]
 public class TastytradeOnNewBrokerageOrderNotificationTests
@@ -46,7 +46,7 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
     ];
 
     [Test, Explicit("Places a real NOK Limit order at $9 on the live account from Tests/config.json and cancels it at the end.")]
-    public void LiveLimitOrderStaysWithLeanWhileOrderPlacedOutsideLeanIsOfferedOnce()
+    public void LiveLimitOrderStaysWithLeanWhileOrderPlacedOutsideLeanIsNotifiedOnce()
     {
         using var brokerage = new TestableTastytradeBrokerage();
         using var liveOrderSubmitted = new ManualResetEventSlim(false);
@@ -119,5 +119,38 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
         var liveOrderEvents = brokerage.OrderProvider.GetOrderTicket(liveOrder.Id).OrderEvents;
         Assert.That(liveOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted, OrderStatus.Canceled }),
             "Live order: not cancelled, see the 'Cancel Order' warning in the log.");
+    }
+
+    [Test]
+    public void AcceptedOrderPlacedOutsideLeanIsSubmittedOnce()
+    {
+        using var brokerage = new TestableTastytradeBrokerage();
+
+        // Routed notifies the algorithm about the order and reports it as submitted; Live then finds a known order and adds nothing.
+        brokerage.ReceiveAccountStreamMessage(CapturedLimitOrderMessages[0]);
+        brokerage.ReceiveAccountStreamMessage(CapturedLimitOrderMessages[1]);
+
+        var brokerageSideOrder = brokerage.OrderProvider.GetOrdersByBrokerageId("507112736").Single();
+        var orderEvents = brokerage.OrderProvider.GetOrderTicket(brokerageSideOrder.Id).OrderEvents;
+        Assert.That(orderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted }), "Brokerage side order: wrong order events.");
+        Assert.That(orderEvents[0].Message, Is.EqualTo("Order was submitted outside Lean"), "Brokerage side order: wrong Submitted message.");
+    }
+
+    [Test]
+    public void DeclinedOrderPlacedOutsideLeanIsNotifiedOnce()
+    {
+        // Lean's default brokerage message handler declines the order, so it never gets a Lean id
+        // and every later update of it reaches the brokerage as an unknown order again.
+        using var brokerage = new TestableTastytradeBrokerage { AcceptBrokerageSideOrders = false };
+        var notifications = 0;
+        brokerage.NewBrokerageOrderNotification += (_, _) => notifications++;
+
+        foreach (var message in CapturedLimitOrderMessages)
+        {
+            brokerage.ReceiveAccountStreamMessage(message);
+        }
+
+        Assert.That(notifications, Is.EqualTo(1), "Brokerage side order: not notified exactly once.");
+        Assert.That(brokerage.OrderProvider.GetOrdersByBrokerageId("507112736"), Is.Empty, "Brokerage side order: tracked after the decline.");
     }
 }

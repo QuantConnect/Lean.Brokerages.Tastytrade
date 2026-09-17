@@ -50,6 +50,12 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
     public ISecurityProvider SecurityProvider { get; }
 
     /// <summary>
+    /// What the algorithm answers when an order placed outside of it is offered. The tests accept such
+    /// an order unless they say otherwise; Lean's default brokerage message handler declines it.
+    /// </summary>
+    public bool AcceptBrokerageSideOrders { get; init; } = true;
+
+    /// <summary>
     /// Creates a brokerage without any connection: the configuration is not read and Lean is not asked about the subscription.
     /// </summary>
     public static TestableTastytradeBrokerage CreateWithoutConnection()
@@ -143,14 +149,17 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
     }
 
     /// <summary>
-    /// Logs every order placed outside the algorithm and accepts it the way the transaction handler does
-    /// when the algorithm takes the order: the order gets its Lean id.
+    /// Logs every order placed outside the algorithm. With <see cref="AcceptBrokerageSideOrders"/> it accepts the order
+    /// the way the transaction handler does when the algorithm takes it: the order gets its Lean id.
     /// </summary>
     /// <param name="e">The order that is offered.</param>
     protected override void OnNewBrokerageOrderNotification(NewBrokerageOrderNotificationEventArgs e)
     {
         LogStep($"offering the order placed outside the algorithm: {e.Order}, BrokerId: {string.Join(", ", e.Order.BrokerId)}");
-        OrderProvider?.Add(e.Order);
+        if (AcceptBrokerageSideOrders)
+        {
+            OrderProvider?.Add(e.Order);
+        }
         base.OnNewBrokerageOrderNotification(e);
     }
 
