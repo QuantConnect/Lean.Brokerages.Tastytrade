@@ -19,6 +19,7 @@ using NUnit.Framework;
 using System.Threading;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
+using System.Collections.Generic;
 using QuantConnect.Brokerages.Tastytrade.Tests.Models;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
@@ -187,6 +188,8 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
             """{"type":"Order","data":{"id":507358867,"account-number":"5WY00000","cancellable":true,"editable":true,"edited":false,"ext-client-order-id":"JAAAC1DjsPWqZlw6Nc","global-request-id":"64d60e84189f87698ba75276fd8a3952","leg-count":1,"order-type":"Limit","price":"10.25","price-effect":"Debit","received-at":"2026-09-17T18:52:28.016+00:00","replaces-order-id":507358650,"size":1,"source":"WB2;0.174.2","status":"Live","time-in-force":"GTC","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789671148235,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1789671148241,"ws-sequence":9}""";
 
         using var brokerage = new TestableTastytradeBrokerage();
+        var messages = new List<BrokerageMessageEvent>();
+        brokerage.Message += (_, message) => messages.Add(message);
 
         var leanOrder = new LimitOrder(Symbol.Create("NOK", SecurityType.Equity, Market.USA), 1m, 10.29m, new DateTime(2026, 9, 17, 18, 51, 59, DateTimeKind.Utc));
         leanOrder.BrokerId.Add("507358650");
@@ -208,5 +211,11 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
         var replacementOrderEvents = brokerage.OrderProvider.GetOrderTicket(replacementOrder.Id).OrderEvents;
         Assert.That(replacementOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted }), "Replacement order: wrong order events.");
         Assert.That(replacementOrderEvents[0].Message, Is.EqualTo("Order was submitted outside Lean"), "Replacement order: wrong Submitted message.");
+
+        // Assert: the warning that links the two orders
+        var warning = messages.Single();
+        Assert.That(warning.Type, Is.EqualTo(BrokerageMessageType.Warning), "Warning: wrong message type.");
+        Assert.That(warning.Code, Is.EqualTo("OrderEditedOutsideLean"), "Warning: wrong code.");
+        Assert.That(warning.Message, Is.EqualTo($"OrderID {leanOrder.Id} was edited outside of the algorithm: Tastytrade cancelled it and created brokerage order 507358867 in its place."), "Warning: wrong text.");
     }
 }

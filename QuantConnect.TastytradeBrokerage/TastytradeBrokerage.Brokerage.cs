@@ -652,6 +652,16 @@ public partial class TastytradeBrokerage
             return false;
         }
 
+        if (brokerageOrder.ReplacesOrderId != null)
+        {
+            var replacedOrders = _orderProvider.GetOrdersByBrokerageId(brokerageOrder.ReplacesOrderId);
+            if (replacedOrders.Count > 0)
+            {
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "OrderEditedOutsideLean",
+                    $"OrderID {string.Join(", ", replacedOrders.Select(order => order.Id))} was edited outside of the algorithm: Tastytrade cancelled it and created brokerage order {brokerageOrder.Id} in its place."));
+            }
+        }
+
         foreach (var leanOrder in leanOrders)
         {
             OnNewBrokerageOrderNotification(new NewBrokerageOrderNotificationEventArgs(leanOrder));
