@@ -496,7 +496,7 @@ public partial class TastytradeBrokerage
     /// Forwards the update for internal handling and synchronization with Lean's order system.
     /// </summary>
     /// <param name="brokerageOrder">The updated <see cref="BrokerageOrder"/> received from the brokerage.</param>
-    internal void OnOrderUpdateReceived(BrokerageOrder orderUpdate)
+    private void OnOrderUpdateReceived(BrokerageOrder orderUpdate)
     {
         _messageHandler.HandleNewMessage(orderUpdate);
     }

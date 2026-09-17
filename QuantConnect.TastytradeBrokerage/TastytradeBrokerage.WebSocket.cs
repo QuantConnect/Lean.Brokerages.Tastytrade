@@ -190,7 +190,7 @@ public partial class TastytradeBrokerage
         }
     }
 
-    private void OnAccountUpdateMessageHandler(object sender, WebSocketMessage webSocketMessage)
+    protected void OnAccountUpdateMessageHandler(object sender, WebSocketMessage webSocketMessage)
     {
         if (webSocketMessage.Data is WebSocketClientWrapper.TextMessage textMessage)
         {
