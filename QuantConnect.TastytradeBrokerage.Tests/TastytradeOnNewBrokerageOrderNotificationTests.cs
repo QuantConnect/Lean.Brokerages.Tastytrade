@@ -174,10 +174,10 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
     }
 
     [Test]
-    public void LeanOrderEditedInTheAppFollowsTheNewBrokerageId()
+    public void LeanOrderEditedInTheAppIsCanceledAndItsReplacementIsNotified()
     {
-        // A NOK Limit order that Lean placed at $10.29 and the user then changed to $10.25 in the Tastytrade web app. Tastytrade cancels
-        // the old id and names its successor, then the new id arrives with the source of the app.
+        // A NOK Limit order that Lean placed at $10.29 and the user then changed to $10.25 in the Tastytrade web app. Tastytrade never edits
+        // an order in place: it cancels the old id, then the replacement arrives as a new id with the source of the app.
         // Captured from the live account stream on 2026-09-17, in the order the socket sent them; only the account number is masked.
         const string oldIdCancelledMessage =
             """{"type":"Order","data":{"id":507358650,"account-number":"5WY00000","cancellable":false,"cancelled-at":"2026-09-17T18:52:28.046+00:00","cancelled-size":"1.0","editable":false,"edited":true,"ext-client-order-id":"JAAAC1DjaMXU2XYwWC","global-request-id":"6b561ad90ef9c93d6811049d56720fed","leg-count":1,"order-type":"Limit","price":"10.29","price-effect":"Debit","received-at":"2026-09-17T18:51:59.992+00:00","replacing-order-id":507358867,"size":1,"source":"QuantConnect","status":"Cancelled","terminal-at":"2026-09-17T18:52:28.065+00:00","time-in-force":"GTC","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789671148078,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1789671148084,"ws-sequence":7}""";
@@ -186,10 +186,7 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
         const string newIdLiveMessage =
             """{"type":"Order","data":{"id":507358867,"account-number":"5WY00000","cancellable":true,"editable":true,"edited":false,"ext-client-order-id":"JAAAC1DjsPWqZlw6Nc","global-request-id":"64d60e84189f87698ba75276fd8a3952","leg-count":1,"order-type":"Limit","price":"10.25","price-effect":"Debit","received-at":"2026-09-17T18:52:28.016+00:00","replaces-order-id":507358650,"size":1,"source":"WB2;0.174.2","status":"Live","time-in-force":"GTC","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789671148235,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1789671148241,"ws-sequence":9}""";
 
-        // Lean's default brokerage message handler declines orders placed outside the algorithm; the edited order must stay tracked anyway.
-        using var brokerage = new TestableTastytradeBrokerage { AcceptBrokerageSideOrders = false };
-        var notifications = 0;
-        brokerage.NewBrokerageOrderNotification += (_, _) => notifications++;
+        using var brokerage = new TestableTastytradeBrokerage();
 
         var leanOrder = new LimitOrder(Symbol.Create("NOK", SecurityType.Equity, Market.USA), 1m, 10.29m, new DateTime(2026, 9, 17, 18, 51, 59, DateTimeKind.Utc));
         leanOrder.BrokerId.Add("507358650");
@@ -199,11 +196,17 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
         brokerage.ReceiveAccountStreamMessage(newIdRoutedMessage);
         brokerage.ReceiveAccountStreamMessage(newIdLiveMessage);
 
-        Assert.That(notifications, Is.EqualTo(0), "Edited order: notified as an order placed outside Lean.");
-        Assert.That(leanOrder.BrokerId, Is.EqualTo(new[] { "507358867" }), "Edited order: wrong brokerage id.");
+        // Assert: the order Lean placed
+        var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
+        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Canceled }), "Lean order: wrong order events.");
 
-        var orderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
-        Assert.That(orderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.UpdateSubmitted }), "Edited order: wrong order events.");
-        Assert.That(orderEvents[0].Message, Is.EqualTo("Order was updated outside Lean"), "Edited order: wrong UpdateSubmitted message.");
+        // Assert: its replacement
+        var replacementOrder = brokerage.OrderProvider.GetOrdersByBrokerageId("507358867").Single();
+        Assert.That(((LimitOrder)replacementOrder).LimitPrice, Is.EqualTo(10.25m), "Replacement order: wrong limit price.");
+        Assert.That(replacementOrder.Quantity, Is.EqualTo(1m), "Replacement order: wrong quantity.");
+
+        var replacementOrderEvents = brokerage.OrderProvider.GetOrderTicket(replacementOrder.Id).OrderEvents;
+        Assert.That(replacementOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted }), "Replacement order: wrong order events.");
+        Assert.That(replacementOrderEvents[0].Message, Is.EqualTo("Order was submitted outside Lean"), "Replacement order: wrong Submitted message.");
     }
 }

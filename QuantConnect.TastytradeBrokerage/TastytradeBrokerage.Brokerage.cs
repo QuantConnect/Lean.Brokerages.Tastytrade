@@ -576,9 +576,6 @@ public partial class TastytradeBrokerage
             return;
         }
 
-        // Tastytrade replaces an edited order with a new id; if Lean already tracks that id, following it would give two Lean orders the same fills.
-        var isReplacedOutsideLean = orderUpdate.ReplacingOrderId != null && _orderProvider.GetOrdersByBrokerageId(orderUpdate.ReplacingOrderId).Count == 0;
-
         var tempLeanOrderEvents = new List<OrderEvent>();
         foreach (var leg in orderUpdate.Legs)
         {
@@ -607,17 +604,6 @@ public partial class TastytradeBrokerage
                     if (_pendingOrderCache.TryRemove(orderUpdate.Id, out _))
                     {
                         return;
-                    }
-
-                    if (isReplacedOutsideLean)
-                    {
-                        // The Lean order stays open and follows the new id; Lean keeps its old price and quantity, only the fills are exact.
-                        OnOrderIdChangedEvent(new() { BrokerId = [orderUpdate.ReplacingOrderId], OrderId = leanOrder.Id });
-                        tempLeanOrderEvents.Add(new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero, "Order was updated outside Lean")
-                        {
-                            Status = LeanOrderStatus.UpdateSubmitted
-                        });
-                        break;
                     }
 
                     tempLeanOrderEvents.Add(new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)

@@ -84,12 +84,6 @@ public class Order
     public DateTime ReceivedAtUtc => ReceivedAt.UtcDateTime;
 
     /// <summary>
-    /// Gets the id of the order that continues this one. Tastytrade never edits an order in place: an edit cancels
-    /// this order and creates a new one. It is <c>null</c> for an order that was not edited.
-    /// </summary>
-    public string ReplacingOrderId { get; set; }
-
-    /// <summary>
     /// Gets where the order was placed: <see cref="OrderBaseRequest.LeanSource"/> for an order Lean sent,
     /// the app name and version for an order placed in a Tastytrade app, for example <c>WB2;0.174.2</c>.
     /// </summary>
