@@ -646,7 +646,7 @@ public partial class TastytradeBrokerage
             return false;
         }
 
-        // The order update handler closes a Lean order on these updates only; an order first seen as rejected would stay open in Lean.
+        // An order first seen as rejected would become a Lean order that never closes; the order update handler ignores every other status.
         if (brokerageOrder.Status is not (BrokerageOrderStatus.Routed or BrokerageOrderStatus.Live or BrokerageOrderStatus.Filled
             or BrokerageOrderStatus.Cancelled or BrokerageOrderStatus.Expired))
         {
@@ -668,6 +668,7 @@ public partial class TastytradeBrokerage
             }
         }
 
+        var submittedEvents = new List<OrderEvent>(leanOrders.Count);
         foreach (var leanOrder in leanOrders)
         {
             OnNewBrokerageOrderNotification(new NewBrokerageOrderNotificationEventArgs(leanOrder));
@@ -675,11 +676,7 @@ public partial class TastytradeBrokerage
             {
                 return false;
             }
-        }
 
-        var submittedEvents = new List<OrderEvent>(leanOrders.Count);
-        foreach (var leanOrder in leanOrders)
-        {
             submittedEvents.Add(new OrderEvent(leanOrder, brokerageOrder.ReceivedAtUtc, OrderFee.Zero, "Order was submitted outside Lean")
             {
                 Status = LeanOrderStatus.Submitted
