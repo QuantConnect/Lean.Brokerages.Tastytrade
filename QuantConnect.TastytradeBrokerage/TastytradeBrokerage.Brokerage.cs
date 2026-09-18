@@ -62,7 +62,7 @@ public partial class TastytradeBrokerage
     ///     <description><b>Key:</b> The brokerage order ID, uniquely identifying the order.</description>
     ///   </item>
     ///   <item>
-    ///     <description><b>Value:</b> A <see cref="PendingOrderManager"/> instance containing the order and an <see cref="AutoResetEvent"/> for signaling when a status update is received.</description>
+    ///     <description><b>Value:</b> A <see cref="PendingOrderManager"/> instance containing the order and an <see cref="AutoResetEvent"/> for signaling when a status update is received; <c>null</c> for a brokerage id that <see cref="UpdateOrder"/> replaced, kept until the cancel of that id arrives so its last updates are ignored.</description>
     ///   </item>
     /// </list>
     /// </remarks>
@@ -528,7 +528,7 @@ public partial class TastytradeBrokerage
     /// <item>
     /// <term><see cref="BrokerageOrderStatus.Cancelled"/></term>
     /// <description>
-    /// Emits a canceled <see cref="OrderEvent"/>, unless the order is part of an in-progress replacement (e.g., a modification).
+    /// Emits a canceled <see cref="OrderEvent"/>.
     /// </description>
     /// </item>
     /// <item>
@@ -539,11 +539,22 @@ public partial class TastytradeBrokerage
     /// </description>
     /// </item>
     /// </list>
-    /// An order placed outside the algorithm is handled first, see <see cref="TryHandleBrokerageSideOrder"/>.
+    /// An update of a brokerage id that <see cref="UpdateOrder"/> replaced is ignored.
+    /// An order placed outside the algorithm is handled next, see <see cref="TryHandleBrokerageSideOrder"/>.
     /// If no matching Lean order is found for the update, a warning message is logged.
     /// </remarks>
     private void OnOrderUpdateReceivedHandler(BrokerageOrder orderUpdate)
     {
+        if (_pendingOrderCache.TryGetValue(orderUpdate.Id, out var pendingOrder) && pendingOrder == null)
+        {
+            // Skip this update: UpdateOrder replaced this brokerage id with a new one.
+            if (orderUpdate.Status == BrokerageOrderStatus.Cancelled)
+            {
+                _pendingOrderCache.TryRemove(orderUpdate.Id, out _);
+            }
+            return;
+        }
+
         // Every order Lean sends carries Lean's own source, any other order was placed outside the algorithm.
         if (orderUpdate.Source != OrderBaseRequest.LeanSource && !TryHandleBrokerageSideOrder(orderUpdate))
         {
@@ -599,13 +610,6 @@ public partial class TastytradeBrokerage
                     }
                     break;
                 case BrokerageOrderStatus.Cancelled:
-                    // Skip processing this order because it is part of an update in progress,
-                    // where the original order ID is being replaced with a new one.
-                    if (_pendingOrderCache.TryRemove(orderUpdate.Id, out _))
-                    {
-                        return;
-                    }
-
                     tempLeanOrderEvents.Add(new OrderEvent(leanOrder, orderUpdate.CancelledAtUtc, OrderFee.Zero)
                     {
                         Status = leanOrderStatus
@@ -638,12 +642,6 @@ public partial class TastytradeBrokerage
         if (_orderProvider.GetOrdersByBrokerageId(brokerageOrder.Id).Count > 0)
         {
             return true;
-        }
-
-        // An order placed in the app and then replaced by Lean: its cancel would be notified as a new outside order that never closes.
-        if (_pendingOrderCache.ContainsKey(brokerageOrder.Id))
-        {
-            return false;
         }
 
         // An order first seen as rejected would become a Lean order that never closes; the order update handler ignores every other status.
