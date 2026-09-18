@@ -640,6 +640,12 @@ public partial class TastytradeBrokerage
             return true;
         }
 
+        // An order placed in the app and then replaced by Lean: its cancel would be notified as a new outside order that never closes.
+        if (_pendingOrderCache.ContainsKey(brokerageOrder.Id))
+        {
+            return false;
+        }
+
         // The order update handler closes a Lean order on these updates only; an order first seen as rejected would stay open in Lean.
         if (brokerageOrder.Status is not (BrokerageOrderStatus.Routed or BrokerageOrderStatus.Live or BrokerageOrderStatus.Filled
             or BrokerageOrderStatus.Cancelled or BrokerageOrderStatus.Expired))

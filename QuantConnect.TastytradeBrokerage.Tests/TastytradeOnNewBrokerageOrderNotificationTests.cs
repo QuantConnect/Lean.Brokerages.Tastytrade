@@ -15,8 +15,10 @@
 
 using System;
 using System.Linq;
+using System.Net.Http;
 using NUnit.Framework;
 using System.Threading;
+using System.Threading.Tasks;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
 using System.Collections.Generic;
@@ -217,5 +219,60 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
         Assert.That(warning.Type, Is.EqualTo(BrokerageMessageType.Warning), "Warning: wrong message type.");
         Assert.That(warning.Code, Is.EqualTo("OrderEditedOutsideLean"), "Warning: wrong code.");
         Assert.That(warning.Message, Is.EqualTo($"OrderID {leanOrder.Id} was edited outside of the algorithm: Tastytrade cancelled it and created brokerage order 507358867 in its place."), "Warning: wrong text.");
+    }
+
+    [Test]
+    public void OrderPlacedInTheAppAndReplacedByLeanIsNotNotified()
+    {
+        // A NOK Limit order at $9 that was open in the Tastytrade web app before the algorithm started, so Lean got it from GetOpenOrders.
+        // The algorithm then changed it to $10.6 through UpdateOrder. Tastytrade cancels the old id and creates a new one: the new id carries
+        // the source of Lean, but the old id keeps the source of the app that placed it.
+        // Everything below was captured from the live account on 2026-09-18; only the account number is masked.
+        // The REST answer to GetOpenOrders and the REST answer to the replace request of UpdateOrder:
+        const string openOrdersResponse =
+            """{"data":{"items":[{"id":507440771,"account-number":"5WY00000","cancellable":true,"editable":true,"edited":false,"ext-client-order-id":"JAAAC1FVkURM4osB98","global-request-id":"1aa952a7d4965a0fee581cb543dde473","leg-count":1,"order-type":"Limit","price":"9.0","price-effect":"Debit","received-at":"2026-09-18T13:09:35.885+00:00","size":1,"source":"WB2;0.175.0","status":"Live","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789736975953,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]}]},"context":"/accounts/5WY00000/orders","pagination":{"per-page":200,"page-offset":0,"item-offset":0,"total-items":1,"total-pages":1,"current-item-count":1,"previous-link":null,"next-link":null,"paging-link-template":null}}""";
+        const string replaceOrderResponse =
+            """{"data":{"id":507440943,"account-number":"5WY00000","cancellable":true,"contingent-status":"Pending Order","editable":true,"edited":false,"global-request-id":"5e9e828e7a5d44c05d4ae8bf332a82b9","leg-count":1,"order-type":"Limit","price":"10.6","price-effect":"Debit","received-at":"2026-09-18T13:11:00.899+00:00","replaces-order-id":507440771,"size":1,"source":"QuantConnect","status":"Contingent","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789737060899,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"context":"/accounts/5WY00000/orders/507440771"}""";
+        // The account stream messages, in the order the socket sent them:
+        const string oldIdCancelledMessage =
+            """{"type":"Order","data":{"id":507440771,"account-number":"5WY00000","cancellable":false,"cancelled-at":"2026-09-18T13:11:00.928+00:00","cancelled-size":"1.0","editable":false,"edited":true,"ext-client-order-id":"JAAAC1FVkURM4osB98","global-request-id":"1aa952a7d4965a0fee581cb543dde473","leg-count":1,"order-type":"Limit","price":"9.0","price-effect":"Debit","received-at":"2026-09-18T13:09:35.885+00:00","replacing-order-id":507440943,"size":1,"source":"WB2;0.175.0","status":"Cancelled","terminal-at":"2026-09-18T13:11:00.943+00:00","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789737060955,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1789737060960,"ws-sequence":4}""";
+        const string newIdRoutedMessage =
+            """{"type":"Order","data":{"id":507440943,"account-number":"5WY00000","cancellable":false,"editable":false,"edited":false,"global-request-id":"5e9e828e7a5d44c05d4ae8bf332a82b9","leg-count":1,"order-type":"Limit","price":"10.6","price-effect":"Debit","received-at":"2026-09-18T13:11:00.899+00:00","replaces-order-id":507440771,"size":1,"source":"QuantConnect","status":"Routed","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789737061042,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1789737061052,"ws-sequence":5}""";
+        const string newIdLiveMessage =
+            """{"type":"Order","data":{"id":507440943,"account-number":"5WY00000","cancellable":true,"editable":true,"edited":false,"ext-client-order-id":"JAAAC1FVynNh89zc7L","global-request-id":"5e9e828e7a5d44c05d4ae8bf332a82b9","leg-count":1,"order-type":"Limit","price":"10.6","price-effect":"Debit","received-at":"2026-09-18T13:11:00.899+00:00","replaces-order-id":507440771,"size":1,"source":"QuantConnect","status":"Live","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","updated-at":1789737061093,"legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1789737061098,"ws-sequence":6}""";
+
+        var httpHandler = new MockHttpMessageHandler();
+        httpHandler.SetResponse(HttpMethod.Get, "/orders", openOrdersResponse);
+        httpHandler.SetResponse(HttpMethod.Patch, "/orders/507440771", replaceOrderResponse);
+
+        using var brokerage = new TestableTastytradeBrokerage(httpHandler: httpHandler);
+        using var orderIdChanged = new ManualResetEventSlim(false);
+        var notifications = 0;
+        brokerage.NewBrokerageOrderNotification += (_, _) => notifications++;
+        brokerage.OrderIdChanged += (_, _) => orderIdChanged.Set();
+
+        // Lean reads the open orders at the start and gives each of them a Lean id.
+        var leanOrder = brokerage.GetOpenOrders().Single();
+        brokerage.OrderProvider.Add(leanOrder);
+
+        // UpdateOrder waits for the new id on the account stream, so it runs aside while the messages arrive.
+        leanOrder.ApplyUpdateOrderRequest(new UpdateOrderRequest(new DateTime(2026, 9, 18, 13, 11, 0, DateTimeKind.Utc), leanOrder.Id, new UpdateOrderFields { LimitPrice = 10.6m }));
+        var updateOrder = Task.Run(() => brokerage.UpdateOrder(leanOrder));
+        Assert.That(orderIdChanged.Wait(TimeSpan.FromSeconds(10)), Is.True, "Lean order: the replace request did not change the brokerage id.");
+
+        brokerage.ReceiveAccountStreamMessage(oldIdCancelledMessage);
+        brokerage.ReceiveAccountStreamMessage(newIdRoutedMessage);
+        brokerage.ReceiveAccountStreamMessage(newIdLiveMessage);
+        Assert.That(updateOrder.Wait(TimeSpan.FromSeconds(10)) && updateOrder.Result, Is.True, "Lean order: UpdateOrder did not finish.");
+
+        // Assert: the old id is not an order placed outside Lean
+        Assert.That(notifications, Is.EqualTo(0), "Replaced order: notified as an order placed outside Lean.");
+        Assert.That(brokerage.OrderProvider.GetOrdersByBrokerageId("507440771"), Is.Empty, "Replaced order: tracked as a new order.");
+        Assert.That(brokerage.OrderProvider.OrdersCount, Is.EqualTo(1), "Replaced order: Lean has more than its own order.");
+
+        // Assert: the order Lean updated
+        Assert.That(leanOrder.BrokerId, Is.EqualTo(new[] { "507440943" }), "Lean order: wrong brokerage id.");
+        var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
+        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.UpdateSubmitted }), "Lean order: wrong order events.");
     }
 }

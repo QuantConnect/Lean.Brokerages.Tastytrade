@@ -13,6 +13,7 @@
  * limitations under the License.
 */
 
+using QuantConnect.Brokerages.Tastytrade.Api;
 using QuantConnect.Configuration;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -34,6 +35,11 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
     /// into the framework logs around it.
     /// </summary>
     private const string LogSeparator = "------------------------------------------------------------";
+
+    /// <summary>
+    /// Answers the REST requests of this brokerage with captured answers; <c>null</c> when the brokerage talks to the real API.
+    /// </summary>
+    private readonly MockHttpMessageHandler _httpHandler;
 
     /// <summary>
     /// The Lean orders of this brokerage. The brokerage keeps it the way Lean's transaction handler does:
@@ -76,7 +82,8 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
     /// </summary>
     /// <param name="orderProvider">The order provider that holds the Lean orders; a new one when <c>null</c>.</param>
     /// <param name="securityProvider">The security provider that holds the holdings; a new one when <c>null</c>.</param>
-    public TestableTastytradeBrokerage(OrderProvider orderProvider = null, ISecurityProvider securityProvider = null)
+    /// <param name="httpHandler">Answers the REST requests with captured answers; the real API is used when <c>null</c>.</param>
+    public TestableTastytradeBrokerage(OrderProvider orderProvider = null, ISecurityProvider securityProvider = null, MockHttpMessageHandler httpHandler = null)
         : this()
     {
         orderProvider ??= new OrderProvider();
@@ -84,8 +91,22 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
 
         OrderProvider = orderProvider;
         SecurityProvider = securityProvider;
+        _httpHandler = httpHandler;
         Initialize(Config.Get("tastytrade-api-url"), Config.Get("tastytrade-websocket-url"), Config.Get("tastytrade-username"), Config.Get("tastytrade-password"),
             Config.Get("tastytrade-account-number"), Config.Get("tastytrade-refresh-token"), orderProvider, securityProvider, new AlgorithmStub());
+    }
+
+    /// <summary>
+    /// Builds the real API client on the mock HTTP handler when the test gave one, so every REST request gets a captured answer.
+    /// </summary>
+    protected override TastytradeApiClient CreateApiClient(string baseUrl, string username, string password, string accountNumber, string refreshToken)
+    {
+        if (_httpHandler == null)
+        {
+            return base.CreateApiClient(baseUrl, username, password, accountNumber, refreshToken);
+        }
+
+        return new TastytradeApiClient(baseUrl, _httpHandler, accountNumber);
     }
 
     /// <summary>
@@ -185,6 +206,25 @@ public class TestableTastytradeBrokerage : TastytradeBrokerage
         }
 
         base.OnOrderEvents(orderEvents);
+    }
+
+    /// <summary>
+    /// Logs the new brokerage id of an order that Lean replaced and puts it on the order, the way Lean's
+    /// transaction handler does, so the old id is no longer known to Lean when its last updates arrive.
+    /// </summary>
+    /// <param name="e">The new brokerage id reported by the brokerage.</param>
+    protected override void OnOrderIdChangedEvent(BrokerageOrderIdChangedEvent e)
+    {
+        LogStep($"brokerage id of order {e.OrderId} changed to {string.Join(", ", e.BrokerId)}");
+
+        var order = OrderProvider?.GetOrderById(e.OrderId);
+        if (order != null)
+        {
+            order.BrokerId.Clear();
+            order.BrokerId.AddRange(e.BrokerId);
+        }
+
+        base.OnOrderIdChangedEvent(e);
     }
 
     /// <summary>
