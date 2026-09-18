@@ -84,6 +84,11 @@ public partial class TastytradeBrokerage
     private readonly Dictionary<int, HashSet<string>> _processedFillIds = [];
 
     /// <summary>
+    /// Brokerage ids of the orders placed outside the algorithm that were already processed, so a later update of the same order does not notify the algorithm again.
+    /// </summary>
+    private readonly HashSet<string> _processedBrokerageSideOrderIds = [];
+
+    /// <summary>
     /// Gets all holdings for the account
     /// </summary>
     /// <returns>The current holdings from the account</returns>
@@ -181,44 +186,58 @@ public partial class TastytradeBrokerage
         var leanOrders = new List<LeanOrder>();
         foreach (var brokerageOrder in brokerageOrders)
         {
-            var orderProperties = new OrderProperties();
-            if (!orderProperties.TryGetLeanTimeInForce(brokerageOrder.TimeInForce, brokerageOrder.GtcDate))
+            if (TryConvertToLeanOrders(brokerageOrder, out var legOrders))
             {
-                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Detected unsupported Lean TimeInForce of '{brokerageOrder.TimeInForce}', ignoring. Using default: TimeInForce.GoodTilCanceled"));
-            }
-
-            var groupOrderManager = default(GroupOrderManager);
-            if (brokerageOrder.Legs.Count > 1)
-            {
-                var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(
-                    brokerageOrder.Legs.Select(leg => leg.Quantity),
-                    brokerageOrder.PriceEffect.Value.ToOrderDirection()
-                );
-                groupOrderManager = new GroupOrderManager(brokerageOrder.Legs.Count, groupQuantity, brokerageOrder.Price);
-            }
-
-            var tempLegOrders = new List<LeanOrder>(brokerageOrder.Legs.Count);
-            foreach (var leg in brokerageOrder.Legs)
-            {
-                if (TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder, groupOrderManager))
-                {
-                    tempLegOrders.Add(leanOrder);
-                }
-                else
-                {
-                    // If any leg fails to create a Lean order, clear tempLegOrders to prevent partial group orders.
-                    tempLegOrders.Clear();
-                    break;
-                }
-            }
-
-            if (tempLegOrders.Count > 0)
-            {
-                leanOrders.AddRange(tempLegOrders);
+                leanOrders.AddRange(legOrders);
             }
         }
 
         return leanOrders;
+    }
+
+    /// <summary>
+    /// Converts a brokerage order into one Lean order per leg.
+    /// </summary>
+    /// <param name="brokerageOrder">The brokerage order to convert.</param>
+    /// <param name="leanOrders">
+    /// When this method returns, contains one Lean order per leg, sharing a <see cref="GroupOrderManager"/>
+    /// for a multi-leg order; otherwise, <c>null</c>.
+    /// </param>
+    /// <returns>
+    /// <c>true</c> if every leg was converted; otherwise, <c>false</c>.
+    /// </returns>
+    private bool TryConvertToLeanOrders(BrokerageOrder brokerageOrder, out List<LeanOrder> leanOrders)
+    {
+        var orderProperties = new OrderProperties();
+        if (!orderProperties.TryGetLeanTimeInForce(brokerageOrder.TimeInForce, brokerageOrder.GtcDate))
+        {
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, $"Detected unsupported Lean TimeInForce of '{brokerageOrder.TimeInForce}', ignoring. Using default: TimeInForce.GoodTilCanceled"));
+        }
+
+        var groupOrderManager = default(GroupOrderManager);
+        if (brokerageOrder.Legs.Count > 1)
+        {
+            var groupQuantity = GroupOrderExtensions.GetGroupQuantityByEachLegQuantity(
+                brokerageOrder.Legs.Select(leg => leg.Quantity),
+                brokerageOrder.PriceEffect.Value.ToOrderDirection()
+            );
+            groupOrderManager = new GroupOrderManager(brokerageOrder.Legs.Count, groupQuantity, brokerageOrder.Price);
+        }
+
+        leanOrders = new List<LeanOrder>(brokerageOrder.Legs.Count);
+        foreach (var leg in brokerageOrder.Legs)
+        {
+            if (!TryCreateLeanOrder(brokerageOrder, leg, orderProperties, out var leanOrder, groupOrderManager))
+            {
+                // If any leg fails to create a Lean order, clear leanOrders to prevent partial group orders.
+                leanOrders = null;
+                return false;
+            }
+
+            leanOrders.Add(leanOrder);
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -520,10 +539,17 @@ public partial class TastytradeBrokerage
     /// </description>
     /// </item>
     /// </list>
+    /// An order placed outside the algorithm is handled first, see <see cref="TryHandleBrokerageSideOrder"/>.
     /// If no matching Lean order is found for the update, a warning message is logged.
     /// </remarks>
     private void OnOrderUpdateReceivedHandler(BrokerageOrder orderUpdate)
     {
+        // Every order Lean sends carries Lean's own source, any other order was placed outside the algorithm.
+        if (orderUpdate.Source != OrderBaseRequest.LeanSource && !TryHandleBrokerageSideOrder(orderUpdate))
+        {
+            return;
+        }
+
         var leanOrderStatus = default(LeanOrderStatus);
         switch (orderUpdate.Status)
         {
@@ -596,6 +622,69 @@ public partial class TastytradeBrokerage
         }
 
         ProcessOrderEventWithCrossZeroCheck(leanOrders, tempLeanOrderEvents);
+    }
+
+    /// <summary>
+    /// Handles an update of an order placed outside the algorithm. The first update notifies the brokerage message handler
+    /// of the algorithm, once per order. When the handler accepts the order, Lean assigns the order id and the order is
+    /// reported as submitted; from then on its updates are handled like the updates of any other Lean order.
+    /// </summary>
+    /// <param name="brokerageOrder">The update of an order Lean did not send.</param>
+    /// <returns>
+    /// <c>true</c> if Lean tracks the order; otherwise, <c>false</c>.
+    /// </returns>
+    private bool TryHandleBrokerageSideOrder(BrokerageOrder brokerageOrder)
+    {
+        if (_orderProvider.GetOrdersByBrokerageId(brokerageOrder.Id).Count > 0)
+        {
+            return true;
+        }
+
+        // An order placed in the app and then replaced by Lean: its cancel would be notified as a new outside order that never closes.
+        if (_pendingOrderCache.ContainsKey(brokerageOrder.Id))
+        {
+            return false;
+        }
+
+        // An order first seen as rejected would become a Lean order that never closes; the order update handler ignores every other status.
+        if (brokerageOrder.Status is not (BrokerageOrderStatus.Routed or BrokerageOrderStatus.Live or BrokerageOrderStatus.Filled
+            or BrokerageOrderStatus.Cancelled or BrokerageOrderStatus.Expired))
+        {
+            return false;
+        }
+
+        if (!_processedBrokerageSideOrderIds.Add(brokerageOrder.Id) || !TryConvertToLeanOrders(brokerageOrder, out var leanOrders))
+        {
+            return false;
+        }
+
+        if (brokerageOrder.ReplacesOrderId != null)
+        {
+            var replacedOrders = _orderProvider.GetOrdersByBrokerageId(brokerageOrder.ReplacesOrderId);
+            if (replacedOrders.Count > 0)
+            {
+                OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "OrderEditedOutsideLean",
+                    $"OrderID {string.Join(", ", replacedOrders.Select(order => order.Id))} was edited outside of the algorithm: Tastytrade cancelled it and created brokerage order {brokerageOrder.Id} in its place."));
+            }
+        }
+
+        var submittedEvents = new List<OrderEvent>(leanOrders.Count);
+        foreach (var leanOrder in leanOrders)
+        {
+            OnNewBrokerageOrderNotification(new NewBrokerageOrderNotificationEventArgs(leanOrder));
+            if (leanOrder.Id == 0)
+            {
+                return false;
+            }
+
+            submittedEvents.Add(new OrderEvent(leanOrder, brokerageOrder.ReceivedAtUtc, OrderFee.Zero, "Order was submitted outside Lean")
+            {
+                Status = LeanOrderStatus.Submitted
+            });
+        }
+        OnOrderEvents(submittedEvents);
+
+        return true;
     }
 
     internal static bool TryGetFilledEvent(Models.Orders.Leg leg, LeanOrder leanOrder, Dictionary<int, HashSet<string>> processedFillIds, out List<OrderEvent> orderEvents)

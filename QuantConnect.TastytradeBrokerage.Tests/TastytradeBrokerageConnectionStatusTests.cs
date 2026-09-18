@@ -31,7 +31,7 @@ public class TastytradeBrokerageConnectionStatusTests
     public void OnConnectionStatusChangedWhenBothSocketsDropReportsDisconnectOnceAndReconnectWhenBothAreBack()
     {
         // Arrange
-        using var brokerage = new MockTastytradeBrokerage();
+        using var brokerage = TestableTastytradeBrokerage.CreateWithoutConnection();
         var reportedMessages = new List<BrokerageMessageEvent>();
         brokerage.Message += (_, message) => reportedMessages.Add(message);
         var accountSocket = new object();
@@ -55,7 +55,7 @@ public class TastytradeBrokerageConnectionStatusTests
     public void OnConnectionStatusChangedWhenSocketConnectsForTheFirstTimeReportsNothing()
     {
         // Arrange
-        using var brokerage = new MockTastytradeBrokerage();
+        using var brokerage = TestableTastytradeBrokerage.CreateWithoutConnection();
         var reportedMessages = new List<BrokerageMessageEvent>();
         brokerage.Message += (_, message) => reportedMessages.Add(message);
 

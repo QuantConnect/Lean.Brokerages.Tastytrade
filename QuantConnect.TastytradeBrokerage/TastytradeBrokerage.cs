@@ -205,18 +205,7 @@ public partial class TastytradeBrokerage : Brokerage
         _algorithm = algorithm;
         _securityProvider = securityProvider;
 
-        if (!string.IsNullOrEmpty(refreshToken))
-        {
-            Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
-            // the token lifetime is 15 minutes docs: https://developer.tastytrade.com/oauth/
-            var oAuthTokenHandler = CreateOAuthTokenHandler<LeanTokenCredentials>(_leanApiClient, new(Name, accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
-            _tastytradeApiClient = new(baseUrl, oAuthTokenHandler, accountNumber);
-        }
-        else
-        {
-            Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using development initialization process");
-            _tastytradeApiClient = new(baseUrl, username, password, accountNumber);
-        }
+        _tastytradeApiClient = CreateApiClient(baseUrl, username, password, accountNumber, refreshToken);
 
         _symbolMapper = new(_tastytradeApiClient);
         _orderProvider = orderProvider;
@@ -244,6 +233,30 @@ public partial class TastytradeBrokerage : Brokerage
         _messageHandler = new BrokerageConcurrentMessageHandler<Order>(OnOrderUpdateReceivedHandler, ConcurrencyEnabled);
 
         DeploymentDetailsHelper.Add("tastytrade-account-number", accountNumber);
+    }
+
+    /// <summary>
+    /// Creates the client for the Tastytrade REST API: through the Lean OAuth flow when a refresh token is given,
+    /// otherwise with the username and password.
+    /// </summary>
+    /// <param name="baseUrl">The base URL of the Tastytrade API.</param>
+    /// <param name="username">The username of the Tastytrade account.</param>
+    /// <param name="password">The password of the Tastytrade account.</param>
+    /// <param name="accountNumber">The brokerage account number.</param>
+    /// <param name="refreshToken">The refresh token used to obtain access tokens.</param>
+    /// <returns>The client every REST request of this brokerage goes through.</returns>
+    protected virtual TastytradeApiClient CreateApiClient(string baseUrl, string username, string password, string accountNumber, string refreshToken)
+    {
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using Lean initialization process");
+            // the token lifetime is 15 minutes docs: https://developer.tastytrade.com/oauth/
+            var oAuthTokenHandler = CreateOAuthTokenHandler<LeanTokenCredentials>(_leanApiClient, new(Name, accountNumber, refreshToken: refreshToken), TimeSpan.FromMinutes(15));
+            return new(baseUrl, oAuthTokenHandler, accountNumber);
+        }
+
+        Log.Debug($"{nameof(TastytradeBrokerage)}.{nameof(Initialize)}: Using development initialization process");
+        return new(baseUrl, username, password, accountNumber);
     }
 
     /// <summary>
