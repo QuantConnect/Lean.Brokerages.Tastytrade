@@ -275,4 +275,14 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
         var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
         Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.UpdateSubmitted }), "Lean order: wrong order events.");
     }
+
+    [Test]
+    public void ShouldRefreshOrderChainsMessageDoesNotThrow()
+    {
+        var shouldRefreshOrderChainsMessage = """{"type":"ShouldRefreshOrderChains","data":{},"timestamp":1791469152000}""";
+
+        using var brokerage = new TestableTastytradeBrokerage();
+
+        Assert.DoesNotThrow(() => brokerage.ReceiveAccountStreamMessage(shouldRefreshOrderChainsMessage));
+    }
 }
