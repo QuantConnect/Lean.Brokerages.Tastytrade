@@ -279,9 +279,6 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
     [Test]
     public void ShouldRefreshOrderChainsMessageDoesNotThrow()
     {
-        // Tastytrade sends this undocumented message when an order is placed in its app. The socket loop in Lean turns an exception
-        // of the handler into a Disconnect and a reconnect 2 s later, and the order messages sent in between never reach the algorithm.
-        // The data payload was not captured.
         var shouldRefreshOrderChainsMessage = """{"type":"ShouldRefreshOrderChains","data":{},"timestamp":1791469152000}""";
 
         using var brokerage = new TestableTastytradeBrokerage();
