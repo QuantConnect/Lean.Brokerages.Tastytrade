@@ -179,6 +179,10 @@ public partial class TastytradeBrokerage
                     break;
                 case EventType.Error:
                     var errorResponse = textMessage.Message.DeserializeCamelCase<ErrorStreamResponse>();
+                    if (errorResponse.Error == "UNAUTHORIZED")
+                    {
+                        ((MarketDataWebSocketClientWrapper)_clientWrapperByWebSocketType[WebSocketType.MarketData]).DropRejectedToken();
+                    }
                     throw new Exception(errorResponse.ToString());
                 default:
                     throw new NotSupportedException($"Response.Message: {textMessage.Message}");

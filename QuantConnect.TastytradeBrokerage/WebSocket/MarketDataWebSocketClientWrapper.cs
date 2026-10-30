@@ -40,6 +40,17 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
     private DateTime _tokenExpirationTime;
 
     /// <summary>
+    /// The earliest time a token DxLink rejects is dropped again, so a token endpoint whose fresh tokens DxLink
+    /// keeps rejecting is not asked for a new one on every reconnect.
+    /// </summary>
+    private DateTime _nextRejectedTokenDropTime;
+
+    /// <summary>
+    /// The shortest time between two tokens dropped because DxLink rejected them.
+    /// </summary>
+    private static readonly TimeSpan RejectedTokenDropInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>
     /// Event triggered to initiate the re-subscription process.
     /// </summary>
     private event Action ReSubscriptionProcess;
@@ -116,6 +127,23 @@ public class MarketDataWebSocketClientWrapper : BaseWebSocketClientWrapper
         }
 
         return (_token, null);
+    }
+
+    /// <summary>
+    /// Drops the cached token DxLink rejected, so the next connection authenticates with a new one.
+    /// DxLink can revoke a quote token well before the 24 hours it is valid for.
+    /// </summary>
+    public void DropRejectedToken()
+    {
+        var utcNow = DateTime.UtcNow;
+        if (utcNow < _nextRejectedTokenDropTime)
+        {
+            return;
+        }
+
+        _nextRejectedTokenDropTime = utcNow + RejectedTokenDropInterval;
+        _token = null;
+        Log.Trace($"{nameof(MarketDataWebSocketClientWrapper)}.{nameof(DropRejectedToken)}: DxLink rejected the quote token, the next connection fetches a new one.");
     }
 
     /// <summary>
