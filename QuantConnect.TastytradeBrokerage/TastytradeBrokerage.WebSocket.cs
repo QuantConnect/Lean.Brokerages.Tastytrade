@@ -215,6 +215,7 @@ public partial class TastytradeBrokerage
                 case EventType.TradingStatus:
                 case EventType.UnderlyingYearGainSummary:
                 case EventType.OrderChain:
+                case EventType.ShouldRefreshOrderChains:
                     break;
                 case EventType.Unknown:
                     var response = textMessage.Message.DeserializeKebabCase<BaseAccountMaintenanceStatus>();

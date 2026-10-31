@@ -137,5 +137,11 @@ public enum EventType
     /// computed trade statistics (e.g., fees, gains, durations), order legs, and market state snapshots.
     /// Useful for reconstructing trading strategies, tracking order flows, and analyzing performance.
     /// </summary>
-    OrderChain = 17
+    OrderChain = 17,
+
+    /// <summary>
+    /// A request from the server to fetch the order chains of the account again, sent with the updates of an order
+    /// placed in the Tastytrade app. It is not in the Tastytrade documentation and carries nothing the brokerage needs.
+    /// </summary>
+    ShouldRefreshOrderChains = 18
 }
