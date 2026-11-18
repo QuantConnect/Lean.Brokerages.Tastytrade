@@ -544,7 +544,7 @@ public partial class TastytradeBrokerage
     /// <term><see cref="BrokerageOrderStatus.Rejected"/></term>
     /// <description>
     /// Emits an invalid <see cref="OrderEvent"/> with the reject reason. A rejected replacement only raises a warning:
-    /// the order it replaces can still be working.
+    /// the order it replaces is still working, so the Lean orders get its brokerage id back and its updates are handled again.
     /// </description>
     /// </item>
     /// </list>
@@ -604,6 +604,12 @@ public partial class TastytradeBrokerage
 
         if (orderUpdate.Status == BrokerageOrderStatus.Rejected && orderUpdate.ReplacesOrderId != null)
         {
+            // The replaced order is still working: stop ignoring its updates and give the Lean orders its id back.
+            _pendingOrderCache.TryRemove(orderUpdate.ReplacesOrderId, out _);
+            foreach (var leanOrder in _orderProvider.GetOrdersByBrokerageId(orderUpdate.Id))
+            {
+                OnOrderIdChangedEvent(new() { BrokerId = [orderUpdate.ReplacesOrderId], OrderId = leanOrder.Id });
+            }
             OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "UpdateOrderRejected",
                 $"Tastytrade rejected the replacement of brokerage order {orderUpdate.ReplacesOrderId}: {orderUpdate.RejectReason}. Order detail: {orderUpdate}"));
             return;
