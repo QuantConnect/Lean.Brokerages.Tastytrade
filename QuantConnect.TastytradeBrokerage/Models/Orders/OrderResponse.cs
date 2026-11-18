@@ -90,6 +90,11 @@ public class Order
     public string ReplacesOrderId { get; set; }
 
     /// <summary>
+    /// Gets why Tastytrade or the exchange rejected the order; <c>null</c> for an order that was not rejected.
+    /// </summary>
+    public string RejectReason { get; set; }
+
+    /// <summary>
     /// Gets where the order was placed: <see cref="OrderBaseRequest.LeanSource"/> for an order Lean sent,
     /// the app name and version for an order placed in a Tastytrade app, for example <c>WB2;0.174.2</c>.
     /// </summary>
