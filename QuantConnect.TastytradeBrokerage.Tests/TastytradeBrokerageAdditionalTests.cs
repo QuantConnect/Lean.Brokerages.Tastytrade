@@ -34,6 +34,7 @@ using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.Tastytrade.Tests.Models;
 using Leg = QuantConnect.Brokerages.Tastytrade.Models.Orders.Leg;
 using OrderAction = QuantConnect.Brokerages.Tastytrade.Models.Enum.OrderAction;
+using BrokerageOrderStatus = QuantConnect.Brokerages.Tastytrade.Models.Enum.OrderStatus;
 
 namespace QuantConnect.Brokerages.Tastytrade.Tests;
 
@@ -771,6 +772,69 @@ new ExpectedResult[3][]
         {
             Assert.That(leanOrderEvents[0].Message, Does.Contain("Order would exceed buying power"));
         }
+    }
+
+    [Test, Explicit("Places a real NOK Limit order on the live account from Tests/config.json while the market is closed and cancels it at the end.")]
+    public void LivePlaceOrderWhenMarketIsClosedIsSubmitted()
+    {
+        // Arrange
+        var nok = Symbol.Create("NOK", SecurityType.Equity, Market.USA);
+        if (nok.IsMarketOpen(DateTime.UtcNow, extendedMarketHours: false))
+        {
+            Assert.Inconclusive("The market is open, so Tastytrade routes the order at once. Run this test while the market is closed.");
+        }
+
+        using var brokerage = new TestableTastytradeBrokerage();
+        using var leanOrderSubmitted = new ManualResetEventSlim(false);
+        using var leanOrderCanceled = new ManualResetEventSlim(false);
+        var leanOrder = new LimitOrder(nok, 1m, 9m, DateTime.UtcNow);
+        brokerage.OrderProvider.Add(leanOrder);
+        brokerage.OrdersStatusChanged += (_, orderEvents) =>
+        {
+            foreach (var orderEvent in orderEvents)
+            {
+                if (orderEvent.OrderId != leanOrder.Id)
+                {
+                    continue;
+                }
+
+                switch (orderEvent.Status)
+                {
+                    case OrderStatus.Submitted:
+                        leanOrderSubmitted.Set();
+                        break;
+                    case OrderStatus.Canceled:
+                        leanOrderCanceled.Set();
+                        break;
+                }
+            }
+        };
+
+        brokerage.Connect();
+        var brokerageStatus = BrokerageOrderStatus.Unknown;
+        try
+        {
+            // Act
+            Assert.That(brokerage.PlaceOrder(leanOrder), Is.True, "Lean order: not placed.");
+            Assert.That(leanOrderSubmitted.Wait(TimeSpan.FromSeconds(30)), Is.True, "Lean order: no Submitted event in 30 s.");
+            brokerageStatus = _tastytradeApiClient.GetLiveOrders().Single(order => order.Id == leanOrder.BrokerId[0]).Status;
+        }
+        finally
+        {
+            // The order is real, so it is cancelled even when a step above fails.
+            if (leanOrder.BrokerId.Count > 0)
+            {
+                brokerage.CancelOrder(leanOrder);
+                leanOrderCanceled.Wait(TimeSpan.FromSeconds(30));
+            }
+            brokerage.Disconnect();
+        }
+
+        // Assert
+        Assert.That(brokerageStatus, Is.EqualTo(BrokerageOrderStatus.Received), "Tastytrade order: not held for the next session.");
+        var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
+        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted, OrderStatus.Canceled }),
+            "Lean order: not cancelled, see the 'Cancel Order' warning in the log.");
     }
 
     [Test]
