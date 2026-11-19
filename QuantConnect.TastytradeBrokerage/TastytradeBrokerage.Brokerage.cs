@@ -414,7 +414,7 @@ public partial class TastytradeBrokerage
     /// Updates the order with the same id
     /// </summary>
     /// <param name="order">The new order information</param>
-    /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
+    /// <returns>True if the request was made for the order to be updated, false otherwise, also when Tastytrade rejects the replacement</returns>
     public override bool UpdateOrder(LeanOrder order)
     {
         if (!_groupOrderCacheManager.TryGetGroupCachedOrders(order, out var orders))
@@ -455,6 +455,12 @@ public partial class TastytradeBrokerage
             OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "InvalidUpdateOrder",
                 $"The brokerage didn't get response from WebSocket by BrokerageId = {newBrokerageId} and Lean Order(s) = {string.Join(',', pendingUpdatedOrder.LeanOrders)}"));
             return isUpdatedSuccessfully;
+        }
+
+        // Tastytrade rejected the replacement: the order keeps working with its previous values.
+        if (pendingUpdatedOrder.IsRejected)
+        {
+            isUpdatedSuccessfully = false;
         }
 
         pendingUpdatedOrder.Dispose();
@@ -545,6 +551,7 @@ public partial class TastytradeBrokerage
     /// <description>
     /// Emits an invalid <see cref="OrderEvent"/> with the reject reason. A rejected replacement only raises a warning:
     /// the order it replaces is still working, so the Lean orders get its brokerage id back and its updates are handled again.
+    /// <see cref="UpdateOrder"/> is released only after that, and returns <c>false</c>.
     /// </description>
     /// </item>
     /// </list>
@@ -597,10 +604,7 @@ public partial class TastytradeBrokerage
                 return;
         }
 
-        if (_pendingOrderCache.TryRemove(orderUpdate.Id, out var unacknowledgedOrder))
-        {
-            unacknowledgedOrder.AutoResetEvent.Set();
-        }
+        _pendingOrderCache.TryRemove(orderUpdate.Id, out var unacknowledgedOrder);
 
         if (orderUpdate.Status == BrokerageOrderStatus.Rejected && orderUpdate.ReplacesOrderId != null)
         {
@@ -612,8 +616,16 @@ public partial class TastytradeBrokerage
             }
             OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "UpdateOrderRejected",
                 $"Tastytrade rejected the replacement of brokerage order {orderUpdate.ReplacesOrderId}: {orderUpdate.RejectReason}. Order detail: {orderUpdate}"));
+            // Only now release UpdateOrder: an order request queued behind it must already see the id of the order that is still working.
+            if (unacknowledgedOrder != null)
+            {
+                unacknowledgedOrder.IsRejected = true;
+                unacknowledgedOrder.AutoResetEvent.Set();
+            }
             return;
         }
+
+        unacknowledgedOrder?.AutoResetEvent.Set();
 
         if (!TryGetLeanOrdersByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrders))
         {
