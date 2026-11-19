@@ -399,11 +399,13 @@ public partial class TastytradeBrokerage
 
         if (isPlaced && !pendingSubmittedOrder.AutoResetEvent.WaitOne(TimeSpan.FromSeconds(10)))
         {
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, "InvalidPlaceOrder",
+            // Tastytrade accepted the order, so it stays pending: a late acknowledgement still reports it as submitted.
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "InvalidPlaceOrder",
                 $"The brokerage didn't get response from WebSocket by BrokerageId = {brokerageId} and Lean Order(s) = {string.Join(',', pendingSubmittedOrder.LeanOrders)}"));
+            return brokerageId;
         }
 
-        pendingSubmittedOrder?.Dispose();
+        pendingSubmittedOrder.Dispose();
 
         return brokerageId;
     }
@@ -412,7 +414,7 @@ public partial class TastytradeBrokerage
     /// Updates the order with the same id
     /// </summary>
     /// <param name="order">The new order information</param>
-    /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
+    /// <returns>True if the request was made for the order to be updated, false otherwise, also when Tastytrade rejects the replacement</returns>
     public override bool UpdateOrder(LeanOrder order)
     {
         if (!_groupOrderCacheManager.TryGetGroupCachedOrders(order, out var orders))
@@ -449,11 +451,19 @@ public partial class TastytradeBrokerage
 
         if (isUpdatedSuccessfully && !pendingUpdatedOrder.AutoResetEvent.WaitOne(TimeSpan.FromSeconds(100)))
         {
-            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, "InvalidUpdateOrder",
-                $"The brokerage didn't get response from WebSocket by BrokerageId = {brokerageId} and Lean Order(s) = {string.Join(',', pendingUpdatedOrder.LeanOrders)}"));
+            // Tastytrade accepted the replacement, so it stays pending: a late acknowledgement still reports the update.
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "InvalidUpdateOrder",
+                $"The brokerage didn't get response from WebSocket by BrokerageId = {newBrokerageId} and Lean Order(s) = {string.Join(',', pendingUpdatedOrder.LeanOrders)}"));
+            return isUpdatedSuccessfully;
         }
 
-        pendingUpdatedOrder?.Dispose();
+        // Tastytrade rejected the replacement: the order keeps working with its previous values.
+        if (pendingUpdatedOrder.IsRejected)
+        {
+            isUpdatedSuccessfully = false;
+        }
+
+        pendingUpdatedOrder.Dispose();
 
         return isUpdatedSuccessfully;
     }
@@ -508,15 +518,13 @@ public partial class TastytradeBrokerage
     /// Supported <see cref="BrokerageOrderStatus"/> values and their effects:
     /// <list type="bullet">
     /// <item>
-    /// <term><see cref="BrokerageOrderStatus.Routed"/> / <see cref="BrokerageOrderStatus.Received"/></term>
+    /// <term>
+    /// <see cref="BrokerageOrderStatus.Received"/> / <see cref="BrokerageOrderStatus.Routed"/> / <see cref="BrokerageOrderStatus.InFlight"/> /
+    /// <see cref="BrokerageOrderStatus.Live"/> / <see cref="BrokerageOrderStatus.Contingent"/>
+    /// </term>
     /// <description>
-    /// If the associated market is closed, the order is deferred by placing it in the pending submission queue.
-    /// </description>
-    /// </item>
-    /// <item>
-    /// <term><see cref="BrokerageOrderStatus.Live"/></term>
-    /// <description>
-    /// Immediately marks the order as submitted by processing it from the pending order cache.
+    /// Tastytrade accepted the order: the first of them marks it as submitted, or updated, by processing it from the pending order cache.
+    /// An order placed while the market is closed stays <see cref="BrokerageOrderStatus.Received"/> until the market opens.
     /// </description>
     /// </item>
     /// <item>
@@ -538,7 +546,16 @@ public partial class TastytradeBrokerage
     /// <para><b>Note:</b> An explanatory message for expiration is currently not included (TODO).</para>
     /// </description>
     /// </item>
+    /// <item>
+    /// <term><see cref="BrokerageOrderStatus.Rejected"/></term>
+    /// <description>
+    /// Emits an invalid <see cref="OrderEvent"/> with the reject reason. A rejected replacement only raises a warning:
+    /// the order it replaces is still working, so the Lean orders get its brokerage id back and its updates are handled again.
+    /// <see cref="UpdateOrder"/> is released only after that, and returns <c>false</c>.
+    /// </description>
+    /// </item>
     /// </list>
+    /// A final status releases the <see cref="PlaceOrder"/> or <see cref="UpdateOrder"/> still waiting for the order to be accepted.
     /// An update of a brokerage id that <see cref="UpdateOrder"/> replaced is ignored.
     /// An order placed outside the algorithm is handled next, see <see cref="TryHandleBrokerageSideOrder"/>.
     /// If no matching Lean order is found for the update, a warning message is logged.
@@ -564,8 +581,11 @@ public partial class TastytradeBrokerage
         var leanOrderStatus = default(LeanOrderStatus);
         switch (orderUpdate.Status)
         {
+            case BrokerageOrderStatus.Received:
             case BrokerageOrderStatus.Routed:
+            case BrokerageOrderStatus.InFlight:
             case BrokerageOrderStatus.Live:
+            case BrokerageOrderStatus.Contingent:
                 ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
                 return;
             case BrokerageOrderStatus.Filled:
@@ -577,9 +597,35 @@ public partial class TastytradeBrokerage
             case BrokerageOrderStatus.Expired:
                 leanOrderStatus = LeanOrderStatus.Canceled;
                 break;
+            case BrokerageOrderStatus.Rejected:
+                leanOrderStatus = LeanOrderStatus.Invalid;
+                break;
             default:
                 return;
         }
+
+        _pendingOrderCache.TryRemove(orderUpdate.Id, out var unacknowledgedOrder);
+
+        if (orderUpdate.Status == BrokerageOrderStatus.Rejected && orderUpdate.ReplacesOrderId != null)
+        {
+            // The replaced order is still working: stop ignoring its updates and give the Lean orders its id back.
+            _pendingOrderCache.TryRemove(orderUpdate.ReplacesOrderId, out _);
+            foreach (var leanOrder in _orderProvider.GetOrdersByBrokerageId(orderUpdate.Id))
+            {
+                OnOrderIdChangedEvent(new() { BrokerId = [orderUpdate.ReplacesOrderId], OrderId = leanOrder.Id });
+            }
+            OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, "UpdateOrderRejected",
+                $"Tastytrade rejected the replacement of brokerage order {orderUpdate.ReplacesOrderId}: {orderUpdate.RejectReason}. Order detail: {orderUpdate}"));
+            // Only now release UpdateOrder: an order request queued behind it must already see the id of the order that is still working.
+            if (unacknowledgedOrder != null)
+            {
+                unacknowledgedOrder.IsRejected = true;
+                unacknowledgedOrder.AutoResetEvent.Set();
+            }
+            return;
+        }
+
+        unacknowledgedOrder?.AutoResetEvent.Set();
 
         if (!TryGetLeanOrdersByBrokerageId(orderUpdate.Id, leanOrderStatus, out var leanOrders))
         {
@@ -618,6 +664,12 @@ public partial class TastytradeBrokerage
                 case BrokerageOrderStatus.Expired:
                     // TODO: Add missed 'message' in OrderEvent "Why does it expire?"
                     tempLeanOrderEvents.Add(new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero, $"The order  has expired due to {orderUpdate.TimeInForce} expiration.")
+                    {
+                        Status = leanOrderStatus
+                    });
+                    break;
+                case BrokerageOrderStatus.Rejected:
+                    tempLeanOrderEvents.Add(new OrderEvent(leanOrder, DateTime.UtcNow, OrderFee.Zero, $"Tastytrade rejected the order: {orderUpdate.RejectReason}")
                     {
                         Status = leanOrderStatus
                     });
