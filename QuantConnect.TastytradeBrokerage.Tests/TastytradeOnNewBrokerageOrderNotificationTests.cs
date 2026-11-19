@@ -281,7 +281,7 @@ public class TastytradeOnNewBrokerageOrderNotificationTests
     {
         var shouldRefreshOrderChainsMessage = """{"type":"ShouldRefreshOrderChains","data":{},"timestamp":1791469152000}""";
 
-        using var brokerage = new TestableTastytradeBrokerage();
+        using var brokerage = TestableTastytradeBrokerage.CreateWithoutConnection();
 
         Assert.DoesNotThrow(() => brokerage.ReceiveAccountStreamMessage(shouldRefreshOrderChainsMessage));
     }
