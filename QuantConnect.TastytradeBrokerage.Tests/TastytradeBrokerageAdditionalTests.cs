@@ -751,14 +751,24 @@ new ExpectedResult[3][]
     [TestCase("Live")]
     public void PlaceOrderFinishesOnTheFirstStatusOfTheNewOrder(string brokerageStatus)
     {
-        using var brokerage = CreateBrokerageThatPlacesNokOrder507700001();
+        var submitOrderResponse =
+            """{"data":{"order":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"Received","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]}},"context":"/accounts/5WY00000/orders"}""";
+        var streamMessage =
+            $$"""{"type":"Order","data":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"{{brokerageStatus}}","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1794863400100,"ws-sequence":1}""";
+
+        var httpHandler = new MockHttpMessageHandler();
+        httpHandler.SetResponse(HttpMethod.Post, "/orders", submitOrderResponse);
+
+        using var brokerage = new TestableTastytradeBrokerage(httpHandler: httpHandler);
         var messages = new List<BrokerageMessageEvent>();
         brokerage.Message += (_, message) => messages.Add(message);
-        var leanOrder = AddNokLimitOrder(brokerage);
+
+        var leanOrder = new LimitOrder(Symbol.Create("NOK", SecurityType.Equity, Market.USA), 1m, 10m, new DateTime(2026, 11, 16, 21, 10, 0, DateTimeKind.Utc));
+        brokerage.OrderProvider.Add(leanOrder);
 
         var placeOrder = Task.Run(() => brokerage.PlaceOrder(leanOrder));
         Assert.That(SpinWait.SpinUntil(() => leanOrder.BrokerId.Count > 0, TimeSpan.FromSeconds(5)), Is.True, "Lean order: no brokerage id.");
-        brokerage.ReceiveAccountStreamMessage(NokOrder507700001StreamMessage(brokerageStatus));
+        brokerage.ReceiveAccountStreamMessage(streamMessage);
 
         // PlaceOrder waits 10 seconds for the first status before it gives up
         Assert.That(placeOrder.Wait(TimeSpan.FromSeconds(5)) && placeOrder.Result, Is.True, "Lean order: PlaceOrder did not finish on the first status.");
@@ -828,26 +838,5 @@ new ExpectedResult[3][]
         var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
         Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted, OrderStatus.Canceled }),
             "Lean order: not cancelled, see the 'Cancel Order' warning in the log.");
-    }
-
-    private static TestableTastytradeBrokerage CreateBrokerageThatPlacesNokOrder507700001()
-    {
-        var submitOrderResponse =
-            """{"data":{"order":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"Received","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]}},"context":"/accounts/5WY00000/orders"}""";
-        var httpHandler = new MockHttpMessageHandler();
-        httpHandler.SetResponse(HttpMethod.Post, "/orders", submitOrderResponse);
-        return new TestableTastytradeBrokerage(httpHandler: httpHandler);
-    }
-
-    private static string NokOrder507700001StreamMessage(string brokerageStatus)
-    {
-        return $$"""{"type":"Order","data":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"{{brokerageStatus}}","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1794863400100,"ws-sequence":1}""";
-    }
-
-    private static LimitOrder AddNokLimitOrder(TestableTastytradeBrokerage brokerage)
-    {
-        var leanOrder = new LimitOrder(Symbol.Create("NOK", SecurityType.Equity, Market.USA), 1m, 10m, new DateTime(2026, 11, 16, 21, 10, 0, DateTimeKind.Utc));
-        brokerage.OrderProvider.Add(leanOrder);
-        return leanOrder;
     }
 }
