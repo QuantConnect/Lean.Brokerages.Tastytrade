@@ -42,11 +42,6 @@ public class PendingOrderManager : IDisposable
     public bool IsInvokeOrderEvent { get; set; } = true;
 
     /// <summary>
-    /// Indicates whether Tastytrade rejected the order before accepting it.
-    /// </summary>
-    public bool IsRejected { get; set; }
-
-    /// <summary>
     /// Gets the synchronization event used for order processing coordination.
     /// </summary>
     public AutoResetEvent AutoResetEvent { get; } = new(false);

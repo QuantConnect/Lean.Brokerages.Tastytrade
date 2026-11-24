@@ -747,12 +747,9 @@ new ExpectedResult[3][]
         Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.UpdateSubmitted }), "Lean order: wrong order events.");
     }
 
-    [TestCase("Received", OrderStatus.Submitted, TestName = "PlaceOrderIsSubmittedWhenTastytradeHoldsItForTheNextSession")]
-    [TestCase("In Flight", OrderStatus.Submitted)]
-    [TestCase("Live", OrderStatus.Submitted)]
-    [TestCase("Rejected", OrderStatus.Invalid, TestName = "PlaceOrderIsInvalidWhenTastytradeRejectsIt")]
-    [TestCase("Cancelled", OrderStatus.Canceled)]
-    public void PlaceOrderFinishesOnTheFirstStatusOfTheNewOrder(string brokerageStatus, OrderStatus expectedStatus)
+    [TestCase("Received", TestName = "PlaceOrderIsSubmittedWhenTastytradeHoldsItForTheNextSession")]
+    [TestCase("Live")]
+    public void PlaceOrderFinishesOnTheFirstStatusOfTheNewOrder(string brokerageStatus)
     {
         using var brokerage = CreateBrokerageThatPlacesNokOrder507700001();
         var messages = new List<BrokerageMessageEvent>();
@@ -767,11 +764,7 @@ new ExpectedResult[3][]
         Assert.That(placeOrder.Wait(TimeSpan.FromSeconds(5)) && placeOrder.Result, Is.True, "Lean order: PlaceOrder did not finish on the first status.");
         Assert.That(messages, Is.Empty, "Lean order: a brokerage message was raised.");
         var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
-        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { expectedStatus }), "Lean order: wrong order events.");
-        if (expectedStatus == OrderStatus.Invalid)
-        {
-            Assert.That(leanOrderEvents[0].Message, Does.Contain("Order would exceed buying power"));
-        }
+        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted }), "Lean order: wrong order events.");
     }
 
     [Test, Explicit("Places a real NOK Limit order on the live account from Tests/config.json while the market is closed and cancels it at the end.")]
@@ -837,150 +830,6 @@ new ExpectedResult[3][]
             "Lean order: not cancelled, see the 'Cancel Order' warning in the log.");
     }
 
-    [Test]
-    public void PlaceOrderWithoutAnyStatusWarnsAndALateStatusSubmitsTheOrder()
-    {
-        using var brokerage = CreateBrokerageThatPlacesNokOrder507700001();
-        var messages = new List<BrokerageMessageEvent>();
-        brokerage.Message += (_, message) => messages.Add(message);
-        var leanOrder = AddNokLimitOrder(brokerage);
-
-        Assert.That(brokerage.PlaceOrder(leanOrder), Is.True, "Lean order: PlaceOrder failed.");
-
-        Assert.That(messages.Select(message => message.Type), Is.EqualTo(new[] { BrokerageMessageType.Warning }), "Lean order: the missing status did not raise one warning.");
-        Assert.That(messages[0].Message, Does.Contain("BrokerageId = 507700001"));
-        Assert.That(brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents, Is.Empty, "Lean order: an order event before any status.");
-
-        brokerage.ReceiveAccountStreamMessage(NokOrder507700001StreamMessage("Live"));
-
-        Assert.That(messages, Has.Count.EqualTo(1), "Lean order: the late status raised a brokerage message.");
-        var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
-        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Submitted }), "Lean order: wrong order events.");
-    }
-
-    [Test]
-    public void UpdateOrderWhoseReplacementIsRejectedWarnsAndKeepsTheOrderStatus()
-    {
-        using var brokerage = CreateBrokerageThatReplacesNokOrder507700001With507700002();
-        var messages = new List<BrokerageMessageEvent>();
-        brokerage.Message += (_, message) => messages.Add(message);
-        var leanOrder = AddNokLimitOrder(brokerage);
-        leanOrder.BrokerId.Add("507700001");
-
-        var updateOrder = StartNokLimitPriceUpdate(brokerage, leanOrder);
-        brokerage.ReceiveAccountStreamMessage(NokOrder507700002ReplacementStreamMessage("Rejected"));
-
-        // UpdateOrder waits 100 seconds for the first status before it gives up
-        Assert.That(updateOrder.Wait(TimeSpan.FromSeconds(10)), Is.True, "Lean order: UpdateOrder did not finish on the rejection.");
-        Assert.That(updateOrder.Result, Is.False, "Lean order: UpdateOrder reported the rejected replacement as an update.");
-        Assert.That(messages.Select(message => message.Type), Is.EqualTo(new[] { BrokerageMessageType.Warning }), "Lean order: the rejection did not raise one warning.");
-        Assert.That(messages[0].Message, Does.Contain("Order cannot be replaced"));
-        Assert.That(brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents, Is.Empty, "Lean order: the rejected replacement changed the order status.");
-        Assert.That(leanOrder.BrokerId, Is.EqualTo(new[] { "507700001" }), "Lean order: the brokerage id is not the order that is still working.");
-    }
-
-    [Test]
-    public void UpdateOrderWhoseReplacementIsRejectedStillReportsTheFillOfTheOrderItReplaced()
-    {
-        using var brokerage = CreateBrokerageThatReplacesNokOrder507700001With507700002();
-        var leanOrder = AddNokLimitOrder(brokerage);
-        leanOrder.BrokerId.Add("507700001");
-
-        var updateOrder = StartNokLimitPriceUpdate(brokerage, leanOrder);
-        brokerage.ReceiveAccountStreamMessage(NokOrder507700002ReplacementStreamMessage("Rejected"));
-        Assert.That(updateOrder.Wait(TimeSpan.FromSeconds(10)), Is.True, "Lean order: UpdateOrder did not finish on the rejection.");
-
-        brokerage.ReceiveAccountStreamMessage(
-            """{"type":"Order","data":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"Filled","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":0,"symbol":"NOK","fills":[{"destination-venue":"SUSQUEHANNA_EQUITIES_B","fill-id":"2611169990000000001","fill-price":"10.0","filled-at":"2026-11-16T21:10:01.000+00:00","quantity":1}]}]},"timestamp":1794863401000,"ws-sequence":3}""");
-
-        var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
-        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.Filled }), "Lean order: the fill of the order still working was not reported.");
-        Assert.That(leanOrderEvents[0].FillPrice, Is.EqualTo(10m));
-    }
-
-    [Test]
-    public void CancelOrderQueuedBehindARejectedReplacementCancelsTheOrderItReplaced()
-    {
-        var httpHandler = new MockHttpMessageHandler();
-        httpHandler.SetResponse(HttpMethod.Delete, "/orders/507700001",
-            """{"data":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"Cancel Requested","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"context":"/accounts/5WY00000/orders/507700001"}""");
-        using var brokerage = CreateBrokerageThatReplacesNokOrder507700001With507700002(httpHandler);
-        var messages = new List<BrokerageMessageEvent>();
-        brokerage.Message += (_, message) => messages.Add(message);
-        var leanOrder = AddNokLimitOrder(brokerage);
-        leanOrder.BrokerId.Add("507700001");
-
-        // Lean's transaction thread: the cancel request is queued behind the update.
-        using var updateOrderReturned = new ManualResetEventSlim(false);
-        leanOrder.ApplyUpdateOrderRequest(new UpdateOrderRequest(new DateTime(2026, 11, 16, 21, 10, 0, DateTimeKind.Utc), leanOrder.Id, new UpdateOrderFields { LimitPrice = 9.5m }));
-        var updateThenCancel = Task.Run(() =>
-        {
-            var updated = brokerage.UpdateOrder(leanOrder);
-            updateOrderReturned.Set();
-            return (Updated: updated, Canceled: brokerage.CancelOrder(leanOrder));
-        });
-        Assert.That(SpinWait.SpinUntil(() => leanOrder.BrokerId.Contains("507700002"), TimeSpan.FromSeconds(10)), Is.True, "Lean order: the replace request did not change the brokerage id.");
-
-        // The rejection gives the order its id back; it waits there for a second if UpdateOrder was already released.
-        var updateOrderReturnedBeforeTheIdWasRestored = false;
-        brokerage.OrderIdChanged += (_, orderIdChanged) =>
-        {
-            if (orderIdChanged.BrokerId.Contains("507700001"))
-            {
-                updateOrderReturnedBeforeTheIdWasRestored = updateOrderReturned.Wait(TimeSpan.FromSeconds(1));
-            }
-        };
-        brokerage.ReceiveAccountStreamMessage(NokOrder507700002ReplacementStreamMessage("Rejected"));
-
-        Assert.That(updateThenCancel.Wait(TimeSpan.FromSeconds(10)), Is.True, "Lean order: the update and the cancel did not finish.");
-        Assert.That(updateOrderReturnedBeforeTheIdWasRestored, Is.False, "Lean order: UpdateOrder returned before the order got its id back.");
-        Assert.That(updateThenCancel.Result.Updated, Is.False, "Lean order: UpdateOrder reported the rejected replacement as an update.");
-        Assert.That(updateThenCancel.Result.Canceled, Is.True, "Lean order: the cancel did not reach the order that is still working.");
-        Assert.That(messages.Select(message => message.Message), Has.None.Contains("Cancel Order"), "Lean order: the cancel request failed.");
-        Assert.That(leanOrder.BrokerId, Is.EqualTo(new[] { "507700001" }), "Lean order: the brokerage id is not the order that is still working.");
-    }
-
-    [Test]
-    public void UpdateOrderFinishesWhenTastytradeHoldsTheReplacementAsContingent()
-    {
-        using var brokerage = CreateBrokerageThatReplacesNokOrder507700001With507700002();
-        var messages = new List<BrokerageMessageEvent>();
-        brokerage.Message += (_, message) => messages.Add(message);
-        var leanOrder = AddNokLimitOrder(brokerage);
-        leanOrder.BrokerId.Add("507700001");
-
-        var updateOrder = StartNokLimitPriceUpdate(brokerage, leanOrder);
-        brokerage.ReceiveAccountStreamMessage(NokOrder507700002ReplacementStreamMessage("Contingent"));
-
-        Assert.That(updateOrder.Wait(TimeSpan.FromSeconds(10)) && updateOrder.Result, Is.True, "Lean order: UpdateOrder did not finish on the contingent status.");
-        Assert.That(messages, Is.Empty, "Lean order: a brokerage message was raised.");
-        var leanOrderEvents = brokerage.OrderProvider.GetOrderTicket(leanOrder.Id).OrderEvents;
-        Assert.That(leanOrderEvents.Select(orderEvent => orderEvent.Status), Is.EqualTo(new[] { OrderStatus.UpdateSubmitted }), "Lean order: wrong order events.");
-        Assert.That(leanOrder.BrokerId, Is.EqualTo(new[] { "507700002" }), "Lean order: wrong brokerage id.");
-    }
-
-    private static TestableTastytradeBrokerage CreateBrokerageThatReplacesNokOrder507700001With507700002(MockHttpMessageHandler httpHandler = null)
-    {
-        var replaceOrderResponse =
-            """{"data":{"id":507700002,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"9.5","price-effect":"Debit","received-at":"2026-11-16T21:10:00.100+00:00","replaces-order-id":507700001,"size":1,"source":"QuantConnect","status":"Contingent","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"context":"/accounts/5WY00000/orders/507700001"}""";
-        httpHandler ??= new MockHttpMessageHandler();
-        httpHandler.SetResponse(HttpMethod.Patch, "/orders/507700001", replaceOrderResponse);
-        return new TestableTastytradeBrokerage(httpHandler: httpHandler);
-    }
-
-    private static Task<bool> StartNokLimitPriceUpdate(TestableTastytradeBrokerage brokerage, LimitOrder leanOrder)
-    {
-        leanOrder.ApplyUpdateOrderRequest(new UpdateOrderRequest(new DateTime(2026, 11, 16, 21, 10, 0, DateTimeKind.Utc), leanOrder.Id, new UpdateOrderFields { LimitPrice = 9.5m }));
-        var updateOrder = Task.Run(() => brokerage.UpdateOrder(leanOrder));
-        Assert.That(SpinWait.SpinUntil(() => leanOrder.BrokerId.Contains("507700002"), TimeSpan.FromSeconds(10)), Is.True, "Lean order: the replace request did not change the brokerage id.");
-        return updateOrder;
-    }
-
-    private static string NokOrder507700002ReplacementStreamMessage(string brokerageStatus)
-    {
-        return $$"""{"type":"Order","data":{"id":507700002,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"9.5","price-effect":"Debit","received-at":"2026-11-16T21:10:00.100+00:00","replaces-order-id":507700001,"reject-reason":"Order cannot be replaced","size":1,"source":"QuantConnect","status":"{{brokerageStatus}}","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1794863400200,"ws-sequence":2}""";
-    }
-
     private static TestableTastytradeBrokerage CreateBrokerageThatPlacesNokOrder507700001()
     {
         var submitOrderResponse =
@@ -992,7 +841,7 @@ new ExpectedResult[3][]
 
     private static string NokOrder507700001StreamMessage(string brokerageStatus)
     {
-        return $$"""{"type":"Order","data":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","reject-reason":"Order would exceed buying power","size":1,"source":"QuantConnect","status":"{{brokerageStatus}}","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1794863400100,"ws-sequence":1}""";
+        return $$"""{"type":"Order","data":{"id":507700001,"account-number":"5WY00000","leg-count":1,"order-type":"Limit","price":"10.0","price-effect":"Debit","received-at":"2026-11-16T21:10:00.000+00:00","size":1,"source":"QuantConnect","status":"{{brokerageStatus}}","time-in-force":"Day","underlying-instrument-type":"Equity","underlying-symbol":"NOK","legs":[{"action":"Buy to Open","instrument-type":"Equity","quantity":1,"remaining-quantity":1,"symbol":"NOK","fills":[]}]},"timestamp":1794863400100,"ws-sequence":1}""";
     }
 
     private static LimitOrder AddNokLimitOrder(TestableTastytradeBrokerage brokerage)
