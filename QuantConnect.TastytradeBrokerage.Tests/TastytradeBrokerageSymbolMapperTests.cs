@@ -14,9 +14,12 @@
 */
 
 using System;
+using System.Linq;
 using NUnit.Framework;
 using QuantConnect.Tests;
 using QuantConnect.Securities;
+using QuantConnect.Securities.Future;
+using QuantConnect.Securities.FutureOption;
 using System.Collections.Generic;
 using QuantConnect.Tests.Engine.DataFeeds;
 using QuantConnect.Brokerages.Tastytrade.Models.Enum;
@@ -78,9 +81,11 @@ public class TastytradeBrokerageSymbolMapperTests
 
             yield return new("BTC/USD", InstrumentType.Cryptocurrency, "", default);
 
-            var treasuryBondFutures = Symbol.CreateFuture(Futures.Financials.Y30TreasuryBond, Market.CBOT, new DateTime(2025, 12, 22));
-            var treasuryBondFutures_OptionContract = Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 150m, new DateTime(2025, 11, 21));
-            yield return new("./ZBZ5 OZBZ5 251121P150", InstrumentType.FutureOption, default, treasuryBondFutures_OptionContract);
+            // The underlying of a treasury bond future option is looked up among the contracts listed today, so the case uses one of them
+            var treasuryBondFutures = FuturesListings.ListedContracts(Futures.Financials.Y30TreasuryBond, DateTime.UtcNow.Date).Last();
+            var treasuryBondFutures_OptionContract = Symbol.CreateOption(treasuryBondFutures, treasuryBondFutures.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 150m, FuturesOptionsExpiryFunctions.GetFutureOptionExpiryFromFutureExpiry(treasuryBondFutures));
+            var treasuryBondFuturesTicker = SymbolRepresentation.GenerateFutureTicker(Futures.Financials.Y30TreasuryBond, treasuryBondFutures.ID.Date, doubleDigitsYear: false, includeExpirationDate: false);
+            yield return new($"./{treasuryBondFuturesTicker} O{treasuryBondFuturesTicker} {treasuryBondFutures_OptionContract.ID.Date:yyMMdd}P150", InstrumentType.FutureOption, default, treasuryBondFutures_OptionContract);
 
             var microNasdaq100EMiniFuture = Symbol.CreateFuture(Futures.Indices.MicroNASDAQ100EMini, Market.CME, new(2025, 12, 19));
             var microNasdaq100EMiniFutureOptionContract = Symbol.CreateOption(microNasdaq100EMiniFuture, microNasdaq100EMiniFuture.ID.Market, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Put, 11000m, new(2025, 12, 19));
@@ -231,17 +236,17 @@ public class TastytradeBrokerageSymbolMapperTests
     {
         // Natural gas futures expire the month previous to the contract month:
         // Expiry: August -> Contract month: September (U)
-        yield return new TestCaseData("/NGU5", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2025, 08, 27)));
-        // Expiry: December 2025 -> Contract month: January (U) 2026 (26)
-        yield return new TestCaseData("/NGF6", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2025, 12, 29)));
+        yield return new TestCaseData("/NGU8", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2028, 08, 29)));
+        // Expiry: December 2027 -> Contract month: January (F) 2028 (28)
+        yield return new TestCaseData("/NGF8", Symbol.CreateFuture(Futures.Energy.NaturalGas, Market.NYMEX, new DateTime(2027, 12, 28)));
 
         // BrentLastDayFinancial futures expire two months previous to the contract month:
         // Expiry: August -> Contract month: October (V)
-        yield return new TestCaseData("/BZV5", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 08, 29)));
-        // Expiry: November 2025 -> Contract month: January (F) 2026 (26)
-        yield return new TestCaseData("/BZF6", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 11, 28)));
-        // Expiry: December 2025 -> Contract month: February (G) 2026 (26)
-        yield return new TestCaseData("/BZG6", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2025, 12, 31)));
+        yield return new TestCaseData("/BZV8", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2028, 08, 31)));
+        // Expiry: November 2027 -> Contract month: January (F) 2028 (28)
+        yield return new TestCaseData("/BZF8", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2027, 11, 30)));
+        // Expiry: December 2027 -> Contract month: February (G) 2028 (28)
+        yield return new TestCaseData("/BZG8", Symbol.CreateFuture(Futures.Energy.BrentLastDayFinancial, Market.NYMEX, new DateTime(2027, 12, 30)));
 
         yield return new TestCaseData("/GEM0", Symbol.CreateFuture(Futures.Financials.EuroDollar, Market.CME, new DateTime(2030, 06, 17)));
     }
