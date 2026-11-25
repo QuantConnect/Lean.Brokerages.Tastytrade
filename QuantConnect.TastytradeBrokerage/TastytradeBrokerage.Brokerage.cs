@@ -564,6 +564,7 @@ public partial class TastytradeBrokerage
         var leanOrderStatus = default(LeanOrderStatus);
         switch (orderUpdate.Status)
         {
+            case BrokerageOrderStatus.Received:
             case BrokerageOrderStatus.Routed:
             case BrokerageOrderStatus.Live:
                 ProcessPendingOrderSubmission(orderUpdate.Id, orderUpdate.ReceivedAtUtc);
