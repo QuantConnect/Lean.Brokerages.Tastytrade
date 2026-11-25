@@ -31,11 +31,11 @@ jobs:
           QC_JOB_ORGANIZATION_ID: ${{ secrets.QC_JOB_ORGANIZATION_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
       - name: Checkout Lean Same Branch
         id: lean-same-branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: ${{ github.head_ref || github.ref_name }}
@@ -44,7 +44,7 @@ jobs:
 
       - name: Checkout Lean Master
         if: steps.lean-same-branch.outcome != 'success'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
         with:
           repository: QuantConnect/Lean
           path: Lean
